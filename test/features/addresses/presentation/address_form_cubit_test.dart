@@ -337,6 +337,56 @@ void main() {
     });
   });
 
+  group('non-Failure errors from the API (ADDR-11)', () {
+    test('details throwing a TypeError → field error, loading off, text and '
+        'suggestions kept', () {
+      fakeAsync((async) {
+        final cubit = build();
+        final token = field(cubit, 'f1').sessionToken;
+        stubAutocomplete(input: 'Av.', token: token);
+        when(() => places.details(placeId: 'p1', sessionToken: token))
+            .thenThrow(TypeError());
+        cubit.onTextChanged('f1', 'Av.');
+        async.elapse(const Duration(milliseconds: 300));
+        async.flushMicrotasks();
+
+        cubit.selectSuggestion('f1', suggestion);
+        async.flushMicrotasks();
+
+        final f = field(cubit, 'f1');
+        expect(f.loading, isFalse);
+        expect(f.error, searchError);
+        expect(f.text, 'Av.');
+        expect(f.selected, isNull);
+        expect(f.suggestions, [suggestion]);
+        expect(f.sessionToken, token);
+      });
+    });
+
+    test('autocomplete throwing a StateError → field error, loading off, '
+        'text kept', () {
+      fakeAsync((async) {
+        final cubit = build();
+        final token = field(cubit, 'f1').sessionToken;
+        when(
+          () => places.autocomplete(
+            input: 'Av.',
+            sessionToken: token,
+            bias: bias,
+          ),
+        ).thenThrow(StateError('bad'));
+        cubit.onTextChanged('f1', 'Av.');
+        async.elapse(const Duration(milliseconds: 300));
+        async.flushMicrotasks();
+
+        final f = field(cubit, 'f1');
+        expect(f.loading, isFalse);
+        expect(f.error, searchError);
+        expect(f.text, 'Av.');
+      });
+    });
+  });
+
   group('addField / removeField', () {
     test('addField appends an empty field with a fresh id and token', () {
       final cubit = build();

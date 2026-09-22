@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/error/failure.dart';
 import '../../../core/geo/geo_point.dart';
 import '../../../core/network/api_client.dart';
 import '../domain/stop.dart';
@@ -33,6 +34,12 @@ class PlacesApiImpl implements PlacesApi {
   /// Essentials SKU fields; also closes the autocomplete session.
   static const String detailsFieldMask = 'id,formattedAddress,location';
 
+  /// A 200 answer whose body does not have the expected shape.
+  static const Failure invalidResponse = ApiFailure(
+    null,
+    'Resposta inválida da Places API',
+  );
+
   @override
   Future<List<Suggestion>> autocomplete({
     required String input,
@@ -40,7 +47,7 @@ class PlacesApiImpl implements PlacesApi {
     required GeoPoint bias,
   }) async {
     final response = await _send(
-      () => _dio.post<Map<String, dynamic>>(
+      () => _dio.post<Object?>(
         '$baseUrl/places:autocomplete',
         data: {
           'input': input,
@@ -56,7 +63,8 @@ class PlacesApiImpl implements PlacesApi {
         },
       ),
     );
-    final suggestions = response.data?['suggestions'];
+    final data = response.data;
+    final suggestions = data is Map ? data['suggestions'] : null;
     if (suggestions is! List) return const [];
     return suggestions
         .map(_toSuggestion)
@@ -71,7 +79,7 @@ class PlacesApiImpl implements PlacesApi {
     required String sessionToken,
   }) async {
     final response = await _send(
-      () => _dio.get<Map<String, dynamic>>(
+      () => _dio.get<Object?>(
         '$baseUrl/places/$placeId',
         queryParameters: {
           'sessionToken': sessionToken,
@@ -81,16 +89,18 @@ class PlacesApiImpl implements PlacesApi {
         options: Options(headers: {'X-Goog-FieldMask': detailsFieldMask}),
       ),
     );
-    final place = response.data!;
-    final location = place['location'] as Map<String, dynamic>;
-    return Stop(
-      place['id'] as String,
-      place['formattedAddress'] as String,
-      GeoPoint(
-        (location['latitude'] as num).toDouble(),
-        (location['longitude'] as num).toDouble(),
-      ),
-    );
+    final place = response.data;
+    if (place is! Map) throw invalidResponse;
+    final id = place['id'];
+    final address = place['formattedAddress'];
+    final location = place['location'];
+    if (id is! String || address is! String || location is! Map) {
+      throw invalidResponse;
+    }
+    final lat = location['latitude'];
+    final lng = location['longitude'];
+    if (lat is! num || lng is! num) throw invalidResponse;
+    return Stop(id, address, GeoPoint(lat.toDouble(), lng.toDouble()));
   }
 
   Future<Response<T>> _send<T>(Future<Response<T>> Function() request) async {

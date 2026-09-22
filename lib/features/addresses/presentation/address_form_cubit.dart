@@ -127,7 +127,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
       final current = _currentFor(field);
       if (current == null) return;
       _update(current.copyWith(loading: false, suggestions: suggestions));
-    } on Failure {
+    } on Object {
       final current = _currentFor(field);
       if (current == null) return;
       _update(current.copyWith(loading: false, error: searchError));
@@ -154,7 +154,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
           suggestions: const [],
         ),
       );
-    } on Failure {
+    } on Object {
       final current = _currentFor(field);
       if (current == null) return;
       _update(current.copyWith(loading: false, error: searchError));

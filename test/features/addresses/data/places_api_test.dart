@@ -127,6 +127,43 @@ void main() {
       expect(result, const [Suggestion('p9', 'Praça da Sé', '')]);
     });
 
+    test('skips malformed suggestions and keeps the valid ones', () async {
+      final places = api(
+        '{"suggestions":['
+        '${prediction("p1", "Avenida Paulista, 1000", "São Paulo - SP")},'
+        '{"placePrediction":{"placeId":42,"text":"nope"}},'
+        '{"placePrediction":"garbage"},'
+        '7,'
+        '{"placePrediction":{"placeId":"p3","text":{"text":5}}},'
+        '${prediction("p2", "Avenida Paulista, 1500", "São Paulo - SP")}'
+        ']}',
+      );
+
+      final result = await places.autocomplete(
+        input: 'Av. Paulista',
+        sessionToken: 't',
+        bias: bias,
+      );
+
+      expect(result, const [
+        Suggestion('p1', 'Avenida Paulista, 1000', 'São Paulo - SP'),
+        Suggestion('p3', '', ''),
+        Suggestion('p2', 'Avenida Paulista, 1500', 'São Paulo - SP'),
+      ]);
+    });
+
+    test('a non-object body → no suggestions', () async {
+      final places = api('[1,2]');
+
+      final result = await places.autocomplete(
+        input: 'xyz',
+        sessionToken: 't',
+        bias: bias,
+      );
+
+      expect(result, isEmpty);
+    });
+
     test('empty response body → no suggestions', () async {
       final places = api('{}');
 
@@ -182,6 +219,30 @@ void main() {
       });
       expect(sent.headers['X-Goog-FieldMask'], 'id,formattedAddress,location');
       expect(sent.headers['X-Goog-Api-Key'], 'test-key');
+    });
+
+    test('a 200 body without location, id or address → ApiFailure', () async {
+      const bodies = [
+        '{"id":"p1","formattedAddress":"x"}',
+        '{"id":"p1","location":{"latitude":1.0,"longitude":2.0}}',
+        '{"formattedAddress":"x","location":{"latitude":1.0,"longitude":2.0}}',
+        '{"id":"p1","formattedAddress":"x","location":{"latitude":1.0}}',
+        '{"id":"p1","formattedAddress":"x",'
+            '"location":{"latitude":"a","longitude":2}}',
+        '{"id":"p1","formattedAddress":"x","location":"here"}',
+        '{}',
+        '[]',
+        '',
+      ];
+      for (final body in bodies) {
+        final places = api(body);
+
+        await expectLater(
+          places.details(placeId: 'p1', sessionToken: 't'),
+          throwsA(PlacesApiImpl.invalidResponse),
+          reason: body,
+        );
+      }
     });
 
     test('HTTP error → ApiFailure', () async {
