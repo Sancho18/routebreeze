@@ -29,6 +29,17 @@ class RouteBreezeApp extends StatefulWidget {
 class _RouteBreezeAppState extends State<RouteBreezeApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
 
+  Widget _lockScreen(BuildContext context) => LockScreen(
+    onUnlocked: () => Navigator.of(context).pushReplacementNamed('/map'),
+  );
+
+  /// Screens behind the lock render the Lock screen until it is unlocked
+  /// (LOCK-01), so a route reached by any other path shows no route data.
+  WidgetBuilder _guarded(WidgetBuilder builder) =>
+      (context) => getIt<LockCubit>().state.status == LockStatus.unlocked
+      ? builder(context)
+      : _lockScreen(context);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -36,29 +47,38 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
       theme: buildRbTheme(),
       navigatorKey: _navigatorKey,
       initialRoute: '/lock',
+      // The platform may hand over its own initial route (Android `route`
+      // intent extra, deep link); the app always starts locked (LOCK-01).
+      onGenerateInitialRoutes: (_) => [
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: '/lock'),
+          builder: _lockScreen,
+        ),
+      ],
       routes: {
-        '/lock': (context) => LockScreen(
-          onUnlocked: () => Navigator.of(context).pushReplacementNamed('/map'),
+        '/lock': _lockScreen,
+        '/map': _guarded(
+          (context) => MapScreen(
+            onContinue: (start) =>
+                Navigator.of(context).pushNamed('/addresses', arguments: start),
+            // SPEC_DEVIATION: OFFL-04 says "restore the Route screen"; the
+            // persisted plan opens the Navigation screen directly.
+            // Reason: RouteScreen recomputes the route from the stops, which
+            // would discard the persisted polyline and visited flags.
+            onResume: (plan, start) => Navigator.of(
+              context,
+            ).pushNamed('/navigation', arguments: (plan: plan, start: start)),
+          ),
         ),
-        '/map': (context) => MapScreen(
-          onContinue: (start) =>
-              Navigator.of(context).pushNamed('/addresses', arguments: start),
-          // SPEC_DEVIATION: OFFL-04 says "restore the Route screen"; the
-          // persisted plan opens the Navigation screen directly.
-          // Reason: RouteScreen recomputes the route from the stops, which
-          // would discard the persisted polyline and visited flags.
-          onResume: (plan, start) => Navigator.of(context)
-              .pushNamed('/navigation', arguments: (plan: plan, start: start)),
-        ),
-        '/addresses': (context) {
+        '/addresses': _guarded((context) {
           final start = ModalRoute.of(context)!.settings.arguments! as Fix;
           return AddressesScreen(
             start: start.point,
             onConfirmed: (stops) => Navigator.of(context)
                 .pushNamed('/route', arguments: (start: start, stops: stops)),
           );
-        },
-        '/route': (context) {
+        }),
+        '/route': _guarded((context) {
           final args =
               ModalRoute.of(context)!.settings.arguments!
                   as ({Fix start, List<Stop> stops});
@@ -70,8 +90,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
               arguments: (plan: plan, start: args.start),
             ),
           );
-        },
-        '/navigation': (context) {
+        }),
+        '/navigation': _guarded((context) {
           final args =
               ModalRoute.of(context)!.settings.arguments!
                   as ({RoutePlan plan, Fix start});
@@ -85,7 +105,7 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
               arguments: args.start,
             ),
           );
-        },
+        }),
       },
       builder: (_, child) => AppLifecycleGate(
         navigatorKey: _navigatorKey,

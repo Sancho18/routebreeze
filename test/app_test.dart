@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,6 +72,38 @@ void main() {
     ) async {
       await bootAndUnlock(tester);
       verify(() => auth.authenticate()).called(1);
+    });
+
+    testWidgets('a platform initial route cannot skip the lock (LOCK-01)', (
+      tester,
+    ) async {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/map';
+      addTearDown(
+        tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+      );
+
+      await tester.pumpWidget(RouteBreezeApp(now: () => clock));
+
+      expect(find.byType(LockScreen), findsOneWidget);
+      expect(find.byType(MapScreen), findsNothing);
+    });
+
+    testWidgets('a route pushed while locked shows the Lock screen, not the '
+        'screen behind it (LOCK-01)', (tester) async {
+      // The prompt never answers: the app stays locked.
+      when(() => auth.authenticate())
+          .thenAnswer((_) => Completer<AuthResult>().future);
+      await tester.pumpWidget(RouteBreezeApp(now: () => clock));
+      await tester.pump();
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(navigator.pushNamed('/map'));
+      // The spinner never settles: pump the route transition instead.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(LockScreen), findsOneWidget);
+      expect(find.byType(MapScreen), findsNothing);
     });
 
     testWidgets('30 s in background re-locks and prompts again', (
