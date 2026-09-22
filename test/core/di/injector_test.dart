@@ -3,12 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
+import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
 
 void main() {
   tearDown(resetDependencies);
 
-  test('configureDependencies registers Dio, ConnectivityService and '
-      'LocalAuthService', () async {
+  test('configureDependencies registers Dio, ConnectivityService, '
+      'LocalAuthService and the app-level LockCubit', () async {
     await configureDependencies(apiKey: 'test-key');
 
     expect(getIt.isRegistered<Dio>(), isTrue);
@@ -16,6 +17,8 @@ void main() {
     expect(getIt<Dio>().options.headers['X-Goog-Api-Key'], 'test-key');
     expect(getIt<ConnectivityService>(), isA<ConnectivityServiceImpl>());
     expect(getIt<LocalAuthService>(), isA<LocalAuthServiceImpl>());
+    expect(getIt<LockCubit>().state, const LockState());
+    expect(identical(getIt<LockCubit>(), getIt<LockCubit>()), isTrue);
   });
 
   test('resetDependencies clears every registration', () async {
@@ -26,5 +29,6 @@ void main() {
     expect(getIt.isRegistered<Dio>(), isFalse);
     expect(getIt.isRegistered<ConnectivityService>(), isFalse);
     expect(getIt.isRegistered<LocalAuthService>(), isFalse);
+    expect(getIt.isRegistered<LockCubit>(), isFalse);
   });
 }
