@@ -664,10 +664,87 @@ void main() {
         expect(cubit.state.fix, last);
         expect(cubit.state.phase, NavigationPhase.navigating);
 
+        async.elapse(const Duration(seconds: 5));
         final next = onRoute();
         emitFix(async, next);
         expect(cubit.state.error, isNull);
         expect(cubit.state.fix, next);
+        cubit.close();
+      });
+    });
+
+    test('after a stream error the position stream is resubscribed once '
+        '5 s later and the next fix clears the error (NAV-02)', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+
+        fixes.addError(StateError('gps off'));
+        async.flushMicrotasks();
+
+        expect(cubit.state.error, 'Perdemos o sinal de GPS');
+        expect(fixes.hasListener, isFalse);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+
+        async.elapse(const Duration(seconds: 4));
+        expect(fixes.hasListener, isFalse);
+        async.elapse(const Duration(seconds: 1));
+        expect(fixes.hasListener, isTrue);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+
+        final next = onRoute();
+        emitFix(async, next);
+        expect(cubit.state.error, isNull);
+        expect(cubit.state.fix, next);
+        expect(cubit.state.phase, NavigationPhase.navigating);
+        cubit.close();
+      });
+    });
+
+    test('a stream that ends is resubscribed on resume (NAV-08)', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+
+        fixes.close();
+        async.flushMicrotasks();
+        expect(cubit.state.error, 'Perdemos o sinal de GPS');
+
+        fixes = StreamController<Fix>.broadcast();
+        cubit.resume();
+
+        expect(fixes.hasListener, isTrue);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(2);
+        cubit.close();
+      });
+    });
+
+    test('resume after a stream error resubscribes at once (NAV-08)', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        fixes.addError(StateError('gps off'));
+        async.flushMicrotasks();
+        expect(fixes.hasListener, isFalse);
+
+        cubit.resume();
+
+        expect(fixes.hasListener, isTrue);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(2);
+        async.elapse(const Duration(seconds: 5));
+        verifyNever(() => location.watch(distanceFilterMeters: 5));
+        cubit.close();
+      });
+    });
+
+    test('stop cancels the scheduled resubscription', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        fixes.addError(StateError('gps off'));
+        async.flushMicrotasks();
+
+        cubit.stop();
+        async.elapse(const Duration(seconds: 5));
+
+        expect(fixes.hasListener, isFalse);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(1);
         cubit.close();
       });
     });

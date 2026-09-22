@@ -165,9 +165,13 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   static const String gpsLostMessage = 'Perdemos o sinal de GPS';
 
+  /// Delay before listening again after the position stream errors or ends.
+  static const Duration resubscribeDelay = Duration(seconds: 5);
+
   StreamSubscription<Fix>? _positions;
   StreamSubscription<bool>? _online;
   Timer? _badgeTimer;
+  Timer? _resubscribeTimer;
 
   /// Starts watching the position and connectivity; "Iniciar" waits for a
   /// fix of 50 m or better.
@@ -208,6 +212,8 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   /// Pauses the position stream in background (NAV-08); state is kept.
   void pause() {
+    _resubscribeTimer?.cancel();
+    _resubscribeTimer = null;
     _positions?.cancel();
     _positions = null;
   }
@@ -242,10 +248,12 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   void _subscribe() {
+    _resubscribeTimer?.cancel();
+    _resubscribeTimer = null;
     _positions?.cancel();
     _positions = _location
         .watch(distanceFilterMeters: distanceFilterMeters)
-        .listen(_onFix, onError: _onStreamError);
+        .listen(_onFix, onError: _onStreamError, onDone: _onStreamEnded);
   }
 
   void _cancelAll() {
@@ -258,6 +266,8 @@ class NavigationCubit extends Cubit<NavigationState> {
     _online = null;
     _badgeTimer?.cancel();
     _badgeTimer = null;
+    _resubscribeTimer?.cancel();
+    _resubscribeTimer = null;
   }
 
   void _onFix(Fix fix) {
@@ -265,8 +275,19 @@ class NavigationCubit extends Cubit<NavigationState> {
     if (state.phase == NavigationPhase.navigating) unawaited(_navigate(fix));
   }
 
-  void _onStreamError(Object error) {
+  void _onStreamError(Object error) => _onStreamEnded();
+
+  /// The stream errored or ended (edge case): keep the last position, show
+  /// the message and listen again after [resubscribeDelay] while tracking.
+  void _onStreamEnded() {
+    _positions?.cancel();
+    _positions = null;
     emit(state.copyWith(error: gpsLostMessage));
+    if (state.phase == NavigationPhase.navigating ||
+        state.phase == NavigationPhase.waitingGps) {
+      _resubscribeTimer?.cancel();
+      _resubscribeTimer = Timer(resubscribeDelay, resume);
+    }
   }
 
   Future<void> _navigate(Fix fix) async {
