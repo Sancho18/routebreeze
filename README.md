@@ -198,7 +198,7 @@ Autocomplete: mínimo de 3 caracteres, debounce de 300 ms, no máximo 5 sugestõ
 ### Offline: rota persistida e recálculo adiado
 
 - Sem conexão, um banner "Sem conexão" aparece no topo da tela. Em Endereços, "Confirmar rota" desabilita e o autocomplete não é chamado, mas o texto digitado fica.
-- A rota ativa (ordem, flags de visitado, polyline e totais) é salva em `shared_preferences` ao ser calculada e a cada parada visitada. É apagada ao concluir ou ao começar uma rota nova.
+- A rota ativa (ordem, flags de visitado, polyline e totais) é salva em `shared_preferences` ao ser calculada e a cada parada visitada. É apagada ao concluir ou ao começar uma rota nova. Fica em texto puro, só na sandbox do app; o backup automático do Android está desligado (`android:allowBackup="false"`) para ela não ir para a nuvem.
 - Se o app for encerrado com uma rota em andamento, ao abrir de novo (depois do desbloqueio) ele oferece "Continuar rota?" e abre a navegação com o plano salvo.
 - Offline durante a navegação, o acompanhamento e a detecção de chegada seguem funcionando. O recálculo fica pendente ("Recálculo pendente (sem conexão)") e roda sozinho quando a conexão volta.
 - Toda requisição tem timeout de 10 s e uma nova tentativa após 2 s em erro de conexão.
@@ -266,6 +266,7 @@ Zoom 16 na partida. Na tela de rota a câmera enquadra a rota inteira. Na navega
 - **Sem instruções passo a passo.** O app desenha a rota e mostra a posição; não há navegação por voz ou texto curva a curva.
 - **Só pt-BR.** Um único idioma.
 - **Sem contas, backend ou histórico de rotas.** Não foi pedido.
+- **Rota salva sem criptografia.** A rota em andamento (origem, endereços, polyline) fica em texto puro nas preferências do app, fora do backup automático; não expira sozinha.
 
 ## Estrutura de commits
 
