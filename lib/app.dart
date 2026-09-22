@@ -6,6 +6,7 @@ import 'core/theme/rb_theme.dart';
 import 'core/theme/rb_tokens.dart';
 import 'features/lock/domain/relock_policy.dart';
 import 'features/lock/presentation/lock_cubit.dart';
+import 'features/location/presentation/map_screen.dart';
 import 'features/lock/presentation/lock_screen.dart';
 
 /// Root widget: theme, named routes and the lifecycle re-lock gate.
@@ -34,7 +35,11 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
         '/lock': (context) => LockScreen(
           onUnlocked: () => Navigator.of(context).pushReplacementNamed('/map'),
         ),
-        '/map': (_) => const MapPlaceholderScreen(),
+        '/map': (context) => MapScreen(
+          onContinue: (start) =>
+              Navigator.of(context).pushNamed('/addresses', arguments: start),
+        ),
+        '/addresses': (_) => const AddressesPlaceholderScreen(),
       },
       builder: (_, child) => AppLifecycleGate(
         navigatorKey: _navigatorKey,
@@ -45,15 +50,18 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
   }
 }
 
-/// Stand-in for the Map screen until T20.
-class MapPlaceholderScreen extends StatelessWidget {
-  const MapPlaceholderScreen({super.key});
+/// Stand-in for the Addresses screen until T24.
+class AddressesPlaceholderScreen extends StatelessWidget {
+  const AddressesPlaceholderScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Text('Mapa', style: RbText.title.copyWith(color: RbColors.ink)),
+        child: Text(
+          'Endereços',
+          style: RbText.title.copyWith(color: RbColors.ink),
+        ),
       ),
     );
   }
