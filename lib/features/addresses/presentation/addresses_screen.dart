@@ -55,7 +55,9 @@ class _AddressesScreenState extends State<AddressesScreen> {
   @override
   void initState() {
     super.initState();
-    _connectivity.check().then(_cubit.setOnline);
+    _connectivity.check().then((online) {
+      if (mounted) _cubit.setOnline(online);
+    });
     _online = _connectivity.isOnline.listen(_cubit.setOnline);
   }
 
