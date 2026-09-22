@@ -13,6 +13,7 @@ import '../../features/lock/presentation/lock_cubit.dart';
 import '../../features/route/data/route_storage.dart';
 import '../../features/route/data/routes_api.dart';
 import '../../features/route/domain/route_repository.dart';
+import '../../features/route/presentation/route_cubit.dart';
 import '../config/env.dart';
 import '../geo/geo_point.dart';
 import '../network/api_client.dart';
@@ -46,6 +47,7 @@ Future<void> configureDependencies({String? apiKey}) async {
     ..registerFactoryParam<AddressFormCubit, GeoPoint, void>(
       (bias, _) => AddressFormCubit(getIt<PlacesApi>(), bias: bias),
     )
+    ..registerFactory<RouteCubit>(() => RouteCubit(getIt<RouteRepository>()))
     ..registerLazySingleton<LockCubit>(
       () => LockCubit(getIt<LocalAuthService>()),
     )

@@ -14,6 +14,7 @@ import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
+import 'package:routebreeze/features/route/presentation/route_cubit.dart';
 
 void main() {
   tearDown(resetDependencies);
@@ -43,6 +44,8 @@ void main() {
       const bias = GeoPoint(-23.5, -46.6);
       expect(getIt<AddressFormCubit>(param1: bias).bias, bias);
       expect(getIt<AddressFormCubit>(param1: bias).state.fields, hasLength(3));
+      expect(getIt<RouteCubit>().state, const RouteState());
+      expect(identical(getIt<RouteCubit>(), getIt<RouteCubit>()), isFalse);
       expect(getIt<LockCubit>().state, const LockState());
       expect(identical(getIt<LockCubit>(), getIt<LockCubit>()), isTrue);
       expect(getIt<SessionState>().isNavigationActive, isFalse);
@@ -63,6 +66,7 @@ void main() {
     expect(getIt.isRegistered<RoutesApi>(), isFalse);
     expect(getIt.isRegistered<RouteStorage>(), isFalse);
     expect(getIt.isRegistered<RouteRepository>(), isFalse);
+    expect(getIt.isRegistered<RouteCubit>(), isFalse);
     expect(getIt.isRegistered<MapCubit>(), isFalse);
     expect(getIt.isRegistered<AddressFormCubit>(), isFalse);
     expect(getIt.isRegistered<LockCubit>(), isFalse);
