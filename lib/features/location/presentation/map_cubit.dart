@@ -52,27 +52,30 @@ class MapCubit extends Cubit<MapState> {
   /// Time allowed for the first fix (MAP-02, MAP-06).
   static const Duration fixTimeout = Duration(seconds: 15);
 
+  /// Any failure to check access or get the fix (timeout, platform error)
+  /// ends in [MapStatus.timeout], whose card offers "Tentar novamente"
+  /// (MAP-06).
   Future<void> init() async {
     if (state.status != MapStatus.checking) emit(const MapState());
-    var access = await _location.checkAccess();
-    if (access == LocationAccess.denied) {
-      access = await _location.requestPermission();
-    }
-    if (isClosed) return;
-    switch (access) {
-      case LocationAccess.denied:
-        return emit(const MapState(status: MapStatus.denied));
-      case LocationAccess.deniedForever:
-        return emit(const MapState(status: MapStatus.deniedForever));
-      case LocationAccess.serviceDisabled:
-        return emit(const MapState(status: MapStatus.serviceDisabled));
-      case LocationAccess.granted:
-        break;
-    }
     final Fix fix;
     try {
+      var access = await _location.checkAccess();
+      if (access == LocationAccess.denied) {
+        access = await _location.requestPermission();
+      }
+      if (isClosed) return;
+      switch (access) {
+        case LocationAccess.denied:
+          return emit(const MapState(status: MapStatus.denied));
+        case LocationAccess.deniedForever:
+          return emit(const MapState(status: MapStatus.deniedForever));
+        case LocationAccess.serviceDisabled:
+          return emit(const MapState(status: MapStatus.serviceDisabled));
+        case LocationAccess.granted:
+          break;
+      }
       fix = await _location.currentFix(timeout: fixTimeout);
-    } on TimeoutException {
+    } on Object {
       if (isClosed) return;
       return emit(const MapState(status: MapStatus.timeout));
     }

@@ -206,6 +206,42 @@ void main() {
     );
 
     blocTest<MapCubit, MapState>(
+      'a non-timeout error from the fix → timeout (retryable, MAP-06)',
+      build: () {
+        stubAccess(LocationAccess.granted);
+        stubFix(StateError('provider'));
+        return MapCubit(location);
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => const [MapState(status: MapStatus.timeout)],
+      errors: () => isEmpty,
+    );
+
+    blocTest<MapCubit, MapState>(
+      'an error from the access check → timeout (retryable, MAP-06)',
+      build: () {
+        when(() => location.checkAccess()).thenThrow(Exception('platform'));
+        return MapCubit(location);
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => const [MapState(status: MapStatus.timeout)],
+      errors: () => isEmpty,
+    );
+
+    blocTest<MapCubit, MapState>(
+      'an error from the permission request → timeout (retryable, MAP-06)',
+      build: () {
+        stubAccess(LocationAccess.denied);
+        when(() => location.requestPermission())
+            .thenThrow(Exception('platform'));
+        return MapCubit(location);
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => const [MapState(status: MapStatus.timeout)],
+      errors: () => isEmpty,
+    );
+
+    blocTest<MapCubit, MapState>(
       'denied → requests the permission once; granted → ready',
       build: () {
         stubAccess(LocationAccess.denied);
