@@ -52,6 +52,26 @@ void main() {
       expect(changes, ['Av. P']);
     });
 
+    testWidgets('caps the input at 200 characters', (tester) async {
+      await tester.pumpWidget(
+        wrap(const AddressField(id: 'f1', sessionToken: 't')),
+      );
+
+      await tester.enterText(find.byType(TextField), 'x' * 201);
+      await tester.pump();
+
+      expect(textField(tester).maxLength, 200);
+      expect(changes.last.length, 200);
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField))
+            .controller!
+            .text
+            .length,
+        200,
+      );
+    });
+
     testWidgets('shows the field error under the input', (tester) async {
       await tester.pumpWidget(
         wrap(

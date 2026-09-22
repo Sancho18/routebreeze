@@ -85,6 +85,9 @@ class AddressFormCubit extends Cubit<AddressFormState> {
 
   static const Duration debounce = Duration(milliseconds: 300);
   static const int minChars = 3;
+
+  /// Longest query sent to autocomplete; the input is capped to it too.
+  static const int maxChars = 200;
   static const String searchError =
       'Não foi possível buscar endereços. Tente novamente.';
 
@@ -124,7 +127,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
     _update(field.copyWith(loading: true));
     try {
       final suggestions = await _places.autocomplete(
-        input: input,
+        input: input.length > maxChars ? input.substring(0, maxChars) : input,
         sessionToken: field.sessionToken,
         bias: bias,
       );

@@ -4,6 +4,7 @@ import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_text_field.dart';
 import '../domain/address_field.dart';
 import '../domain/suggestion.dart';
+import 'address_form_cubit.dart';
 
 /// One address input: `RbTextField` with the field's error, a spinner while
 /// searching, a remove control for added fields and the suggestion rows
@@ -66,6 +67,7 @@ class _AddressFieldWidgetState extends State<AddressFieldWidget> {
           errorText: field.error,
           onChanged: widget.onChanged,
           textInputAction: TextInputAction.next,
+          maxLength: AddressFormCubit.maxChars,
           trailing: field.loading
               ? const Padding(
                   padding: EdgeInsets.all(RbSpace.s3),

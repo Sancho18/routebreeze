@@ -77,6 +77,23 @@ void main() {
       );
     });
 
+    testWidgets('maxLength caps the text without showing a counter', (
+      tester,
+    ) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        wrap(RbTextField(controller: controller, maxLength: 200)),
+      );
+
+      await tester.enterText(find.byType(TextField), 'a' * 201);
+      await tester.pump();
+
+      expect(controller.text.length, 200);
+      expect(find.textContaining('/200'), findsNothing);
+      expect(find.text('200'), findsNothing);
+    });
+
     testWidgets('onChanged fires with the typed text', (tester) async {
       String? changed;
       await tester.pumpWidget(

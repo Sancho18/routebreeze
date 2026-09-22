@@ -209,6 +209,29 @@ void main() {
       });
     });
 
+    test('the query sent to autocomplete is capped at 200 characters', () {
+      fakeAsync((async) {
+        final cubit = build();
+        final token = field(cubit, 'f1').sessionToken;
+        final long = 'Rua ${'a' * 300}';
+        stubAutocomplete(input: long.substring(0, 200), token: token);
+
+        cubit.onTextChanged('f1', long);
+        async.elapse(const Duration(milliseconds: 300));
+        async.flushMicrotasks();
+
+        final sent = verify(
+          () => places.autocomplete(
+            input: captureAny(named: 'input'),
+            sessionToken: token,
+            bias: bias,
+          ),
+        ).captured.single;
+        expect(sent, long.substring(0, 200));
+        expect(field(cubit, 'f1').suggestions, [suggestion]);
+      });
+    });
+
     test('offline: no request; typed text is kept (OFFL-02)', () {
       fakeAsync((async) {
         final cubit = build();

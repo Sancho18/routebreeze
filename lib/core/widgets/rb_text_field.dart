@@ -18,6 +18,7 @@ class RbTextField extends StatelessWidget {
     this.onChanged,
     this.keyboardType,
     this.textInputAction,
+    this.maxLength,
   });
 
   final TextEditingController? controller;
@@ -29,6 +30,9 @@ class RbTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
 
+  /// Caps the input; no counter is shown.
+  final int? maxLength;
+
   @override
   Widget build(BuildContext context) {
     return TextField(
@@ -37,6 +41,8 @@ class RbTextField extends StatelessWidget {
       onChanged: onChanged,
       keyboardType: keyboardType,
       textInputAction: textInputAction,
+      maxLength: maxLength,
+      buildCounter: _noCounter,
       style: RbText.body.copyWith(color: RbColors.ink),
       decoration: InputDecoration(
         hintText: placeholder,
@@ -56,6 +62,13 @@ class RbTextField extends StatelessWidget {
     );
   }
 }
+
+Widget? _noCounter(
+  BuildContext context, {
+  required int currentLength,
+  required int? maxLength,
+  required bool isFocused,
+}) => null;
 
 OutlineInputBorder _outline(Color color) => OutlineInputBorder(
   borderRadius: BorderRadius.circular(RbRadius.md),
