@@ -1,24 +1,36 @@
 import 'dart:async';
 
+import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/app.dart';
 import 'package:routebreeze/core/di/injector.dart';
+import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/session/session_state.dart';
+import 'package:routebreeze/features/addresses/domain/stop.dart';
+import 'package:routebreeze/features/addresses/presentation/addresses_screen.dart';
+import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
+import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
+import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
+import 'package:routebreeze/features/route/domain/route_plan.dart';
 
 class MockLocalAuthService extends Mock implements LocalAuthService {}
 
 class MockLocationService extends Mock implements LocationService {}
 
+class MockNavigationCubit extends MockCubit<NavigationState>
+    implements NavigationCubit {}
+
 void main() {
   late MockLocalAuthService auth;
+  late MockLocationService location;
   late DateTime clock;
 
   setUp(() async {
@@ -27,7 +39,7 @@ void main() {
     getIt.unregister<LocalAuthService>();
     getIt.registerSingleton<LocalAuthService>(auth);
     // The Map screen must not reach the platform: report the service off.
-    final location = MockLocationService();
+    location = MockLocationService();
     when(() => location.checkAccess())
         .thenAnswer((_) async => LocationAccess.serviceDisabled);
     getIt.unregister<LocationService>();
@@ -140,6 +152,61 @@ void main() {
       expect(find.byType(MapScreen), findsOneWidget);
       expect(find.byType(LockScreen), findsNothing);
       verify(() => auth.authenticate()).called(1);
+    });
+
+    testWidgets('"Nova rota" after completion returns to a fresh Map screen '
+        'that acquires the position again (NAV-06, ROUTE-01)', (tester) async {
+      const origin = GeoPoint(-23.5614, -46.6559);
+      final start = Fix(origin, 8, DateTime.utc(2026, 9, 22, 10));
+      final completed = RoutePlan(
+        origin: origin,
+        stops: const [
+          RouteStop(
+            stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
+            order: 1,
+            visited: true,
+          ),
+        ],
+        polyline: const [origin, GeoPoint(-23.565, -46.66)],
+        distanceMeters: 600,
+        durationSeconds: 90,
+        legs: const [RouteLeg(distanceMeters: 600, durationSeconds: 90)],
+        computedAt: DateTime.utc(2026, 9, 22, 10),
+      );
+      final navigation = MockNavigationCubit();
+      whenListen(
+        navigation,
+        const Stream<NavigationState>.empty(),
+        initialState: NavigationState(
+          plan: completed,
+          phase: NavigationPhase.completed,
+          fix: start,
+        ),
+      );
+      getIt.unregister<NavigationCubit>();
+      getIt.registerFactoryParam<NavigationCubit, RoutePlan, void>(
+        (_, _) => navigation,
+      );
+      await bootAndUnlock(tester);
+      verify(() => location.checkAccess()).called(1);
+
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.pushNamed(
+          '/navigation',
+          arguments: (plan: completed, start: start),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(NavigationScreen.completedTitle), findsOneWidget);
+
+      await tester.tap(find.text(NavigationScreen.newRouteLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapScreen), findsOneWidget);
+      expect(find.byType(NavigationScreen), findsNothing);
+      expect(find.byType(AddressesScreen), findsNothing);
+      verify(() => location.checkAccess()).called(1);
     });
 
     testWidgets('background pauses the navigation and foreground resumes it '

@@ -99,11 +99,14 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
             plan: args.plan,
             onExit: () => Navigator.of(context).pop(),
             // The cubit already cleared the persisted route (OFFL-05).
-            onNewRoute: () => Navigator.of(context).pushNamedAndRemoveUntil(
-              '/addresses',
-              (route) => route.settings.name == '/map',
-              arguments: args.start,
-            ),
+            // SPEC_DEVIATION: NAV-06 says "Nova rota" returns to the
+            // Addresses screen; it returns to the Map screen instead.
+            // Reason: a fresh Map screen acquires the current position, so
+            // the next route starts from where the driver is (ROUTE-01)
+            // and not from the previous start fix.
+            onNewRoute: () =>
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('/map', (_) => false),
           );
         }),
       },
