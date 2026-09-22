@@ -68,5 +68,7 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Usamos o Face ID para proteger suas rotas.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>O RouteBreeze usa sua localização para definir o ponto de partida e acompanhar a rota.</string>
 </dict>
 </plist>
