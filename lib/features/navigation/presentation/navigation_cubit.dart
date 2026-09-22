@@ -225,7 +225,11 @@ class NavigationCubit extends Cubit<NavigationState> {
   void onOnlineChanged(bool online) {
     emit(state.copyWith(online: online));
     final fix = state.fix;
-    if (online && state.recalcPending && !state.recalcInFlight && fix != null) {
+    if (online &&
+        state.phase == NavigationPhase.navigating &&
+        state.recalcPending &&
+        !state.recalcInFlight &&
+        fix != null) {
       _recalculate(fix.point);
     }
   }
@@ -302,8 +306,16 @@ class NavigationCubit extends Cubit<NavigationState> {
     if (plan.isComplete) {
       _positions?.cancel();
       _positions = null;
+      _badgeTimer?.cancel();
       _session.isNavigationActive = false;
-      emit(state.copyWith(plan: plan, phase: NavigationPhase.completed));
+      emit(
+        state.copyWith(
+          plan: plan,
+          phase: NavigationPhase.completed,
+          recalcPending: false,
+          clearBadge: true,
+        ),
+      );
       await _routes.clear();
     } else {
       emit(state.copyWith(plan: plan));
@@ -312,9 +324,12 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   /// One request from [origin] through the unvisited stops (RECALC-03);
-  /// the visited ones keep their numbers.
+  /// the visited ones keep their numbers. Stops visited while the request
+  /// is in flight stay visited in the answer; an answer that arrives after
+  /// the route completed is dropped and storage cleared again (OFFL-05).
   Future<void> _recalculate(GeoPoint origin) async {
     final plan = state.plan;
+    if (plan.unvisited.isEmpty) return;
     emit(state.copyWith(recalcInFlight: true, recalcPending: false));
     NavigationBadge badge;
     RoutePlan? replaced;
@@ -332,7 +347,24 @@ class NavigationCubit extends Cubit<NavigationState> {
       badge = NavigationBadge.recalcFailed;
     }
     if (isClosed) return;
-    if (replaced != null) _deviation.reset();
+    if (state.phase == NavigationPhase.completed) {
+      if (replaced != null) await _routes.clear();
+      if (!isClosed) emit(state.copyWith(recalcInFlight: false));
+      return;
+    }
+    if (replaced != null) {
+      _deviation.reset();
+      final visitedNow = [
+        for (final stop in state.plan.stops)
+          if (stop.visited) stop.stop.placeId,
+      ];
+      final merged = visitedNow.fold(replaced, (p, id) => p.markVisited(id));
+      if (merged != replaced) {
+        await _routes.save(merged);
+        if (isClosed) return;
+        replaced = merged;
+      }
+    }
     emit(
       state.copyWith(
         plan: replaced,

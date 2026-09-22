@@ -448,6 +448,97 @@ void main() {
         cubit.close();
       });
     });
+
+    test('a stop visited while a recalculation is in flight stays visited '
+        'in the replaced plan (NAV-05, RECALC-04, OFFL-03)', () {
+      fakeAsync((async) {
+        final pending = Completer<RoutePlan>();
+        stubPlan(pending);
+        final cubit = navigating(async);
+        goOffRoute(async);
+        expect(cubit.state.recalcInFlight, isTrue);
+
+        cubit.markNextVisited();
+        async.flushMicrotasks();
+        expect(cubit.state.plan.stops[0].visited, isTrue);
+
+        pending.complete(recalculated);
+        async.flushMicrotasks();
+
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.plan.polyline, recalculated.polyline);
+        expect(
+          cubit.state.plan.stops.singleWhere((s) => s.stop == a).visited,
+          isTrue,
+        );
+        expect(cubit.state.plan.unvisited.map((s) => s.stop), [b]);
+        expect(cubit.state.plan.nextStop!.stop, b);
+        final saved = verify(() => routes.save(captureAny())).captured
+            .cast<RoutePlan>();
+        expect(saved.last, cubit.state.plan);
+        expect(
+          saved.last.stops.singleWhere((s) => s.stop == a).visited,
+          isTrue,
+        );
+        cubit.close();
+      });
+    });
+
+    test('completion during an in-flight recalculation is final: the stale '
+        'plan is dropped and storage stays cleared (NAV-06, OFFL-05)', () {
+      fakeAsync((async) {
+        final pending = Completer<RoutePlan>();
+        stubPlan(pending);
+        final cubit = navigating(async);
+        emitFix(async, atStop(a));
+        goOffRoute(async);
+        expect(cubit.state.recalcInFlight, isTrue);
+
+        emitFix(async, atStop(b));
+        expect(cubit.state.phase, NavigationPhase.completed);
+
+        pending.complete(recalculated.markVisited('pa'));
+        async.flushMicrotasks();
+
+        expect(cubit.state.phase, NavigationPhase.completed);
+        expect(cubit.state.plan.isComplete, isTrue);
+        expect(cubit.state.badge, isNull);
+        expect(cubit.state.recalcInFlight, isFalse);
+        verify(() => routes.clear()).called(2);
+        verify(() => routes.save(any())).called(1);
+        cubit.close();
+      });
+    });
+
+    test('a pending recalculation is dropped when the route completes: '
+        'reconnecting makes no request (RECALC-06, NAV-06)', () {
+      stubPlan(recalculated);
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        online.add(false);
+        async.flushMicrotasks();
+        goOffRoute(async);
+        expect(cubit.state.recalcPending, isTrue);
+
+        emitFix(async, atStop(a));
+        emitFix(async, atStop(b));
+        expect(cubit.state.phase, NavigationPhase.completed);
+        expect(cubit.state.recalcPending, isFalse);
+        expect(cubit.state.badge, isNull);
+
+        online.add(true);
+        async.flushMicrotasks();
+
+        verifyNever(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        );
+        expect(cubit.state.badge, isNull);
+        expect(cubit.state.phase, NavigationPhase.completed);
+        expect(cubit.state.plan.isComplete, isTrue);
+        cubit.close();
+      });
+    });
   });
 
   group('camera', () {
