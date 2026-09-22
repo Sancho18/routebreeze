@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,8 +7,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/error/failure.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
+import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
@@ -17,6 +21,8 @@ import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 class MockRouteCubit extends MockCubit<RouteState> implements RouteCubit {}
+
+class MockConnectivityService extends Mock implements ConnectivityService {}
 
 /// Canvas drawing needs real async; the fake answers with a hue per number.
 class FakeMapMarkers extends MapMarkers {
@@ -46,16 +52,24 @@ void main() {
   const mapKey = Key('map-placeholder');
 
   late MockRouteCubit cubit;
+  late MockConnectivityService connectivity;
+  late StreamController<bool> online;
   late List<RouteMapObjects> mapsBuilt;
   late List<RoutePlan> started;
 
   setUp(() {
     cubit = MockRouteCubit();
+    connectivity = MockConnectivityService();
+    online = StreamController<bool>();
     mapsBuilt = [];
     started = [];
     when(() => cubit.compute(any(), any())).thenAnswer((_) async {});
     when(() => cubit.retry()).thenAnswer((_) async {});
+    when(() => connectivity.check()).thenAnswer((_) async => true);
+    when(() => connectivity.isOnline).thenAnswer((_) => online.stream);
   });
+
+  tearDown(() => online.close());
 
   setUpAll(() {
     registerFallbackValue(origin);
@@ -70,6 +84,7 @@ void main() {
           start: start,
           stops: stops,
           cubit: cubit,
+          connectivity: connectivity,
           markers: FakeMapMarkers(),
           mapBuilder: (_, objects) {
             mapsBuilt.add(objects);
@@ -166,6 +181,44 @@ void main() {
 
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
       expect(started, [plan]);
+    });
+
+    testWidgets('offline shows the "Sem conexão" danger banner on top and '
+        'hides it once back online (OFFL-01)', (tester) async {
+      await pumpScreen(
+        tester,
+        RouteState(status: RouteStatus.ready, plan: plan),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Sem conexão'), findsNothing);
+
+      online.add(false);
+      await tester.pumpAndSettle();
+
+      final banner = tester.widget<RbBanner>(
+        find.widgetWithText(RbBanner, 'Sem conexão'),
+      );
+      expect(banner.tone, RbTone.danger);
+      expect(
+        tester.getTopLeft(find.byType(RbBanner)).dy,
+        lessThan(tester.getTopLeft(find.byKey(mapKey)).dy),
+      );
+      expect(find.byType(RouteSheet), findsOneWidget);
+
+      online.add(true);
+      await tester.pumpAndSettle();
+      expect(find.text('Sem conexão'), findsNothing);
+    });
+
+    testWidgets('an offline initial check shows the banner without waiting '
+        'for a change (OFFL-01)', (tester) async {
+      when(() => connectivity.check()).thenAnswer((_) async => false);
+
+      await pumpScreen(tester, const RouteState(status: RouteStatus.loading));
+      await tester.pump();
+
+      expect(find.text('Sem conexão'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
   });
 }

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/di/injector.dart';
+import '../../../core/network/connectivity_service.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_feedback.dart';
 import '../../addresses/domain/stop.dart';
@@ -24,7 +27,8 @@ typedef RouteMapBuilder = Widget Function(
 /// Route screen: computes the optimized route on open (ROUTE-05), shows the
 /// failure copy with "Tentar novamente" (ROUTE-06), and when ready draws the
 /// polyline and numbered markers (ROUTE-03) under the [RouteSheet]
-/// (ROUTE-04). "Iniciar" hands the plan to [onStart].
+/// (ROUTE-04). "Iniciar" hands the plan to [onStart]. Offline banner on top
+/// (OFFL-01).
 class RouteScreen extends StatefulWidget {
   const RouteScreen({
     super.key,
@@ -32,6 +36,7 @@ class RouteScreen extends StatefulWidget {
     required this.stops,
     required this.onStart,
     this.cubit,
+    this.connectivity,
     this.mapBuilder,
     this.markers,
   });
@@ -43,6 +48,9 @@ class RouteScreen extends StatefulWidget {
   /// Overrides the cubit from `getIt` (tests).
   final RouteCubit? cubit;
 
+  /// Overrides the service from `getIt` (tests).
+  final ConnectivityService? connectivity;
+
   /// Overrides the `GoogleMap` builder (tests).
   final RouteMapBuilder? mapBuilder;
 
@@ -53,6 +61,7 @@ class RouteScreen extends StatefulWidget {
   static const String loadingMessage = 'Calculando a melhor rota...';
   static const String failureMessage = 'Não foi possível calcular a rota.';
   static const String retryLabel = 'Tentar novamente';
+  static const String offlineBanner = 'Sem conexão';
 
   /// Padding around the fitted route (logical px).
   static const double cameraPadding = 48;
@@ -67,7 +76,11 @@ class RouteScreen extends StatefulWidget {
 
 class _RouteScreenState extends State<RouteScreen> {
   late final RouteCubit _cubit = widget.cubit ?? getIt<RouteCubit>();
+  late final ConnectivityService _connectivity =
+      widget.connectivity ?? getIt<ConnectivityService>();
   late final MapMarkers _markers = widget.markers ?? MapMarkers();
+  StreamSubscription<bool>? _online;
+  bool _isOnline = true;
 
   RoutePlan? _objectsPlan;
   Future<RouteMapObjects>? _objects;
@@ -76,12 +89,20 @@ class _RouteScreenState extends State<RouteScreen> {
   void initState() {
     super.initState();
     _cubit.compute(widget.start.point, widget.stops);
+    _connectivity.check().then(_setOnline);
+    _online = _connectivity.isOnline.listen(_setOnline);
   }
 
   @override
   void dispose() {
+    _online?.cancel();
     if (widget.cubit == null) _cubit.close();
     super.dispose();
+  }
+
+  void _setOnline(bool online) {
+    if (!mounted || online == _isOnline) return;
+    setState(() => _isOnline = online);
   }
 
   /// Marker icons are drawn once per plan.
@@ -105,18 +126,29 @@ class _RouteScreenState extends State<RouteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text(RouteScreen.title)),
-      body: BlocBuilder<RouteCubit, RouteState>(
-        bloc: _cubit,
-        builder: (context, state) => switch (state.status) {
-          RouteStatus.idle || RouteStatus.loading => const _Loading(),
-          RouteStatus.failure => _Failure(onRetry: _cubit.retry),
-          RouteStatus.ready => _Ready(
-            plan: state.plan!,
-            objects: _objectsFor(state.plan!),
-            mapBuilder: widget.mapBuilder ?? _googleMap,
-            onStart: () => widget.onStart(state.plan!),
+      body: Column(
+        children: [
+          if (!_isOnline)
+            const RbBanner(
+              text: RouteScreen.offlineBanner,
+              tone: RbTone.danger,
+            ),
+          Expanded(
+            child: BlocBuilder<RouteCubit, RouteState>(
+              bloc: _cubit,
+              builder: (context, state) => switch (state.status) {
+                RouteStatus.idle || RouteStatus.loading => const _Loading(),
+                RouteStatus.failure => _Failure(onRetry: _cubit.retry),
+                RouteStatus.ready => _Ready(
+                  plan: state.plan!,
+                  objects: _objectsFor(state.plan!),
+                  mapBuilder: widget.mapBuilder ?? _googleMap,
+                  onStart: () => widget.onStart(state.plan!),
+                ),
+              },
+            ),
           ),
-        },
+        ],
       ),
     );
   }
