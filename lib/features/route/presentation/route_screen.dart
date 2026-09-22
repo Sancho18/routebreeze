@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -55,6 +56,10 @@ class RouteScreen extends StatefulWidget {
 
   /// Padding around the fitted route (logical px).
   static const double cameraPadding = 48;
+
+  /// Wait after `onMapCreated` before fitting the route: on Android the
+  /// platform view may not be laid out yet ("Map size can't be 0").
+  static const Duration cameraFitDelay = Duration(milliseconds: 300);
 
   @override
   State<RouteScreen> createState() => _RouteScreenState();
@@ -117,17 +122,48 @@ class _RouteScreenState extends State<RouteScreen> {
   }
 }
 
-Widget _googleMap(BuildContext context, RouteMapObjects objects) {
-  return GoogleMap(
-    initialCameraPosition: CameraPosition(target: objects.origin, zoom: 14),
-    markers: objects.markers,
-    polylines: objects.polylines,
-    onMapCreated: (controller) => controller.animateCamera(
-      CameraUpdate.newLatLngBounds(objects.bounds, RouteScreen.cameraPadding),
-    ),
-    myLocationButtonEnabled: false,
-    zoomControlsEnabled: false,
-  );
+Widget _googleMap(BuildContext context, RouteMapObjects objects) =>
+    _RouteMap(objects: objects);
+
+/// `GoogleMap` fitted to the route once the platform view has laid out
+/// (ROUTE-03).
+class _RouteMap extends StatefulWidget {
+  const _RouteMap({required this.objects});
+
+  final RouteMapObjects objects;
+
+  @override
+  State<_RouteMap> createState() => _RouteMapState();
+}
+
+class _RouteMapState extends State<_RouteMap> {
+  Future<void> _fit(GoogleMapController controller) async {
+    await Future<void>.delayed(RouteScreen.cameraFitDelay);
+    if (!mounted) return;
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          widget.objects.bounds,
+          RouteScreen.cameraPadding,
+        ),
+      );
+    } on PlatformException {
+      // Not laid out yet; the map stays on the origin at zoom 14.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final objects = widget.objects;
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(target: objects.origin, zoom: 14),
+      markers: objects.markers,
+      polylines: objects.polylines,
+      onMapCreated: _fit,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
+    );
+  }
 }
 
 /// Centered progress with the loading caption (ROUTE-05).
