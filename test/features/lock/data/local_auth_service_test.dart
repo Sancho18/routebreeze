@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:mocktail/mocktail.dart';
@@ -61,7 +62,7 @@ void main() {
       LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable:
           AuthResult.unavailable,
       LocalAuthExceptionCode.uiUnavailable: AuthResult.unavailable,
-      LocalAuthExceptionCode.authInProgress: AuthResult.error,
+      LocalAuthExceptionCode.authInProgress: AuthResult.canceled,
       LocalAuthExceptionCode.deviceError: AuthResult.error,
       LocalAuthExceptionCode.unknownError: AuthResult.error,
     };
@@ -72,5 +73,13 @@ void main() {
         expect(await service.authenticate(), entry.value);
       });
     }
+
+    test('an error that is not a LocalAuthException maps to error', () async {
+      stubAuthenticate(PlatformException(code: 'no_activity'));
+      expect(await service.authenticate(), AuthResult.error);
+
+      stubAuthenticate(StateError('plugin not attached'));
+      expect(await service.authenticate(), AuthResult.error);
+    });
   });
 }

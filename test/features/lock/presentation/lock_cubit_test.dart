@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -48,6 +50,29 @@ void main() {
       ],
     );
   }
+
+  late Completer<AuthResult> pending;
+
+  blocTest<LockCubit, LockState>(
+    'a second unlock while authenticating is ignored: one prompt, '
+    'authenticating then unlocked',
+    build: () {
+      pending = Completer<AuthResult>();
+      when(() => auth.authenticate()).thenAnswer((_) => pending.future);
+      return LockCubit(auth);
+    },
+    act: (cubit) {
+      final first = cubit.unlock();
+      final second = cubit.unlock();
+      pending.complete(AuthResult.success);
+      return Future.wait([first, second]);
+    },
+    expect: () => const [
+      LockState(status: LockStatus.authenticating),
+      LockState(status: LockStatus.unlocked),
+    ],
+    verify: (_) => verify(() => auth.authenticate()).called(1),
+  );
 
   blocTest<LockCubit, LockState>(
     'lock after unlocked returns to locked without a reason',

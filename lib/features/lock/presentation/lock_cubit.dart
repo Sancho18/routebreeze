@@ -25,7 +25,9 @@ class LockCubit extends Cubit<LockState> {
 
   final LocalAuthService _auth;
 
+  /// Prompts once; a call while a prompt is already open is ignored.
   Future<void> unlock() async {
+    if (state.status == LockStatus.authenticating) return;
     emit(const LockState(status: LockStatus.authenticating));
     final result = await _auth.authenticate();
     if (isClosed) return;

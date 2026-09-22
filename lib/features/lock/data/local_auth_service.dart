@@ -24,6 +24,9 @@ class LocalAuthServiceImpl implements LocalAuthService {
       return ok ? AuthResult.success : AuthResult.canceled;
     } on LocalAuthException catch (e) {
       return _map(e.code);
+    } on Object {
+      // Plugin or platform errors (missing activity, plugin not attached).
+      return AuthResult.error;
     }
   }
 
@@ -33,10 +36,13 @@ class LocalAuthServiceImpl implements LocalAuthService {
   // noCredentialsSet; these codes mean the platform could not authenticate at
   // all, and "configure a screen lock" would mislead a user who has one.
   static AuthResult _map(LocalAuthExceptionCode code) => switch (code) {
+    // authInProgress: another prompt is already open and will answer; this
+    // attempt is a no-op, not a failure.
     LocalAuthExceptionCode.userCanceled ||
     LocalAuthExceptionCode.systemCanceled ||
     LocalAuthExceptionCode.timeout ||
-    LocalAuthExceptionCode.userRequestedFallback => AuthResult.canceled,
+    LocalAuthExceptionCode.userRequestedFallback ||
+    LocalAuthExceptionCode.authInProgress => AuthResult.canceled,
     LocalAuthExceptionCode.temporaryLockout ||
     LocalAuthExceptionCode.biometricLockout => AuthResult.lockedOut,
     LocalAuthExceptionCode.noCredentialsSet => AuthResult.noCredentials,
