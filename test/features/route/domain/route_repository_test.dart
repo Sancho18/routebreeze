@@ -147,6 +147,25 @@ void main() {
       },
     );
 
+    test('a storage failure does not discard the computed plan', () async {
+      when(() => api.computeRoutes(any())).thenAnswer(
+        (_) async => const RouteResponse(
+          encodedPolyline: encoded,
+          distanceMeters: 12345,
+          durationSeconds: 605,
+          legs: legs,
+          optimizedIndex: [1, 0],
+        ),
+      );
+      when(() => storage.save(any())).thenThrow(Exception('disk full'));
+
+      final plan = await repository.plan(origin, const [mid, far, near]);
+
+      expect(plan.stops.map((s) => s.stop), const [near, mid, far]);
+      expect(plan.polyline, decoded);
+      verify(() => storage.save(plan)).called(1);
+    });
+
     test('API failure propagates and nothing is saved (ROUTE-06)', () async {
       when(() => api.computeRoutes(any()))
           .thenThrow(const ApiFailure(null, 'Resposta inválida da Routes API'));

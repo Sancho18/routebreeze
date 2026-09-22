@@ -24,7 +24,8 @@ class RouteRepository {
   /// One `computeRoutes` call over [stops] (the unvisited ones). The result
   /// keeps [keepVisited] first with their numbers and numbers the new order
   /// after them, so the initial plan is 1..N. The plan is saved before it
-  /// is returned. Throws the `Failure` of a failed request.
+  /// is returned; a storage failure does not discard the computed plan.
+  /// Throws the `Failure` of a failed request.
   Future<RoutePlan> plan(
     GeoPoint origin,
     List<Stop> stops, {
@@ -50,7 +51,12 @@ class RouteRepository {
       legs: response.legs,
       computedAt: _now(),
     );
-    await _storage.save(plan);
+    try {
+      await _storage.save(plan);
+    } on Object {
+      // The route was already computed (and billed); persistence is best
+      // effort here, as in MapCubit's restore.
+    }
     return plan;
   }
 
