@@ -106,6 +106,24 @@ void main() {
       },
     );
 
+    test('a non-JSON error body becomes the ApiFailure message; an empty body '
+        'falls back to the HTTP status', () async {
+      final adapter = FakeAdapter([
+        (_) => ResponseBody.fromString('Bad Gateway', 502),
+        (_) => ResponseBody.fromString('', 503),
+      ]);
+      final dio = buildGoogleDio(apiKey: 'k', adapter: adapter);
+
+      expect(
+        await failureOf(dio.get<dynamic>(url)),
+        const ApiFailure(502, 'Bad Gateway'),
+      );
+      expect(
+        await failureOf(dio.get<dynamic>(url)),
+        const ApiFailure(503, 'HTTP 503'),
+      );
+    });
+
     test(
       '4xx maps to ApiFailure with the API message and is not retried',
       () async {

@@ -358,5 +358,17 @@ void main() {
         verifyNever(() => location.openAppSettings());
       },
     );
+
+    blocTest<MapCubit, MapState>(
+      'denied (still requestable, MAP-03) opens no settings screen',
+      build: () => MapCubit(location),
+      seed: () => const MapState(status: MapStatus.denied),
+      act: (cubit) => cubit.openSettings(),
+      expect: () => const <MapState>[],
+      verify: (_) {
+        verifyNever(() => location.openAppSettings());
+        verifyNever(() => location.openLocationSettings());
+      },
+    );
   });
 }

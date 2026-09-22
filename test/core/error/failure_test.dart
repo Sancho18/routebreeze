@@ -52,4 +52,28 @@ void main() {
       );
     });
   });
+
+  group('Failure equality', () {
+    test('two instances of the same variant are equal (value objects)', () {
+      const builders = <Failure Function()>[
+        NoConnection.new,
+        TimeoutFailure.new,
+        PermissionDenied.new,
+        PermissionDeniedForever.new,
+        ServiceDisabled.new,
+      ];
+      for (final build in builders) {
+        expect(build(), build());
+        expect(build().hashCode, build().hashCode);
+      }
+      expect((Unknown.new)('cause'), const Unknown('cause'));
+      expect((ApiFailure.new)(500, 'boom'), const ApiFailure(500, 'boom'));
+    });
+
+    test('different variants are not equal', () {
+      expect(const NoConnection(), isNot(const TimeoutFailure()));
+      expect(const PermissionDenied(), isNot(const PermissionDeniedForever()));
+      expect(const Unknown('a'), isNot(const Unknown('b')));
+    });
+  });
 }

@@ -279,6 +279,29 @@ void main() {
       expect(markerIds(mapsBuilt.last), contains('me'));
     });
 
+    testWidgets('a recalculation badge and the GPS error show together, '
+        'badge above the error (RECALC-04, edge case)', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          badge: NavigationBadge.recalculated,
+          error: 'Perdemos o sinal de GPS',
+        ),
+      );
+
+      final chip = find.widgetWithText(RbStatusChip, 'Rota recalculada');
+      final error = find.text('Perdemos o sinal de GPS');
+      expect(chip, findsOneWidget);
+      expect(error, findsOneWidget);
+      expect(
+        tester.getBottomLeft(chip).dy,
+        lessThanOrEqualTo(tester.getTopLeft(error).dy - RbSpace.s2),
+      );
+    });
+
     testWidgets('"Recentralizar" appears only while not following and '
         'recenters (NAV-03)', (tester) async {
       await pumpScreen(

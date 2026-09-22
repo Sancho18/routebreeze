@@ -782,6 +782,30 @@ void main() {
       });
     });
 
+    test('a stream error while waiting for GPS (before "Iniciar") shows the '
+        'message and resubscribes 5 s later (NAV-01, edge case)', () {
+      fakeAsync((async) {
+        final cubit = build(async)..prepare();
+        async.flushMicrotasks();
+        expect(cubit.state.phase, NavigationPhase.waitingGps);
+
+        fixes.addError(StateError('gps off'));
+        async.flushMicrotasks();
+
+        expect(cubit.state.error, 'Perdemos o sinal de GPS');
+        expect(cubit.state.phase, NavigationPhase.waitingGps);
+        expect(cubit.state.canStart, isFalse);
+        expect(fixes.hasListener, isFalse);
+
+        async.elapse(const Duration(seconds: 5));
+        expect(fixes.hasListener, isTrue);
+        emitFix(async, onRoute());
+        expect(cubit.state.error, isNull);
+        expect(cubit.state.canStart, isTrue);
+        cubit.close();
+      });
+    });
+
     test('a stream that ends is resubscribed on resume (NAV-08)', () {
       fakeAsync((async) {
         final cubit = navigating(async);

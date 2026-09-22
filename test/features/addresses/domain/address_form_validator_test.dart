@@ -33,6 +33,24 @@ void main() {
       expect(result.errors, isEmpty);
     });
 
+    test('the result is a value: equal fields give an equal result '
+        '(ADDR-10)', () {
+      final fields = [valid('a'), valid('b'), valid('c')];
+
+      expect(
+        AddressFormValidator.validate(fields),
+        AddressFormValidator.validate(List.of(fields)),
+      );
+      expect(
+        AddressFormValidator.validate(fields),
+        const ValidationResult({}, true),
+      );
+      expect(
+        AddressFormValidator.validate([valid('a'), empty('b'), valid('c')]),
+        const ValidationResult({'b': 'Campo obrigatório'}, false),
+      );
+    });
+
     test('empty field → "Campo obrigatório" under it; form invalid', () {
       final result = AddressFormValidator.validate([
         valid('a'),

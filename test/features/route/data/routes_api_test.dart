@@ -232,6 +232,23 @@ void main() {
       }
     });
 
+    test(
+      'a leg that is not an object → ApiFailure (ROUTE-06, edge case)',
+      () async {
+        await expectLater(
+          api(
+            '{"routes":[{"distanceMeters":12345,"duration":"605s",'
+            '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
+            '"legs":[{"distanceMeters":4000,"duration":"200s"},'
+            '"leg",'
+            '{"distanceMeters":4000,"duration":"200s"}],'
+            '"optimizedIntermediateWaypointIndex":[1,0]}]}',
+          ).computeRoutes(request),
+          throwsA(invalid),
+        );
+      },
+    );
+
     group('non-numeric totals → ApiFailure (edge case)', () {
       test('duration that is not "<seconds>s"', () async {
         await expectLater(

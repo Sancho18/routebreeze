@@ -183,6 +183,28 @@ void main() {
       });
     });
 
+    test('closing the cubit while the debounce is pending drops the '
+        'request (leaving the screen makes no Places call)', () {
+      fakeAsync((async) {
+        final cubit = build();
+        final token = field(cubit, 'f1').sessionToken;
+        stubAutocomplete(input: 'Av.', token: token);
+
+        cubit.onTextChanged('f1', 'Av.');
+        async.elapse(const Duration(milliseconds: 100));
+        cubit.close();
+        async.elapse(const Duration(seconds: 1));
+
+        verifyNever(
+          () => places.autocomplete(
+            input: any(named: 'input'),
+            sessionToken: any(named: 'sessionToken'),
+            bias: bias,
+          ),
+        );
+      });
+    });
+
     test('a response for text that changed meanwhile is ignored', () {
       fakeAsync((async) {
         final cubit = build();
