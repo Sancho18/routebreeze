@@ -1,0 +1,129 @@
+import 'package:flutter/material.dart' hide LockState;
+
+import 'core/di/injector.dart';
+import 'core/session/session_state.dart';
+import 'core/theme/rb_theme.dart';
+import 'core/theme/rb_tokens.dart';
+import 'features/lock/domain/relock_policy.dart';
+import 'features/lock/presentation/lock_cubit.dart';
+import 'features/lock/presentation/lock_screen.dart';
+
+/// Root widget: theme, named routes and the lifecycle re-lock gate.
+///
+/// [now] is the clock used by the gate (tests inject a fake one).
+class RouteBreezeApp extends StatefulWidget {
+  const RouteBreezeApp({super.key, this.now = DateTime.now});
+
+  final DateTime Function() now;
+
+  @override
+  State<RouteBreezeApp> createState() => _RouteBreezeAppState();
+}
+
+class _RouteBreezeAppState extends State<RouteBreezeApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'RouteBreeze',
+      theme: buildRbTheme(),
+      navigatorKey: _navigatorKey,
+      initialRoute: '/lock',
+      routes: {
+        '/lock': (context) => LockScreen(
+          onUnlocked: () => Navigator.of(context).pushReplacementNamed('/map'),
+        ),
+        '/map': (_) => const MapPlaceholderScreen(),
+      },
+      builder: (_, child) => AppLifecycleGate(
+        navigatorKey: _navigatorKey,
+        now: widget.now,
+        child: child!,
+      ),
+    );
+  }
+}
+
+/// Stand-in for the Map screen until T20.
+class MapPlaceholderScreen extends StatelessWidget {
+  const MapPlaceholderScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Text('Mapa', style: RbText.title.copyWith(color: RbColors.ink)),
+      ),
+    );
+  }
+}
+
+/// Records when the app leaves the foreground and, on return, re-locks
+/// per [RelockPolicy] (LOCK-07, LOCK-08).
+class AppLifecycleGate extends StatefulWidget {
+  const AppLifecycleGate({
+    super.key,
+    required this.navigatorKey,
+    required this.child,
+    this.now = DateTime.now,
+    this.policy = const RelockPolicy(),
+  });
+
+  final GlobalKey<NavigatorState> navigatorKey;
+  final Widget child;
+  final DateTime Function() now;
+  final RelockPolicy policy;
+
+  @override
+  State<AppLifecycleGate> createState() => _AppLifecycleGateState();
+}
+
+class _AppLifecycleGateState extends State<AppLifecycleGate>
+    with WidgetsBindingObserver {
+  DateTime? _pausedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused || AppLifecycleState.hidden:
+        _pausedAt ??= widget.now();
+      case AppLifecycleState.resumed:
+        final pausedAt = _pausedAt;
+        _pausedAt = null;
+        if (pausedAt != null) _onResumed(widget.now().difference(pausedAt));
+      default:
+        break;
+    }
+  }
+
+  void _onResumed(Duration inBackground) {
+    final lockCubit = getIt<LockCubit>();
+    if (lockCubit.state.status != LockStatus.unlocked) return;
+    final relock = widget.policy.shouldRelock(
+      inBackground: inBackground,
+      navigationActive: getIt<SessionState>().isNavigationActive,
+    );
+    if (!relock) return;
+    lockCubit.lock();
+    widget.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+      '/lock',
+      (_) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

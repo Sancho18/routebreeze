@@ -8,6 +8,7 @@ import '../../features/lock/presentation/lock_cubit.dart';
 import '../config/env.dart';
 import '../network/api_client.dart';
 import '../network/connectivity_service.dart';
+import '../session/session_state.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -27,7 +28,8 @@ Future<void> configureDependencies({String? apiKey}) async {
     )
     ..registerLazySingleton<LockCubit>(
       () => LockCubit(getIt<LocalAuthService>()),
-    );
+    )
+    ..registerLazySingleton<SessionState>(SessionState.new);
 }
 
 Future<void> resetDependencies() => getIt.reset();
