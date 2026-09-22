@@ -3,7 +3,6 @@ import 'package:flutter/material.dart' hide LockState;
 import 'core/di/injector.dart';
 import 'core/session/session_state.dart';
 import 'core/theme/rb_theme.dart';
-import 'core/theme/rb_tokens.dart';
 import 'features/lock/domain/relock_policy.dart';
 import 'features/lock/presentation/lock_cubit.dart';
 import 'features/addresses/presentation/addresses_screen.dart';
@@ -11,6 +10,7 @@ import 'features/location/domain/fix.dart';
 import 'features/location/presentation/map_screen.dart';
 import 'features/addresses/domain/stop.dart';
 import 'features/lock/presentation/lock_screen.dart';
+import 'features/navigation/presentation/navigation_screen.dart';
 import 'features/route/domain/route_plan.dart';
 import 'features/route/presentation/route_screen.dart';
 
@@ -59,34 +59,32 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
           return RouteScreen(
             start: args.start,
             stops: args.stops,
-            onStart: (plan) =>
-                Navigator.of(context).pushNamed('/navigation', arguments: plan),
+            onStart: (plan) => Navigator.of(context).pushNamed(
+              '/navigation',
+              arguments: (plan: plan, start: args.start),
+            ),
           );
         },
-        '/navigation': (_) => const NavigationPlaceholderScreen(),
+        '/navigation': (context) {
+          final args =
+              ModalRoute.of(context)!.settings.arguments!
+                  as ({RoutePlan plan, Fix start});
+          return NavigationScreen(
+            plan: args.plan,
+            onExit: () => Navigator.of(context).pop(),
+            // The cubit already cleared the persisted route (OFFL-05).
+            onNewRoute: () => Navigator.of(context).pushNamedAndRemoveUntil(
+              '/addresses',
+              (route) => route.settings.name == '/map',
+              arguments: args.start,
+            ),
+          );
+        },
       },
       builder: (_, child) => AppLifecycleGate(
         navigatorKey: _navigatorKey,
         now: widget.now,
         child: child!,
-      ),
-    );
-  }
-}
-
-/// Stand-in for the Navigation screen until T35. Receives the [RoutePlan]
-/// as route arguments.
-class NavigationPlaceholderScreen extends StatelessWidget {
-  const NavigationPlaceholderScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          'Navegação',
-          style: RbText.title.copyWith(color: RbColors.ink),
-        ),
       ),
     );
   }
