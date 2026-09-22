@@ -104,11 +104,6 @@ class _RouteScreenState extends State<RouteScreen> {
         bloc: _cubit,
         builder: (context, state) => switch (state.status) {
           RouteStatus.idle || RouteStatus.loading => const _Loading(),
-          // SPEC_DEVIATION: ROUTE-06 says "stay on the Addresses screen"; the
-          // failure is shown here with the AppBar back affordance, and the
-          // Addresses form stays intact underneath.
-          // Reason: route computation is owned by the Route screen (T31 task
-          // note); returning keeps the typed fields (ADDR-12).
           RouteStatus.failure => _Failure(onRetry: _cubit.retry),
           RouteStatus.ready => _Ready(
             plan: state.plan!,

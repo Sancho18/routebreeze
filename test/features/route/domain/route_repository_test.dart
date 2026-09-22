@@ -147,6 +147,28 @@ void main() {
       },
     );
 
+    test('an origin more than 50 km from every stop still sends one request '
+        'and returns the ordered plan (edge case)', () async {
+      // ≈ 80 km north of the nearest stop.
+      const farOrigin = GeoPoint(-22.85, -46.6559);
+      when(() => api.computeRoutes(any())).thenAnswer(
+        (_) async => const RouteResponse(
+          encodedPolyline: encoded,
+          distanceMeters: 95000,
+          durationSeconds: 5400,
+          legs: legs,
+          optimizedIndex: [1, 0],
+        ),
+      );
+
+      final plan = await repository.plan(farOrigin, const [mid, far, near]);
+
+      expect(plan.origin, farOrigin);
+      expect(plan.stops.map((s) => s.stop), const [near, mid, far]);
+      expect(plan.distanceMeters, 95000);
+      verify(() => api.computeRoutes(any())).called(1);
+    });
+
     test('a storage failure does not discard the computed plan', () async {
       when(() => api.computeRoutes(any())).thenAnswer(
         (_) async => const RouteResponse(

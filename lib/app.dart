@@ -61,10 +61,6 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
           (context) => MapScreen(
             onContinue: (start) =>
                 Navigator.of(context).pushNamed('/addresses', arguments: start),
-            // SPEC_DEVIATION: OFFL-04 says "restore the Route screen"; the
-            // persisted plan opens the Navigation screen directly.
-            // Reason: RouteScreen recomputes the route from the stops, which
-            // would discard the persisted polyline and visited flags.
             onResume: (plan, start) => Navigator.of(
               context,
             ).pushNamed('/navigation', arguments: (plan: plan, start: start)),

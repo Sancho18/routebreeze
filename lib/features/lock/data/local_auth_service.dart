@@ -30,11 +30,11 @@ class LocalAuthServiceImpl implements LocalAuthService {
     }
   }
 
-  // SPEC_DEVIATION: design.md folds noBiometricHardware/noBiometricsEnrolled
-  // into noCredentials. They are mapped to `unavailable` instead.
-  // Reason: with biometricOnly=false a missing credential surfaces as
-  // noCredentialsSet; these codes mean the platform could not authenticate at
-  // all, and "configure a screen lock" would mislead a user who has one.
+  // noBiometricHardware/noBiometricsEnrolled map to `unavailable`, not to
+  // noCredentials as design.md first sketched: with biometricOnly=false a
+  // missing credential surfaces as noCredentialsSet, so these codes mean the
+  // platform could not authenticate at all, and "configure a screen lock"
+  // would mislead a user who has one.
   static AuthResult _map(LocalAuthExceptionCode code) => switch (code) {
     // authInProgress: another prompt is already open and will answer; this
     // attempt is a no-op, not a failure.

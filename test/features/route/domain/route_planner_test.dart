@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:routebreeze/core/geo/geo_math.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/domain/route_planner.dart';
@@ -59,6 +60,21 @@ void main() {
       expect(request.origin, nearFar);
       expect(request.destination, near);
       expect(request.intermediates, const [mid]);
+    });
+
+    test('an origin more than 50 km from every stop still builds the request '
+        'with all stops (edge case: the Places bias is a hint)', () {
+      // ≈ 80 km north of the nearest stop.
+      const farOrigin = GeoPoint(-22.85, -46.6559);
+      for (final stop in const [near, mid, far]) {
+        expect(haversineMeters(farOrigin, stop.point), greaterThan(50000));
+      }
+
+      final request = planner.buildRequest(farOrigin, const [mid, far, near]);
+
+      expect(request.origin, farOrigin);
+      expect(request.destination, far);
+      expect(request.intermediates, const [mid, near]);
     });
 
     test('no stops → ArgumentError', () {
