@@ -43,6 +43,12 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
         '/map': (context) => MapScreen(
           onContinue: (start) =>
               Navigator.of(context).pushNamed('/addresses', arguments: start),
+          // SPEC_DEVIATION: OFFL-04 says "restore the Route screen"; the
+          // persisted plan opens the Navigation screen directly.
+          // Reason: RouteScreen recomputes the route from the stops, which
+          // would discard the persisted polyline and visited flags.
+          onResume: (plan, start) => Navigator.of(context)
+              .pushNamed('/navigation', arguments: (plan: plan, start: start)),
         ),
         '/addresses': (context) {
           final start = ModalRoute.of(context)!.settings.arguments! as Fix;
@@ -91,7 +97,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
 }
 
 /// Records when the app leaves the foreground and, on return, re-locks
-/// per [RelockPolicy] (LOCK-07, LOCK-08).
+/// per [RelockPolicy] (LOCK-07, LOCK-08). Pauses the live navigation while
+/// in background and resumes it on return (NAV-08).
 class AppLifecycleGate extends StatefulWidget {
   const AppLifecycleGate({
     super.key,
@@ -130,7 +137,10 @@ class _AppLifecycleGateState extends State<AppLifecycleGate>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused || AppLifecycleState.hidden:
-        _pausedAt ??= widget.now();
+        if (_pausedAt == null) {
+          _pausedAt = widget.now();
+          getIt<SessionState>().onPause?.call();
+        }
       case AppLifecycleState.resumed:
         final pausedAt = _pausedAt;
         _pausedAt = null;
@@ -141,13 +151,18 @@ class _AppLifecycleGateState extends State<AppLifecycleGate>
   }
 
   void _onResumed(Duration inBackground) {
+    final session = getIt<SessionState>();
     final lockCubit = getIt<LockCubit>();
-    if (lockCubit.state.status != LockStatus.unlocked) return;
-    final relock = widget.policy.shouldRelock(
-      inBackground: inBackground,
-      navigationActive: getIt<SessionState>().isNavigationActive,
-    );
-    if (!relock) return;
+    final relock =
+        lockCubit.state.status == LockStatus.unlocked &&
+        widget.policy.shouldRelock(
+          inBackground: inBackground,
+          navigationActive: session.isNavigationActive,
+        );
+    if (!relock) {
+      session.onResume?.call();
+      return;
+    }
     lockCubit.lock();
     widget.navigatorKey.currentState?.pushNamedAndRemoveUntil(
       '/lock',

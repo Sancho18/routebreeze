@@ -45,7 +45,10 @@ Future<void> configureDependencies({String? apiKey}) async {
     ..registerLazySingleton<RouteRepository>(
       () => RouteRepository(getIt<RoutesApi>(), getIt<RouteStorage>()),
     )
-    ..registerFactory<MapCubit>(() => MapCubit(getIt<LocationService>()))
+    ..registerFactory<MapCubit>(
+      () =>
+          MapCubit(getIt<LocationService>(), routes: getIt<RouteRepository>()),
+    )
     ..registerFactoryParam<AddressFormCubit, GeoPoint, void>(
       (bias, _) => AddressFormCubit(getIt<PlacesApi>(), bias: bias),
     )

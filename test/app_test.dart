@@ -107,5 +107,30 @@ void main() {
       expect(find.byType(LockScreen), findsNothing);
       verify(() => auth.authenticate()).called(1);
     });
+
+    testWidgets('background pauses the navigation and foreground resumes it '
+        '(NAV-08)', (tester) async {
+      await bootAndUnlock(tester);
+      final events = <String>[];
+      final session = getIt<SessionState>();
+      session.isNavigationActive = true;
+      session.onPause = () {
+        events.add('pause');
+      };
+      session.onResume = () {
+        events.add('resume');
+      };
+
+      await setLifecycle(tester, AppLifecycleState.inactive);
+      await setLifecycle(tester, AppLifecycleState.paused);
+      expect(events, ['pause']);
+
+      clock = clock.add(const Duration(minutes: 5));
+      await setLifecycle(tester, AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(events, ['pause', 'resume']);
+      expect(find.byType(MapScreen), findsOneWidget);
+    });
   });
 }

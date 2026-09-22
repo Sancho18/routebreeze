@@ -6,6 +6,7 @@ import '../../../core/di/injector.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
+import '../../route/domain/route_plan.dart';
 import '../domain/fix.dart';
 import 'map_cubit.dart';
 
@@ -15,16 +16,22 @@ typedef MapBuilder = Widget Function(BuildContext context, Fix start);
 
 /// Map screen: start fix on a map at zoom 16 with the "Partida" marker,
 /// permission/service cards with the spec copy and the "Para onde vamos?"
-/// action enabled only when the start is known (MAP-02..MAP-07).
+/// action enabled only when the start is known (MAP-02..MAP-07). A
+/// persisted, unfinished route is offered with "Continuar rota?" (OFFL-04).
 class MapScreen extends StatefulWidget {
   const MapScreen({
     super.key,
     required this.onContinue,
+    required this.onResume,
     this.cubit,
     this.mapBuilder,
   });
 
   final void Function(Fix start) onContinue;
+
+  /// "Continuar" on the resume offer: the persisted [RoutePlan] and the
+  /// current start fix.
+  final void Function(RoutePlan plan, Fix start) onResume;
 
   /// Overrides the cubit from `getIt` (tests).
   final MapCubit? cubit;
@@ -33,6 +40,11 @@ class MapScreen extends StatefulWidget {
   final MapBuilder? mapBuilder;
 
   static const String continueLabel = 'Para onde vamos?';
+  static const String resumeTitle = 'Continuar rota?';
+  static const String resumeBody =
+      'Você tem uma rota em andamento salva neste aparelho.';
+  static const String resumeAccept = 'Continuar';
+  static const String resumeDismiss = 'Nova rota';
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -53,11 +65,30 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 
+  Future<void> _offerResume(BuildContext context, MapState state) async {
+    final plan = state.resumable;
+    final start = state.start;
+    if (plan == null || start == null) return;
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _ResumeDialog(),
+    );
+    if (!mounted || accepted == null) return;
+    if (accepted) {
+      widget.onResume(plan, start);
+    } else {
+      _cubit.dismissResume();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mapBuilder = widget.mapBuilder ?? _googleMap;
-    return BlocBuilder<MapCubit, MapState>(
+    return BlocConsumer<MapCubit, MapState>(
       bloc: _cubit,
+      listenWhen: (previous, current) =>
+          previous.resumable == null && current.resumable != null,
+      listener: _offerResume,
       builder: (context, state) {
         final start = state.start;
         return Scaffold(
@@ -103,6 +134,45 @@ Widget _googleMap(BuildContext context, Fix start) {
     myLocationButtonEnabled: false,
     zoomControlsEnabled: false,
   );
+}
+
+/// "Continuar rota?" with "Nova rota" (false) and "Continuar" (true).
+class _ResumeDialog extends StatelessWidget {
+  const _ResumeDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final action = TextButton.styleFrom(
+      foregroundColor: RbColors.brand,
+      textStyle: RbText.bodyStrong,
+    );
+    return AlertDialog(
+      backgroundColor: RbColors.surface200,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(RbRadius.lg),
+      ),
+      title: Text(
+        MapScreen.resumeTitle,
+        style: RbText.heading.copyWith(color: RbColors.ink),
+      ),
+      content: Text(
+        MapScreen.resumeBody,
+        style: RbText.body.copyWith(color: RbColors.inkMuted),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          style: action,
+          child: const Text(MapScreen.resumeDismiss),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: action,
+          child: const Text(MapScreen.resumeAccept),
+        ),
+      ],
+    );
+  }
 }
 
 /// `surface-200` card with the copy and action for each [MapStatus], plus

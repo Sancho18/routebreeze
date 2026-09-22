@@ -4,14 +4,20 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
+import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/route_repository.dart';
 
 class MockLocationService extends Mock implements LocationService {}
 
+class MockRouteRepository extends Mock implements RouteRepository {}
+
 void main() {
   late MockLocationService location;
+  late MockRouteRepository routes;
 
   final at = DateTime.utc(2026, 9, 22, 10);
   Fix fix(double accuracy) =>
@@ -19,6 +25,8 @@ void main() {
 
   setUp(() {
     location = MockLocationService();
+    routes = MockRouteRepository();
+    when(() => routes.clear()).thenAnswer((_) async {});
     when(() => location.openAppSettings()).thenAnswer((_) async {});
     when(() => location.openLocationSettings()).thenAnswer((_) async {});
   });
@@ -44,6 +52,96 @@ void main() {
     expect(MapCubit(location).state, const MapState());
     expect(MapCubit(location).state.status, MapStatus.checking);
     expect(MapCubit(location).state.start, isNull);
+    expect(MapCubit(location).state.resumable, isNull);
+  });
+
+  group('resume (OFFL-04, OFFL-05)', () {
+    final plan = RoutePlan(
+      origin: const GeoPoint(-23.5614, -46.6559),
+      stops: const [
+        RouteStop(
+          stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
+          order: 1,
+          visited: true,
+        ),
+        RouteStop(
+          stop: Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70)),
+          order: 2,
+          visited: false,
+        ),
+      ],
+      polyline: const [GeoPoint(-23.5614, -46.6559), GeoPoint(-23.60, -46.70)],
+      distanceMeters: 6000,
+      durationSeconds: 480,
+      legs: const [],
+      computedAt: at,
+    );
+
+    MapCubit buildReady() {
+      stubAccess(LocationAccess.granted);
+      stubFix(fix(12));
+      return MapCubit(location, routes: routes);
+    }
+
+    blocTest<MapCubit, MapState>(
+      'a persisted unfinished route → ready with resumable',
+      build: () {
+        when(() => routes.loadActive()).thenAnswer((_) async => plan);
+        return buildReady();
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => [
+        MapState(status: MapStatus.ready, start: fix(12), resumable: plan),
+      ],
+    );
+
+    blocTest<MapCubit, MapState>(
+      'no persisted route → resumable null',
+      build: () {
+        when(() => routes.loadActive()).thenAnswer((_) async => null);
+        return buildReady();
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => [MapState(status: MapStatus.ready, start: fix(12))],
+    );
+
+    blocTest<MapCubit, MapState>(
+      'a persisted route with every stop visited → resumable null',
+      build: () {
+        when(() => routes.loadActive())
+            .thenAnswer((_) async => plan.markVisited('pb'));
+        return buildReady();
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => [MapState(status: MapStatus.ready, start: fix(12))],
+    );
+
+    blocTest<MapCubit, MapState>(
+      'a storage error is ignored → resumable null',
+      build: () {
+        when(() => routes.loadActive()).thenThrow(StateError('corrupt'));
+        return buildReady();
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => [MapState(status: MapStatus.ready, start: fix(12))],
+    );
+
+    blocTest<MapCubit, MapState>(
+      '"Nova rota" clears the persisted route and the offer',
+      build: () {
+        when(() => routes.loadActive()).thenAnswer((_) async => plan);
+        return buildReady();
+      },
+      act: (cubit) async {
+        await cubit.init();
+        await cubit.dismissResume();
+      },
+      expect: () => [
+        MapState(status: MapStatus.ready, start: fix(12), resumable: plan),
+        MapState(status: MapStatus.ready, start: fix(12)),
+      ],
+      verify: (_) => verify(() => routes.clear()).called(1),
+    );
   });
 
   group('init', () {

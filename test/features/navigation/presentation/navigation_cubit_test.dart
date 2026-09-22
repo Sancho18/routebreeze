@@ -490,6 +490,30 @@ void main() {
       });
     });
 
+    test('prepare hands pause/resume to the session for the lifecycle gate; '
+        'stop clears them (NAV-08)', () {
+      fakeAsync((async) {
+        final cubit = build(async);
+        expect(session.onPause, isNull);
+        expect(session.onResume, isNull);
+
+        cubit.prepare();
+        async.flushMicrotasks();
+        expect(session.onPause, isNotNull);
+        expect(session.onResume, isNotNull);
+
+        session.onPause!();
+        expect(fixes.hasListener, isFalse);
+        session.onResume!();
+        expect(fixes.hasListener, isTrue);
+
+        cubit.stop();
+        expect(session.onPause, isNull);
+        expect(session.onResume, isNull);
+        cubit.close();
+      });
+    });
+
     test('resume without a pause does not subscribe twice (NAV-08)', () {
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -529,6 +553,8 @@ void main() {
         expect(fixes.hasListener, isFalse);
         expect(online.hasListener, isFalse);
         expect(session.isNavigationActive, isFalse);
+        expect(session.onPause, isNull);
+        expect(session.onResume, isNull);
       });
     });
   });

@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
+import 'package:routebreeze/features/route/domain/route_plan.dart';
 
 class MockMapCubit extends MockCubit<MapState> implements MapCubit {}
 
 void main() {
   late MockMapCubit cubit;
   late List<Fix> continued;
+  late List<(RoutePlan, Fix)> resumed;
   late List<Fix> mapsBuilt;
 
   const mapKey = Key('map-placeholder');
@@ -33,14 +36,20 @@ void main() {
   setUp(() {
     cubit = MockMapCubit();
     continued = [];
+    resumed = [];
     mapsBuilt = [];
     when(() => cubit.init()).thenAnswer((_) async {});
+    when(() => cubit.dismissResume()).thenAnswer((_) async {});
     when(() => cubit.retry()).thenAnswer((_) async {});
     when(() => cubit.openSettings()).thenAnswer((_) async {});
   });
 
-  Future<void> pumpMap(WidgetTester tester, MapState state) async {
-    whenListen(cubit, const Stream<MapState>.empty(), initialState: state);
+  Future<void> pumpMap(
+    WidgetTester tester,
+    MapState state, {
+    Stream<MapState> states = const Stream.empty(),
+  }) async {
+    whenListen(cubit, states, initialState: state);
     await tester.pumpWidget(
       MaterialApp(
         home: MapScreen(
@@ -50,6 +59,7 @@ void main() {
             return const SizedBox.expand(key: mapKey);
           },
           onContinue: continued.add,
+          onResume: (plan, start) => resumed.add((plan, start)),
         ),
       ),
     );
@@ -190,5 +200,69 @@ void main() {
         verifyNever(() => cubit.openSettings());
       });
     }
+
+    group('resume offer (OFFL-04, OFFL-05)', () {
+      final plan = RoutePlan(
+        origin: const GeoPoint(-23.5614, -46.6559),
+        stops: const [
+          RouteStop(
+            stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
+            order: 1,
+            visited: false,
+          ),
+        ],
+        polyline: const [],
+        distanceMeters: 600,
+        durationSeconds: 60,
+        legs: const [],
+        computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+      );
+      final ready = MapState(status: MapStatus.ready, start: start);
+      final offered = MapState(
+        status: MapStatus.ready,
+        start: start,
+        resumable: plan,
+      );
+
+      Future<void> pumpOffer(WidgetTester tester) async {
+        await pumpMap(tester, ready, states: Stream.value(offered));
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(find.text('Continuar rota?'), findsOneWidget);
+      }
+
+      testWidgets('a resumable plan opens "Continuar rota?"; "Continuar" '
+          'hands the plan and the start fix over', (tester) async {
+        await pumpOffer(tester);
+
+        await tester.tap(find.widgetWithText(TextButton, 'Continuar'));
+        await tester.pumpAndSettle();
+
+        expect(resumed, [(plan, start)]);
+        expect(find.byType(AlertDialog), findsNothing);
+        verifyNever(() => cubit.dismissResume());
+      });
+
+      testWidgets('"Nova rota" dismisses the offer and clears the persisted '
+          'route', (tester) async {
+        await pumpOffer(tester);
+
+        await tester.tap(find.widgetWithText(TextButton, 'Nova rota'));
+        await tester.pumpAndSettle();
+
+        verify(() => cubit.dismissResume()).called(1);
+        expect(resumed, isEmpty);
+        expect(find.byType(AlertDialog), findsNothing);
+      });
+
+      testWidgets('ready without a persisted route shows no dialog', (
+        tester,
+      ) async {
+        await pumpMap(tester, ready);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AlertDialog), findsNothing);
+      });
+    });
   });
 }

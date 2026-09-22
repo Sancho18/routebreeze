@@ -173,6 +173,9 @@ class NavigationCubit extends Cubit<NavigationState> {
   /// fix of 50 m or better.
   void prepare() {
     emit(state.copyWith(phase: NavigationPhase.waitingGps));
+    _session
+      ..onPause = pause
+      ..onResume = resume;
     _subscribe();
     _connectivity.check().then((online) {
       if (!isClosed) onOnlineChanged(online);
@@ -242,6 +245,9 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   void _cancelAll() {
+    _session
+      ..onPause = null
+      ..onResume = null;
     _positions?.cancel();
     _positions = null;
     _online?.cancel();
