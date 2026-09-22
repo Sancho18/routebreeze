@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
@@ -65,6 +66,13 @@ void main() {
     );
     await tester.pump();
   }
+
+  Future<void> setLifecycle(WidgetTester tester, AppLifecycleState state) =>
+      tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        SystemChannels.lifecycle.name,
+        const StringCodec().encodeMessage(state.toString()),
+        (_) {},
+      );
 
   final ctaFinder = find.widgetWithText(RbPrimaryButton, 'Para onde vamos?');
 
@@ -200,6 +208,57 @@ void main() {
         verifyNever(() => cubit.openSettings());
       });
     }
+
+    group('coming back from Settings (MAP-04, MAP-05)', () {
+      for (final status in [
+        MapStatus.denied,
+        MapStatus.deniedForever,
+        MapStatus.serviceDisabled,
+      ]) {
+        testWidgets('${status.name}: resuming the app re-checks once', (
+          tester,
+        ) async {
+          await pumpMap(tester, MapState(status: status));
+
+          await setLifecycle(tester, AppLifecycleState.paused);
+          await setLifecycle(tester, AppLifecycleState.resumed);
+          await tester.pump();
+
+          verify(() => cubit.retry()).called(1);
+        });
+      }
+
+      for (final status in [
+        MapStatus.checking,
+        MapStatus.timeout,
+        MapStatus.imprecise,
+      ]) {
+        testWidgets('${status.name}: resuming the app does not re-check', (
+          tester,
+        ) async {
+          await pumpMap(tester, MapState(status: status));
+
+          await setLifecycle(tester, AppLifecycleState.paused);
+          await setLifecycle(tester, AppLifecycleState.resumed);
+          await tester.pump();
+
+          verifyNever(() => cubit.retry());
+        });
+      }
+
+      testWidgets('ready: resuming the app keeps the start fix', (
+        tester,
+      ) async {
+        await pumpMap(tester, MapState(status: MapStatus.ready, start: start));
+
+        await setLifecycle(tester, AppLifecycleState.paused);
+        await setLifecycle(tester, AppLifecycleState.resumed);
+        await tester.pump();
+
+        verifyNever(() => cubit.retry());
+        expect(find.byKey(mapKey), findsOneWidget);
+      });
+    });
 
     group('resume offer (OFFL-04, OFFL-05)', () {
       final plan = RoutePlan(

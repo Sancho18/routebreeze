@@ -50,19 +50,37 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   late final MapCubit _cubit = widget.cubit ?? getIt<MapCubit>();
+
+  /// Statuses whose action sends the user to Settings; coming back must
+  /// re-check without a tap (MAP-03..MAP-05).
+  static const Set<MapStatus> _recheckOnResume = {
+    MapStatus.denied,
+    MapStatus.deniedForever,
+    MapStatus.serviceDisabled,
+  };
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _cubit.init();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (widget.cubit == null) _cubit.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        _recheckOnResume.contains(_cubit.state.status)) {
+      _cubit.retry();
+    }
   }
 
   Future<void> _offerResume(BuildContext context, MapState state) async {
