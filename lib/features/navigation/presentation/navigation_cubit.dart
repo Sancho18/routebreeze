@@ -200,7 +200,6 @@ class NavigationCubit extends Cubit<NavigationState> {
   /// Stops the streams and leaves the route intact (NAV-07).
   void stop() {
     _cancelAll();
-    _session.isNavigationActive = false;
     emit(state.copyWith(phase: NavigationPhase.idle));
   }
 
@@ -247,7 +246,6 @@ class NavigationCubit extends Cubit<NavigationState> {
   @override
   Future<void> close() {
     _cancelAll();
-    _session.isNavigationActive = false;
     return super.close();
   }
 
@@ -260,10 +258,16 @@ class NavigationCubit extends Cubit<NavigationState> {
         .listen(_onFix, onError: _onStreamError, onDone: _onStreamEnded);
   }
 
+  /// Cancels every subscription and timer. The session hooks and the active
+  /// flag are cleared only while they are this cubit's: a stale cubit closing
+  /// after a newer one prepared must not remove the newer one's hooks.
   void _cancelAll() {
-    _session
-      ..onPause = null
-      ..onResume = null;
+    if (_session.onPause == pause) {
+      _session
+        ..onPause = null
+        ..onResume = null
+        ..isNavigationActive = false;
+    }
     _positions?.cancel();
     _positions = null;
     _online?.cancel();

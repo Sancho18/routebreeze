@@ -656,6 +656,37 @@ void main() {
       });
     });
 
+    test('closing a stale cubit leaves the hooks and the active flag of a '
+        'cubit prepared after it untouched (NAV-08, LOCK-08)', () {
+      fakeAsync((async) {
+        final first = build(async)..prepare();
+        async.flushMicrotasks();
+        final second = build(async)..prepare();
+        async.flushMicrotasks();
+        emitFix(async, onRoute());
+        second.start();
+        expect(session.isNavigationActive, isTrue);
+
+        first.close();
+        async.flushMicrotasks();
+
+        expect(session.isNavigationActive, isTrue);
+        expect(session.onPause, isNotNull);
+        expect(session.onResume, isNotNull);
+        session.onPause!();
+        expect(fixes.hasListener, isFalse);
+        session.onResume!();
+        expect(fixes.hasListener, isTrue);
+        expect(second.state.phase, NavigationPhase.navigating);
+
+        second.close();
+        async.flushMicrotasks();
+        expect(session.onPause, isNull);
+        expect(session.onResume, isNull);
+        expect(session.isNavigationActive, isFalse);
+      });
+    });
+
     test('resume without a pause does not subscribe twice (NAV-08)', () {
       fakeAsync((async) {
         final cubit = navigating(async);
