@@ -6,6 +6,8 @@ import 'core/theme/rb_theme.dart';
 import 'core/theme/rb_tokens.dart';
 import 'features/lock/domain/relock_policy.dart';
 import 'features/lock/presentation/lock_cubit.dart';
+import 'features/addresses/presentation/addresses_screen.dart';
+import 'features/location/domain/fix.dart';
 import 'features/location/presentation/map_screen.dart';
 import 'features/lock/presentation/lock_screen.dart';
 
@@ -39,7 +41,15 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
           onContinue: (start) =>
               Navigator.of(context).pushNamed('/addresses', arguments: start),
         ),
-        '/addresses': (_) => const AddressesPlaceholderScreen(),
+        '/addresses': (context) {
+          final start = ModalRoute.of(context)!.settings.arguments! as Fix;
+          return AddressesScreen(
+            start: start.point,
+            onConfirmed: (stops) => Navigator.of(context)
+                .pushNamed('/route', arguments: (start: start, stops: stops)),
+          );
+        },
+        '/route': (_) => const RoutePlaceholderScreen(),
       },
       builder: (_, child) => AppLifecycleGate(
         navigatorKey: _navigatorKey,
@@ -50,18 +60,16 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
   }
 }
 
-/// Stand-in for the Addresses screen until T24.
-class AddressesPlaceholderScreen extends StatelessWidget {
-  const AddressesPlaceholderScreen({super.key});
+/// Stand-in for the Route screen until T31. Receives
+/// `(start: Fix, stops: List<Stop>)` as route arguments.
+class RoutePlaceholderScreen extends StatelessWidget {
+  const RoutePlaceholderScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Text(
-          'Endereços',
-          style: RbText.title.copyWith(color: RbColors.ink),
-        ),
+        child: Text('Rota', style: RbText.title.copyWith(color: RbColors.ink)),
       ),
     );
   }

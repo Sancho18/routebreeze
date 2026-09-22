@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/di/injector.dart';
+import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/session/session_state.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
+import 'package:routebreeze/features/addresses/presentation/address_form_cubit.dart';
 import 'package:routebreeze/features/location/data/geolocator_location_service.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
@@ -28,6 +30,9 @@ void main() {
       expect(getIt<PlacesApi>(), isA<PlacesApiImpl>());
       expect(getIt<MapCubit>().state, const MapState());
       expect(identical(getIt<MapCubit>(), getIt<MapCubit>()), isFalse);
+      const bias = GeoPoint(-23.5, -46.6);
+      expect(getIt<AddressFormCubit>(param1: bias).bias, bias);
+      expect(getIt<AddressFormCubit>(param1: bias).state.fields, hasLength(3));
       expect(getIt<LockCubit>().state, const LockState());
       expect(identical(getIt<LockCubit>(), getIt<LockCubit>()), isTrue);
       expect(getIt<SessionState>().isNavigationActive, isFalse);
@@ -46,6 +51,7 @@ void main() {
     expect(getIt.isRegistered<LocationService>(), isFalse);
     expect(getIt.isRegistered<PlacesApi>(), isFalse);
     expect(getIt.isRegistered<MapCubit>(), isFalse);
+    expect(getIt.isRegistered<AddressFormCubit>(), isFalse);
     expect(getIt.isRegistered<LockCubit>(), isFalse);
     expect(getIt.isRegistered<SessionState>(), isFalse);
   });
