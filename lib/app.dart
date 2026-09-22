@@ -9,7 +9,10 @@ import 'features/lock/presentation/lock_cubit.dart';
 import 'features/addresses/presentation/addresses_screen.dart';
 import 'features/location/domain/fix.dart';
 import 'features/location/presentation/map_screen.dart';
+import 'features/addresses/domain/stop.dart';
 import 'features/lock/presentation/lock_screen.dart';
+import 'features/route/domain/route_plan.dart';
+import 'features/route/presentation/route_screen.dart';
 
 /// Root widget: theme, named routes and the lifecycle re-lock gate.
 ///
@@ -49,7 +52,18 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
                 .pushNamed('/route', arguments: (start: start, stops: stops)),
           );
         },
-        '/route': (_) => const RoutePlaceholderScreen(),
+        '/route': (context) {
+          final args =
+              ModalRoute.of(context)!.settings.arguments!
+                  as ({Fix start, List<Stop> stops});
+          return RouteScreen(
+            start: args.start,
+            stops: args.stops,
+            onStart: (plan) =>
+                Navigator.of(context).pushNamed('/navigation', arguments: plan),
+          );
+        },
+        '/navigation': (_) => const NavigationPlaceholderScreen(),
       },
       builder: (_, child) => AppLifecycleGate(
         navigatorKey: _navigatorKey,
@@ -60,16 +74,19 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
   }
 }
 
-/// Stand-in for the Route screen until T31. Receives
-/// `(start: Fix, stops: List<Stop>)` as route arguments.
-class RoutePlaceholderScreen extends StatelessWidget {
-  const RoutePlaceholderScreen({super.key});
+/// Stand-in for the Navigation screen until T35. Receives the [RoutePlan]
+/// as route arguments.
+class NavigationPlaceholderScreen extends StatelessWidget {
+  const NavigationPlaceholderScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Text('Rota', style: RbText.title.copyWith(color: RbColors.ink)),
+        child: Text(
+          'Navegação',
+          style: RbText.title.copyWith(color: RbColors.ink),
+        ),
       ),
     );
   }
