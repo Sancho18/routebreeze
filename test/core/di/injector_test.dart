@@ -11,7 +11,9 @@ import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
+import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
+import 'package:routebreeze/features/route/domain/route_repository.dart';
 
 void main() {
   tearDown(resetDependencies);
@@ -30,6 +32,12 @@ void main() {
       expect(getIt<LocationService>(), isA<GeolocatorLocationService>());
       expect(getIt<PlacesApi>(), isA<PlacesApiImpl>());
       expect(getIt<RoutesApi>(), isA<RoutesApiImpl>());
+      expect(getIt<RouteStorage>(), isA<RouteStorageImpl>());
+      expect(getIt<RouteRepository>(), isA<RouteRepository>());
+      expect(
+        identical(getIt<RouteRepository>(), getIt<RouteRepository>()),
+        isTrue,
+      );
       expect(getIt<MapCubit>().state, const MapState());
       expect(identical(getIt<MapCubit>(), getIt<MapCubit>()), isFalse);
       const bias = GeoPoint(-23.5, -46.6);
@@ -53,6 +61,8 @@ void main() {
     expect(getIt.isRegistered<LocationService>(), isFalse);
     expect(getIt.isRegistered<PlacesApi>(), isFalse);
     expect(getIt.isRegistered<RoutesApi>(), isFalse);
+    expect(getIt.isRegistered<RouteStorage>(), isFalse);
+    expect(getIt.isRegistered<RouteRepository>(), isFalse);
     expect(getIt.isRegistered<MapCubit>(), isFalse);
     expect(getIt.isRegistered<AddressFormCubit>(), isFalse);
     expect(getIt.isRegistered<LockCubit>(), isFalse);

@@ -10,7 +10,9 @@ import '../../features/location/domain/location_service.dart';
 import '../../features/location/presentation/map_cubit.dart';
 import '../../features/lock/data/local_auth_service.dart';
 import '../../features/lock/presentation/lock_cubit.dart';
+import '../../features/route/data/route_storage.dart';
 import '../../features/route/data/routes_api.dart';
+import '../../features/route/domain/route_repository.dart';
 import '../config/env.dart';
 import '../geo/geo_point.dart';
 import '../network/api_client.dart';
@@ -36,6 +38,10 @@ Future<void> configureDependencies({String? apiKey}) async {
     ..registerLazySingleton<LocationService>(GeolocatorLocationService.new)
     ..registerLazySingleton<PlacesApi>(() => PlacesApiImpl(getIt<Dio>()))
     ..registerLazySingleton<RoutesApi>(() => RoutesApiImpl(getIt<Dio>()))
+    ..registerLazySingleton<RouteStorage>(RouteStorageImpl.new)
+    ..registerLazySingleton<RouteRepository>(
+      () => RouteRepository(getIt<RoutesApi>(), getIt<RouteStorage>()),
+    )
     ..registerFactory<MapCubit>(() => MapCubit(getIt<LocationService>()))
     ..registerFactoryParam<AddressFormCubit, GeoPoint, void>(
       (bias, _) => AddressFormCubit(getIt<PlacesApi>(), bias: bias),
