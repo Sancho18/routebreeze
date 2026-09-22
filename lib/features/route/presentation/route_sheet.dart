@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/rb_tokens.dart';
@@ -35,8 +37,16 @@ class RouteSheet extends StatelessWidget {
   /// Key of the row for the stop with [placeId].
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');
 
+  /// The stop list never grows past this (or 40% of the screen): heading,
+  /// totals and actions stay visible and the list scrolls (B-05).
+  static const double maxListHeight = 320;
+
   @override
   Widget build(BuildContext context) {
+    final listHeight = math.min(
+      maxListHeight,
+      MediaQuery.sizeOf(context).height * 0.4,
+    );
     return Container(
       padding: const EdgeInsets.all(RbSpace.s3),
       decoration: const BoxDecoration(
@@ -51,7 +61,8 @@ class RouteSheet extends StatelessWidget {
           children: [
             Text(heading, style: RbText.heading.copyWith(color: RbColors.ink)),
             const SizedBox(height: RbSpace.s2),
-            Flexible(
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: listHeight),
               child: ListView.separated(
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,

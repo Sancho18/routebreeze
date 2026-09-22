@@ -223,6 +223,79 @@ void main() {
       expect(find.byType(RbStatusChip), findsNWidgets(3));
     });
 
+    testWidgets('with 12 stops on a 640 px screen the heading, totals and '
+        '"Iniciar" stay visible and the list scrolls', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final many = RoutePlan(
+        origin: origin,
+        stops: [
+          for (var i = 1; i <= 12; i++)
+            RouteStop(
+              stop: Stop(
+                'p$i',
+                'Avenida Brigadeiro Faria Lima, $i - Itaim Bibi, '
+                    'São Paulo - SP, 04538-132, Brasil',
+                origin,
+              ),
+              order: i,
+              visited: false,
+            ),
+        ],
+        polyline: const [origin],
+        distanceMeters: 12345,
+        durationSeconds: 605,
+        legs: const [],
+        computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: RouteSheet(
+                    plan: many,
+                    startEnabled: true,
+                    onStart: () {},
+                    onMarkVisited: () {},
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      final heading = find.text(RouteSheet.heading);
+      expect(heading, findsOneWidget);
+      expect(tester.getTopLeft(heading).dy, greaterThanOrEqualTo(0));
+      expect(find.text('12,3 km · 10 min'), findsOneWidget);
+      expect(startFinder, findsOneWidget);
+      expect(tester.getBottomLeft(startFinder).dy, lessThanOrEqualTo(640));
+      final sheet = tester.getRect(find.byType(RouteSheet));
+      expect(sheet.top, greaterThanOrEqualTo(0));
+      expect(sheet.height, lessThanOrEqualTo(640));
+      expect(row('p1'), findsOneWidget);
+      expect(row('p12'), findsNothing);
+
+      await tester.scrollUntilVisible(
+        row('p12'),
+        200,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
+
+      expect(row('p12'), findsOneWidget);
+      expect(heading, findsOneWidget);
+      expect(startFinder, findsOneWidget);
+    });
+
     testWidgets('renders the footer below the actions', (tester) async {
       const footerKey = Key('footer');
       await pumpSheet(
