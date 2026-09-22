@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../../features/addresses/data/places_api.dart';
 import '../../features/location/data/geolocator_location_service.dart';
 import '../../features/location/domain/location_service.dart';
 import '../../features/location/presentation/map_cubit.dart';
@@ -30,6 +31,7 @@ Future<void> configureDependencies({String? apiKey}) async {
       () => LocalAuthServiceImpl(LocalAuthentication()),
     )
     ..registerLazySingleton<LocationService>(GeolocatorLocationService.new)
+    ..registerLazySingleton<PlacesApi>(() => PlacesApiImpl(getIt<Dio>()))
     ..registerFactory<MapCubit>(() => MapCubit(getIt<LocationService>()))
     ..registerLazySingleton<LockCubit>(
       () => LockCubit(getIt<LocalAuthService>()),

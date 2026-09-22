@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/session/session_state.dart';
+import 'package:routebreeze/features/addresses/data/places_api.dart';
 import 'package:routebreeze/features/location/data/geolocator_location_service.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
@@ -24,6 +25,7 @@ void main() {
       expect(getIt<ConnectivityService>(), isA<ConnectivityServiceImpl>());
       expect(getIt<LocalAuthService>(), isA<LocalAuthServiceImpl>());
       expect(getIt<LocationService>(), isA<GeolocatorLocationService>());
+      expect(getIt<PlacesApi>(), isA<PlacesApiImpl>());
       expect(getIt<MapCubit>().state, const MapState());
       expect(identical(getIt<MapCubit>(), getIt<MapCubit>()), isFalse);
       expect(getIt<LockCubit>().state, const LockState());
@@ -42,6 +44,7 @@ void main() {
     expect(getIt.isRegistered<ConnectivityService>(), isFalse);
     expect(getIt.isRegistered<LocalAuthService>(), isFalse);
     expect(getIt.isRegistered<LocationService>(), isFalse);
+    expect(getIt.isRegistered<PlacesApi>(), isFalse);
     expect(getIt.isRegistered<MapCubit>(), isFalse);
     expect(getIt.isRegistered<LockCubit>(), isFalse);
     expect(getIt.isRegistered<SessionState>(), isFalse);
