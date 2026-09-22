@@ -51,11 +51,28 @@ class RoutePlanner {
 
   /// Visiting order: intermediates as permuted by [optimizedIndex]
   /// (`optimizedIntermediateWaypointIndex`), then the destination
-  /// (ROUTE-02). A missing index keeps the request order.
+  /// (ROUTE-02). A missing index keeps the request order. Throws
+  /// [ArgumentError] when the index is not a permutation of the
+  /// intermediates (a stop would be dropped or duplicated).
   List<Stop> order(RouteRequest request, List<int>? optimizedIndex) {
-    final intermediates = optimizedIndex == null || optimizedIndex.isEmpty
-        ? request.intermediates
-        : [for (final i in optimizedIndex) request.intermediates[i]];
-    return [...intermediates, request.destination];
+    if (optimizedIndex == null || optimizedIndex.isEmpty) {
+      return [...request.intermediates, request.destination];
+    }
+    final n = request.intermediates.length;
+    final valid =
+        optimizedIndex.length == n &&
+        optimizedIndex.toSet().length == n &&
+        optimizedIndex.every((i) => i >= 0 && i < n);
+    if (!valid) {
+      throw ArgumentError.value(
+        optimizedIndex,
+        'optimizedIndex',
+        'must be a permutation of 0..${n - 1}',
+      );
+    }
+    return [
+      for (final i in optimizedIndex) request.intermediates[i],
+      request.destination,
+    ];
   }
 }

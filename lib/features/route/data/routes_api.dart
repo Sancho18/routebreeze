@@ -99,7 +99,9 @@ class RoutesApiImpl implements RoutesApi {
   };
 
   /// The first route must exist and carry exactly [expectedLegs] legs
-  /// (intermediates + 1); anything else is a failed request.
+  /// (intermediates + 1), numeric totals and, when present, an optimized
+  /// index that is a permutation of the intermediates; anything else is a
+  /// failed request.
   static RouteResponse _parse(Map<String, dynamic>? data, int expectedLegs) {
     final routes = data?['routes'];
     if (routes is! List || routes.isEmpty || routes.first is! Map) {
@@ -118,23 +120,48 @@ class RoutesApiImpl implements RoutesApi {
       durationSeconds: _seconds(route['duration']),
       legs: [
         for (final leg in legs)
-          RouteLeg(
-            distanceMeters: _meters(leg is Map ? leg['distanceMeters'] : null),
-            durationSeconds: _seconds(leg is Map ? leg['duration'] : null),
-          ),
+          if (leg is Map)
+            RouteLeg(
+              distanceMeters: _meters(leg['distanceMeters']),
+              durationSeconds: _seconds(leg['duration']),
+            )
+          else
+            throw invalidResponse,
       ],
       optimizedIndex: optimized is List
-          ? [for (final i in optimized) (i as num).toInt()]
+          ? _permutation(optimized, expectedLegs - 1)
           : null,
     );
   }
 
-  /// Proto JSON omits zero values.
-  static int _meters(Object? value) => value is num ? value.toInt() : 0;
+  /// [index] must hold every intermediate position `0..n-1` exactly once.
+  static List<int> _permutation(List<Object?> index, int n) {
+    final parsed = [
+      for (final i in index)
+        if (i is num) i.toInt() else throw invalidResponse,
+    ];
+    final valid =
+        parsed.length == n &&
+        parsed.toSet().length == n &&
+        parsed.every((i) => i >= 0 && i < n);
+    if (!valid) throw invalidResponse;
+    return parsed;
+  }
 
-  /// `"605s"` (optionally fractional) → 605; absent → 0.
+  /// Proto JSON omits zero values: absent → 0; anything but a number fails.
+  static int _meters(Object? value) => switch (value) {
+    null => 0,
+    num v => v.toInt(),
+    _ => throw invalidResponse,
+  };
+
+  /// `"605s"` (optionally fractional) → 605; absent → 0; anything else
+  /// fails.
   static int _seconds(Object? value) {
-    if (value is! String || !value.endsWith('s')) return 0;
-    return double.parse(value.substring(0, value.length - 1)).round();
+    if (value == null) return 0;
+    if (value is! String || !value.endsWith('s')) throw invalidResponse;
+    final seconds = double.tryParse(value.substring(0, value.length - 1));
+    if (seconds == null || !seconds.isFinite) throw invalidResponse;
+    return seconds.round();
   }
 }

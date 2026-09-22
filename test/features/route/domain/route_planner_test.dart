@@ -90,6 +90,23 @@ void main() {
       expect(planner.order(request, const []), const [mid, near, far]);
     });
 
+    test('an index that is not a permutation of the intermediates → '
+        'ArgumentError', () {
+      for (final index in [
+        [0, 0],
+        [0, 5],
+        [-1, 0],
+        [0],
+        [0, 1, 2],
+      ]) {
+        expect(
+          () => planner.order(request, index),
+          throwsA(isA<ArgumentError>()),
+          reason: '$index',
+        );
+      }
+    });
+
     test('single stop: only the destination', () {
       const single = RouteRequest(
         origin: origin,

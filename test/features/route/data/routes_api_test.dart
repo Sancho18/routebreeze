@@ -206,6 +206,92 @@ void main() {
       await expectLater(api2.computeRoutes(request), throwsA(invalid));
     });
 
+    group('invalid optimized index → ApiFailure (ROUTE-02, edge case)', () {
+      String withIndex(String index) =>
+          '{"routes":[{"distanceMeters":12345,"duration":"605s",'
+          '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
+          '"legs":[{"distanceMeters":4000,"duration":"200s"},'
+          '{"distanceMeters":4345,"duration":"205s"},'
+          '{"distanceMeters":4000,"duration":"200s"}],'
+          '"optimizedIntermediateWaypointIndex":$index}]}';
+
+      for (final (label, index) in [
+        ('duplicate', '[0,0]'),
+        ('out of range', '[0,5]'),
+        ('negative', '[-1,0]'),
+        ('too short', '[0]'),
+        ('too long', '[0,1,2]'),
+        ('non-numeric', '["a",1]'),
+      ]) {
+        test(label, () async {
+          await expectLater(
+            api(withIndex(index)).computeRoutes(request),
+            throwsA(invalid),
+          );
+        });
+      }
+    });
+
+    group('non-numeric totals → ApiFailure (edge case)', () {
+      test('duration that is not "<seconds>s"', () async {
+        await expectLater(
+          api(
+            '{"routes":[{"distanceMeters":12345,"duration":"xs",'
+            '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
+            '"legs":[{"distanceMeters":4000,"duration":"200s"},'
+            '{"distanceMeters":4345,"duration":"205s"},'
+            '{"distanceMeters":4000,"duration":"200s"}],'
+            '"optimizedIntermediateWaypointIndex":[1,0]}]}',
+          ).computeRoutes(request),
+          throwsA(invalid),
+        );
+      });
+
+      test('distanceMeters that is not a number', () async {
+        await expectLater(
+          api(
+            '{"routes":[{"distanceMeters":"far","duration":"605s",'
+            '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
+            '"legs":[{"distanceMeters":4000,"duration":"200s"},'
+            '{"distanceMeters":4345,"duration":"205s"},'
+            '{"distanceMeters":4000,"duration":"200s"}],'
+            '"optimizedIntermediateWaypointIndex":[1,0]}]}',
+          ).computeRoutes(request),
+          throwsA(invalid),
+        );
+      });
+
+      test('leg duration that is not "<seconds>s"', () async {
+        await expectLater(
+          api(
+            '{"routes":[{"distanceMeters":12345,"duration":"605s",'
+            '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
+            '"legs":[{"distanceMeters":4000,"duration":"Infinitys"},'
+            '{"distanceMeters":4345,"duration":"205s"},'
+            '{"distanceMeters":4000,"duration":"200s"}],'
+            '"optimizedIntermediateWaypointIndex":[1,0]}]}',
+          ).computeRoutes(request),
+          throwsA(invalid),
+        );
+      });
+
+      test('absent totals still parse as 0 (proto JSON omits zeros)', () async {
+        final response = await api(
+          '{"routes":[{"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
+          '"legs":[{},{},{}],'
+          '"optimizedIntermediateWaypointIndex":[1,0]}]}',
+        ).computeRoutes(request);
+
+        expect(response.distanceMeters, 0);
+        expect(response.durationSeconds, 0);
+        expect(response.legs, const [
+          RouteLeg(distanceMeters: 0, durationSeconds: 0),
+          RouteLeg(distanceMeters: 0, durationSeconds: 0),
+          RouteLeg(distanceMeters: 0, durationSeconds: 0),
+        ]);
+      });
+    });
+
     test('HTTP error → ApiFailure with the API message (ROUTE-06)', () async {
       final api2 = api(
         '{"error":{"code":400,"message":"Invalid waypoint"}}',
