@@ -45,7 +45,7 @@ class RouteCubit extends Cubit<RouteState> {
       emit(RouteState(status: RouteStatus.failure, failure: failure));
     } on Object catch (error) {
       if (isClosed) return;
-      emit(RouteState(status: RouteStatus.failure, failure: Unknown(error)));
+      emit(RouteState(status: RouteStatus.failure, failure: Unknown.of(error)));
     }
   }
 

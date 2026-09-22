@@ -86,7 +86,7 @@ void main() {
         const RouteState(status: RouteStatus.loading),
         const RouteState(
           status: RouteStatus.failure,
-          failure: Unknown(FormatException('bad polyline')),
+          failure: Unknown('FormatException'),
         ),
       ],
     );

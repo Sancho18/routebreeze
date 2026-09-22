@@ -164,12 +164,30 @@ void main() {
       );
     });
 
-    test('any other error maps to Unknown carrying the cause', () {
+    test('any other error maps to Unknown carrying the cause type', () {
       final cause = StateError('boom');
       expect(
         mapDioError(DioException(requestOptions: options, error: cause)),
-        Unknown(cause),
+        const Unknown('StateError'),
       );
+    });
+
+    test('Unknown never retains the exception, whose request options carry '
+        'the API key header', () {
+      final error = DioException(
+        requestOptions: RequestOptions(
+          path: url,
+          headers: {'X-Goog-Api-Key': 'test-key'},
+        ),
+        type: DioExceptionType.unknown,
+      );
+
+      final failure = mapDioError(error);
+
+      expect(failure, const Unknown('DioException'));
+      expect(failure.props.whereType<DioException>(), isEmpty);
+      expect('${failure.props}', isNot(contains('test-key')));
+      expect(failure.toString(), isNot(contains('test-key')));
     });
   });
 }

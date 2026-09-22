@@ -69,7 +69,12 @@ final class ServiceDisabled extends Failure {
 final class Unknown extends Failure {
   const Unknown(this.cause);
 
-  final Object cause;
+  /// Keeps only the type name of [cause]: an exception can carry the request
+  /// options (API key header) and must not live in state.
+  Unknown.of(Object cause) : cause = cause.runtimeType.toString();
+
+  /// Type name of the underlying error, for diagnostics only.
+  final String cause;
 
   @override
   String get userMessage => 'Algo deu errado. Tente novamente.';

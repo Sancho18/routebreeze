@@ -68,7 +68,7 @@ Failure mapDioError(DioException error) => switch (error.type) {
     _responseMessage(error.response),
   ),
   _ when error.error is SocketException => const NoConnection(),
-  _ => Unknown(error.error ?? error),
+  _ => Unknown.of(error.error ?? error),
 };
 
 /// Google APIs answer errors as `{"error": {"message": ...}}`.
