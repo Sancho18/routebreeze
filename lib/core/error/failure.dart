@@ -19,8 +19,8 @@ final class NoConnection extends Failure {
   String get userMessage => 'Sem conexão';
 }
 
-final class Timeout extends Failure {
-  const Timeout();
+final class TimeoutFailure extends Failure {
+  const TimeoutFailure();
 
   @override
   String get userMessage => 'A conexão demorou demais. Tente novamente.';
@@ -62,7 +62,8 @@ final class ServiceDisabled extends Failure {
   const ServiceDisabled();
 
   @override
-  String get userMessage => 'Ative a localização do dispositivo para continuar.';
+  String get userMessage =>
+      'Ative a localização do dispositivo para continuar.';
 }
 
 final class Unknown extends Failure {

@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart' hide Timeout;
+import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/error/failure.dart';
 
 void main() {
@@ -7,9 +7,9 @@ void main() {
       expect(const NoConnection().userMessage, 'Sem conexão');
     });
 
-    test('Timeout', () {
+    test('TimeoutFailure', () {
       expect(
-        const Timeout().userMessage,
+        const TimeoutFailure().userMessage,
         'A conexão demorou demais. Tente novamente.',
       );
     });

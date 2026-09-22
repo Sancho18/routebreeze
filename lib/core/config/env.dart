@@ -3,8 +3,9 @@
 /// The key never lives in source control: `env.json` is gitignored and
 /// created from `env.example.json` (or with `tool/set_api_key.sh <KEY>`).
 abstract final class Env {
-  static const String googleMapsApiKey =
-      String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+  static const String googleMapsApiKey = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+  );
 
   static bool get isConfigured => googleMapsApiKey.isNotEmpty;
 
