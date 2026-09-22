@@ -94,21 +94,25 @@ class AddressFormCubit extends Cubit<AddressFormState> {
     AddressFormValidator.duplicate,
   };
 
+  /// Text equal to the selected address keeps the field valid and starts no
+  /// search (ADDR-02: only unresolved text queries autocomplete).
   void onTextChanged(String id, String text) {
     final field = _field(id);
     final selected = field.selected;
+    final stillSelected = selected != null && text == selected.address;
     _update(
       field.copyWith(
         text: text,
-        selected: selected != null && text == selected.address
-            ? selected
+        selected: stillSelected ? selected : null,
+        suggestions: stillSelected || text.trim().length < minChars
+            ? const []
             : null,
-        suggestions: text.trim().length < minChars ? const [] : null,
         loading: false,
         error: null,
       ),
     );
-    _timers[id]?.cancel();
+    _timers.remove(id)?.cancel();
+    if (stillSelected) return;
     _timers[id] = Timer(debounce, () => _search(id));
   }
 

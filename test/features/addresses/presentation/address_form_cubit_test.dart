@@ -309,6 +309,33 @@ void main() {
       });
     });
 
+    test('text equal to the selected address keeps the selection and does '
+        'not query autocomplete (ADDR-02, ADDR-04)', () {
+      fakeAsync((async) {
+        final cubit = build();
+        fillValid(async, cubit, 'f1', stop);
+        final token = field(cubit, 'f1').sessionToken;
+
+        cubit.onTextChanged('f1', stop.address);
+        async.elapse(const Duration(milliseconds: 300));
+        async.flushMicrotasks();
+
+        final f = field(cubit, 'f1');
+        expect(f.selected, stop);
+        expect(f.isValid, isTrue);
+        expect(f.suggestions, isEmpty);
+        expect(f.loading, isFalse);
+        expect(f.sessionToken, token);
+        verifyNever(
+          () => places.autocomplete(
+            input: any(named: 'input'),
+            sessionToken: any(named: 'sessionToken'),
+            bias: bias,
+          ),
+        );
+      });
+    });
+
     test('details failure → field error, typed text and suggestions kept', () {
       fakeAsync((async) {
         final cubit = build();
