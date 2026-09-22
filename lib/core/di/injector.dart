@@ -10,8 +10,10 @@ import '../../features/location/domain/location_service.dart';
 import '../../features/location/presentation/map_cubit.dart';
 import '../../features/lock/data/local_auth_service.dart';
 import '../../features/lock/presentation/lock_cubit.dart';
+import '../../features/navigation/presentation/navigation_cubit.dart';
 import '../../features/route/data/route_storage.dart';
 import '../../features/route/data/routes_api.dart';
+import '../../features/route/domain/route_plan.dart';
 import '../../features/route/domain/route_repository.dart';
 import '../../features/route/presentation/route_cubit.dart';
 import '../config/env.dart';
@@ -48,6 +50,15 @@ Future<void> configureDependencies({String? apiKey}) async {
       (bias, _) => AddressFormCubit(getIt<PlacesApi>(), bias: bias),
     )
     ..registerFactory<RouteCubit>(() => RouteCubit(getIt<RouteRepository>()))
+    ..registerFactoryParam<NavigationCubit, RoutePlan, void>(
+      (plan, _) => NavigationCubit(
+        plan: plan,
+        location: getIt<LocationService>(),
+        routes: getIt<RouteRepository>(),
+        connectivity: getIt<ConnectivityService>(),
+        session: getIt<SessionState>(),
+      ),
+    )
     ..registerLazySingleton<LockCubit>(
       () => LockCubit(getIt<LocalAuthService>()),
     )

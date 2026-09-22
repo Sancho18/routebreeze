@@ -11,8 +11,10 @@ import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
+import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
+import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
 import 'package:routebreeze/features/route/presentation/route_cubit.dart';
 
@@ -46,6 +48,23 @@ void main() {
       expect(getIt<AddressFormCubit>(param1: bias).state.fields, hasLength(3));
       expect(getIt<RouteCubit>().state, const RouteState());
       expect(identical(getIt<RouteCubit>(), getIt<RouteCubit>()), isFalse);
+      final plan = RoutePlan(
+        origin: bias,
+        stops: const [],
+        polyline: const [],
+        distanceMeters: 0,
+        durationSeconds: 0,
+        legs: const [],
+        computedAt: DateTime.utc(2026, 9, 22),
+      );
+      expect(getIt<NavigationCubit>(param1: plan).state.plan, plan);
+      expect(
+        identical(
+          getIt<NavigationCubit>(param1: plan),
+          getIt<NavigationCubit>(param1: plan),
+        ),
+        isFalse,
+      );
       expect(getIt<LockCubit>().state, const LockState());
       expect(identical(getIt<LockCubit>(), getIt<LockCubit>()), isTrue);
       expect(getIt<SessionState>().isNavigationActive, isFalse);
