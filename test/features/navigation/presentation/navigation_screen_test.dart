@@ -310,6 +310,61 @@ void main() {
       expect(mapsBuilt.last.following, isTrue);
     });
 
+    testWidgets('dragging the map while following reports onMapDragged; a '
+        'tap or a tiny move does not (NAV-03)', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          following: true,
+        ),
+      );
+
+      // The placeholder map has no hittable content; the detector above it
+      // still receives the pointer events.
+      await tester.tap(find.byKey(mapKey), warnIfMissed: false);
+      await tester.drag(
+        find.byKey(mapKey),
+        const Offset(4, 4),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      verifyNever(() => cubit.onMapDragged());
+
+      await tester.drag(
+        find.byKey(mapKey),
+        const Offset(0, -80),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      verify(() => cubit.onMapDragged()).called(1);
+    });
+
+    testWidgets('dragging the map while not following reports nothing', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          following: false,
+        ),
+      );
+
+      await tester.drag(
+        find.byKey(mapKey),
+        const Offset(0, -80),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+
+      verifyNever(() => cubit.onMapDragged());
+    });
+
     testWidgets('completed replaces the sheet with "Rota concluída" in '
         'success and "Nova rota" (NAV-06)', (tester) async {
       final done = plan.markVisited('pa').markVisited('pb');

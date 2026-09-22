@@ -103,6 +103,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   RoutePlan? _iconsPlan;
   Future<_Icons>? _icons;
+  Offset? _pointerDown;
+
+  /// Pointer travel that counts as a map drag (NAV-03).
+  static const double dragSlop = 12;
 
   @override
   void initState() {
@@ -168,7 +172,18 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 
   Widget _googleMap(BuildContext context, NavigationMapModel model) =>
-      _NavigationMap(model: model, onDragged: _cubit.onMapDragged);
+      _NavigationMap(model: model);
+
+  /// A drag is a pointer that travels more than [dragSlop] while the camera
+  /// follows; camera callbacks are not used because `animateCamera` fires
+  /// them too.
+  void _onPointerMove(PointerMoveEvent event) {
+    final down = _pointerDown;
+    if (down == null || !_cubit.state.following) return;
+    if ((event.position - down).distance <= dragSlop) return;
+    _pointerDown = null;
+    _cubit.onMapDragged();
+  }
 
   void _stop() {
     _cubit.stop();
@@ -188,14 +203,19 @@ class _NavigationScreenState extends State<NavigationScreen> {
           body: Stack(
             children: [
               Positioned.fill(
-                child: FutureBuilder<_Icons>(
-                  future: _iconsFor(state.plan),
-                  builder: (context, snapshot) {
-                    final icons = snapshot.data;
-                    return icons == null
-                        ? const ColoredBox(color: RbColors.surface100)
-                        : mapBuilder(context, _model(state, icons));
-                  },
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (event) => _pointerDown = event.position,
+                  onPointerMove: _onPointerMove,
+                  child: FutureBuilder<_Icons>(
+                    future: _iconsFor(state.plan),
+                    builder: (context, snapshot) {
+                      final icons = snapshot.data;
+                      return icons == null
+                          ? const ColoredBox(color: RbColors.surface100)
+                          : mapBuilder(context, _model(state, icons));
+                    },
+                  ),
                 ),
               ),
               Positioned(
@@ -254,16 +274,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 }
 
-/// `GoogleMap` that follows the position at zoom 16 and reports a user drag.
-/// `onCameraMoveStarted` also fires for programmatic moves, so moves started
-/// within [programmaticWindow] of an `animateCamera` call are not drags.
+/// `GoogleMap` that follows the position at zoom 16 while the model says
+/// so; user drags are detected by the screen from pointer events.
 class _NavigationMap extends StatefulWidget {
-  const _NavigationMap({required this.model, required this.onDragged});
+  const _NavigationMap({required this.model});
 
   final NavigationMapModel model;
-  final VoidCallback onDragged;
-
-  static const Duration programmaticWindow = Duration(milliseconds: 800);
 
   @override
   State<_NavigationMap> createState() => _NavigationMapState();
@@ -271,7 +287,6 @@ class _NavigationMap extends StatefulWidget {
 
 class _NavigationMapState extends State<_NavigationMap> {
   GoogleMapController? _controller;
-  DateTime? _programmaticUntil;
 
   @override
   void didUpdateWidget(covariant _NavigationMap old) {
@@ -283,16 +298,7 @@ class _NavigationMapState extends State<_NavigationMap> {
   }
 
   void _follow() {
-    final controller = _controller;
-    if (controller == null) return;
-    _programmaticUntil = DateTime.now().add(_NavigationMap.programmaticWindow);
-    controller.animateCamera(CameraUpdate.newLatLng(widget.model.target));
-  }
-
-  void _onCameraMoveStarted() {
-    final until = _programmaticUntil;
-    if (until != null && DateTime.now().isBefore(until)) return;
-    if (widget.model.following) widget.onDragged();
+    _controller?.animateCamera(CameraUpdate.newLatLng(widget.model.target));
   }
 
   @override
@@ -306,7 +312,6 @@ class _NavigationMapState extends State<_NavigationMap> {
       markers: model.markers,
       polylines: model.polylines,
       onMapCreated: (controller) => _controller = controller,
-      onCameraMoveStarted: _onCameraMoveStarted,
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,
     );
