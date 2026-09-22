@@ -42,13 +42,13 @@ O APK de release fica anexado na página de Releases do repositório:
 
 ### Registrar a chave
 
-Opção 1, pelo script (na raiz do projeto):
+Opção 1, pelo script (na raiz do projeto). Sem argumento ele pede a chave sem ecoar, para ela não ficar no histórico do shell:
 
 ```bash
-tool/set_api_key.sh SUA_CHAVE
+tool/set_api_key.sh
 ```
 
-O script escreve dois arquivos ignorados pelo Git:
+O script escreve dois arquivos ignorados pelo Git (modo 600):
 
 - `env.json` com `{"GOOGLE_MAPS_API_KEY": "SUA_CHAVE"}`
 - `ios/Flutter/Secrets.xcconfig` com `GOOGLE_MAPS_API_KEY=SUA_CHAVE`
