@@ -539,6 +539,57 @@ void main() {
         cubit.close();
       });
     });
+
+    test('an imprecise fix never triggers or seeds a recalculation: after a '
+        'failure and 20 s, a 120 m fix makes no request and the next '
+        'accepted fix is the origin (RECALC-02, RECALC-03)', () {
+      stubPlan(failure);
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        goOffRoute(async);
+        verify(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        ).called(1);
+
+        async.elapse(const Duration(seconds: 20));
+        emitFix(async, fix(farPoint2, accuracy: 120));
+        verifyNever(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        );
+
+        emitFix(async, far(farPoint2));
+        verify(
+          () =>
+              routes.plan(farPoint2, [a, b], keepVisited: const <RouteStop>[]),
+        ).called(1);
+        cubit.close();
+      });
+    });
+
+    test('a pending recalculation starts from the last accepted fix, not '
+        'from a later imprecise one (RECALC-02, RECALC-06)', () {
+      stubPlan(recalculated);
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        online.add(false);
+        async.flushMicrotasks();
+        goOffRoute(async);
+        expect(cubit.state.recalcPending, isTrue);
+
+        final imprecise = fix(farPoint2, accuracy: 120);
+        emitFix(async, imprecise);
+        expect(cubit.state.fix, imprecise);
+        online.add(true);
+        async.flushMicrotasks();
+
+        verify(
+          () => routes.plan(farPoint, [a, b], keepVisited: const <RouteStop>[]),
+        ).called(1);
+        cubit.close();
+      });
+    });
   });
 
   group('camera', () {

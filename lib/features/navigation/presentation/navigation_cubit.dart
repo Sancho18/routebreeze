@@ -173,6 +173,10 @@ class NavigationCubit extends Cubit<NavigationState> {
   Timer? _badgeTimer;
   Timer? _resubscribeTimer;
 
+  /// Last fix accepted by the off-route check (RECALC-02); the origin of a
+  /// recalculation deferred while offline.
+  Fix? _lastAccepted;
+
   /// Starts watching the position and connectivity; "Iniciar" waits for a
   /// fix of 50 m or better.
   void prepare() {
@@ -230,7 +234,7 @@ class NavigationCubit extends Cubit<NavigationState> {
   /// Runs a pending recalculation when connectivity returns (RECALC-06).
   void onOnlineChanged(bool online) {
     emit(state.copyWith(online: online));
-    final fix = state.fix;
+    final fix = _lastAccepted;
     if (online &&
         state.phase == NavigationPhase.navigating &&
         state.recalcPending &&
@@ -291,6 +295,7 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   Future<void> _navigate(Fix fix) async {
+    if (fix.accuracyMeters <= _deviation.maxAccuracyMeters) _lastAccepted = fix;
     final next = state.plan.nextStop;
     if (next != null && _arrival.isArrived(fix, next.stop)) {
       return _visit(next);

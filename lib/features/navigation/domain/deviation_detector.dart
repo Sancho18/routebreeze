@@ -25,10 +25,11 @@ class DeviationDetector {
   int get strikes => _strikes;
 
   /// Feeds one fix and returns true while the user is declared off-route.
-  /// The verdict holds on further far fixes until [reset].
+  /// The verdict holds on further far fixes until [reset]; an ignored fix
+  /// gives no verdict (false) and leaves the strikes as they are.
   bool feed(Fix fix, List<GeoPoint> polyline) {
     if (fix.accuracyMeters > maxAccuracyMeters || fix.at == _lastAt) {
-      return _strikes >= consecutive;
+      return false;
     }
     _lastAt = fix.at;
     final far = distanceToPolylineMeters(fix.point, polyline) > thresholdMeters;

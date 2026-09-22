@@ -2,13 +2,17 @@ import '../../../core/geo/geo_math.dart';
 import '../../addresses/domain/stop.dart';
 import '../../location/domain/fix.dart';
 
-/// Arrival at a stop (NAV-04): within [radiusMeters] great-circle distance.
+/// Arrival at a stop (NAV-04): within [radiusMeters] great-circle distance,
+/// counted only for fixes with accuracy of [maxAccuracyMeters] or better
+/// (spec Assumptions: arrival accuracy gate).
 class ArrivalDetector {
-  ArrivalDetector({this.radiusMeters = 40});
+  ArrivalDetector({this.radiusMeters = 40, this.maxAccuracyMeters = 50});
 
   final double radiusMeters;
+  final double maxAccuracyMeters;
 
   bool isArrived(Fix fix, Stop stop) =>
+      fix.accuracyMeters <= maxAccuracyMeters &&
       haversineMeters(fix.point, stop.point) <= radiusMeters;
 }
 

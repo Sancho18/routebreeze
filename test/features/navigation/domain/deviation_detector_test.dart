@@ -105,6 +105,20 @@ void main() {
       expect(feedAll([fix(50.1), fix(50.1), fix(50.1)]), [false, false, true]);
     });
 
+    test('an ignored fix gives no verdict and keeps the strikes: after 3 far '
+        'fixes, a 31 m fix or a repeated fix is false (RECALC-02)', () {
+      feedAll([far(), far(), far()]);
+      final last = t0.add(Duration(seconds: seq));
+
+      expect(detector.feed(far(accuracy: 31), polyline), isFalse);
+      expect(detector.strikes, 3);
+      expect(detector.feed(far(at: last), polyline), isFalse);
+      expect(detector.strikes, 3);
+
+      expect(detector.feed(far(), polyline), isTrue);
+      expect(detector.strikes, 4);
+    });
+
     test('stays off-route on further far fixes until reset (RECALC-01)', () {
       feedAll([far(), far(), far()]);
 

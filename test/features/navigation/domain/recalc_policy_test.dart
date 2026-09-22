@@ -13,13 +13,23 @@ void main() {
     final at = DateTime.utc(2026, 9, 22, 10);
 
     // A fix `m` meters north of the stop on the mean sphere.
-    Fix fixAt(double meters) =>
-        Fix(GeoPoint(meters / earthRadiusMeters * 180 / math.pi, 0), 10, at);
+    Fix fixAt(double meters, {double accuracy = 10}) => Fix(
+      GeoPoint(meters / earthRadiusMeters * 180 / math.pi, 0),
+      accuracy,
+      at,
+    );
 
     final detector = ArrivalDetector();
 
-    test('default radius is 40 m', () {
+    test('default radius is 40 m and accuracy gate 50 m', () {
       expect(detector.radiusMeters, 40);
+      expect(detector.maxAccuracyMeters, 50);
+    });
+
+    test('30 m from the stop with accuracy 60 m is not arrived; with 50 m '
+        'it is (Assumptions: arrival accuracy gate)', () {
+      expect(detector.isArrived(fixAt(30, accuracy: 60), stop), isFalse);
+      expect(detector.isArrived(fixAt(30, accuracy: 50), stop), isTrue);
     });
 
     test('40.0 m from the stop is arrived (NAV-04)', () {
