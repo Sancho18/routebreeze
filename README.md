@@ -15,7 +15,7 @@ O RouteBreeze ajuda um entregador a visitar vários endereços na melhor ordem. 
 5. **Navegação.** Ao tocar em "Iniciar", a posição é acompanhada em tempo real. A câmera segue o usuário e cada parada é marcada como visitada ao chegar.
 6. **Recálculo.** Se o entregador sai da rota, o app pede uma nova rota pelas paradas que faltam e mostra o aviso "Rota recalculada".
 
-Feito com Flutter 3.47.5 e o design system **Rota** (tokens em `lib/core/theme/rb_tokens.dart`). Interface em português do Brasil.
+Feito com Flutter 3.47.5 e o design system **Rota** (tokens em `lib/core/theme/rb_tokens.dart`). Interface em português do Brasil. O projeto foi desenvolvido para a etapa técnica de um processo seletivo de desenvolvedor(a) Flutter, a partir de um enunciado e de um design system fornecidos.
 
 ## Demonstração
 
