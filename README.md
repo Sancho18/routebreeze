@@ -78,6 +78,8 @@ flutter pub get
 flutter run --dart-define-from-file=env.json
 ```
 
+No VS Code, use a configuração **RouteBreeze (debug, env.json)** de `.vscode/launch.json`, que já passa o `--dart-define-from-file`. Sem esse argumento o app para na checagem da chave antes de abrir a primeira tela.
+
 Recomendo um aparelho físico: biometria e GPS de verdade. No emulador Android dá para cadastrar uma digital nas configurações e simular a posição pelos "Extended controls > Location".
 
 ## Build
