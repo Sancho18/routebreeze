@@ -104,7 +104,30 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 321 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s).
+São 399 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+
+### Cobertura
+
+```bash
+flutter test --coverage
+python3 tool/coverage_report.py   # lê coverage/lcov.info (só stdlib)
+```
+
+O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime dois totais: todos os arquivos e sem os arquivos *native-only* (código que só executa num aparelho, hoje apenas `lib/main.dart`: `configureDependencies()` e `runApp()` após a checagem da chave). Sai com código 1 quando alguma pasta ou o total fica abaixo de 90 %.
+
+| Pasta | Linhas | Cobertas | % |
+| --- | ---: | ---: | ---: |
+| lib/core | 257 | 256 | 99,6 % |
+| lib (raiz: `app.dart`, `main.dart`) | 79 | 77 | 97,5 % |
+| lib/features/addresses | 306 | 304 | 99,3 % |
+| lib/features/location | 166 | 166 | 100,0 % |
+| lib/features/lock | 71 | 71 | 100,0 % |
+| lib/features/navigation | 339 | 336 | 99,1 % |
+| lib/features/route | 425 | 422 | 99,3 % |
+| **Total (todos os arquivos)** | 1643 | 1632 | 99,3 % |
+| **Total (sem native-only)** | 1638 | 1629 | 99,5 % |
+
+`test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
 Teste de integração (precisa de um aparelho conectado; usa fakes para biometria, GPS e Google APIs):
 
