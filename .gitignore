@@ -50,3 +50,4 @@ app.*.map.json
 # RouteBreeze: secrets and local agent tooling
 env.json
 .gate/
+ios/Flutter/Secrets.xcconfig

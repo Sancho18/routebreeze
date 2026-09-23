@@ -4,6 +4,17 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Google Maps SDK key from the gitignored env.json at the project root
+// (empty when the file is missing so the build still succeeds).
+val mapsApiKey: String = run {
+    val f = rootProject.file("../env.json")
+    if (f.exists()) {
+        Regex("\"GOOGLE_MAPS_API_KEY\"\\s*:\\s*\"([^\"]*)\"").find(f.readText())?.groupValues?.get(1) ?: ""
+    } else {
+        ""
+    }
+}
+
 android {
     namespace = "com.viniciusrocha.routebreeze"
     compileSdk = flutter.compileSdkVersion
@@ -27,6 +38,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {

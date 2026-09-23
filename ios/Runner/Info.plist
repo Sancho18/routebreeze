@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usamos o Face ID para proteger suas rotas.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>O RouteBreeze usa sua localização para definir o ponto de partida e acompanhar a rota.</string>
+	<key>GMSApiKey</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
 </dict>
 </plist>
