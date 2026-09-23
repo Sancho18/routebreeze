@@ -4,7 +4,7 @@ description: >-
   de endereços, rota otimizada e recálculo dinâmico. Desenvolvido como projeto
   da etapa técnica de um processo seletivo para desenvolvedor(a) Flutter.
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.0+2
 
 environment:
   sdk: ^3.13.4

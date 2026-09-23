@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -6,16 +8,23 @@ import '../../../core/di/injector.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
+import '../../../core/widgets/rb_route_loader.dart';
 import '../../route/domain/route_plan.dart';
 import '../domain/fix.dart';
 import 'map_cubit.dart';
 
-/// Builds the map for a known start; tests inject a placeholder because the
-/// real `GoogleMap` cannot render in widget tests.
-typedef MapBuilder = Widget Function(BuildContext context, Fix start);
+/// Builds the map for a known start and calls [onMapReady] once the map is
+/// created; tests inject a placeholder because the real `GoogleMap` cannot
+/// render in widget tests.
+typedef MapBuilder = Widget Function(
+  BuildContext context,
+  Fix start,
+  VoidCallback onMapReady,
+);
 
 /// Map screen: obtains the start fix (or shows the permission/service card)
-/// and offers to resume a persisted, unfinished route.
+/// and offers to resume a persisted, unfinished route. A branded loading
+/// overlay covers the screen until the fix arrives and the map is drawn.
 class MapScreen extends StatefulWidget {
   const MapScreen({
     super.key,
@@ -43,6 +52,17 @@ class MapScreen extends StatefulWidget {
       'Você tem uma rota em andamento salva neste aparelho.';
   static const String resumeAccept = 'Continuar';
   static const String resumeDismiss = 'Nova rota';
+  static const String loadingTitle = 'RouteBreeze';
+  static const String loadingCaption = 'Obtendo sua localização...';
+
+  /// Grace after the map is created, so the first tiles are in before the
+  /// overlay fades.
+  static const Duration tilesDelay = Duration(milliseconds: 400);
+
+  /// Upper bound on the overlay once the fix is known, in case the map never
+  /// reports itself created.
+  static const Duration maxMapWait = Duration(seconds: 5);
+  static const Duration fadeDuration = Duration(milliseconds: 300);
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -59,18 +79,37 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     MapStatus.serviceDisabled,
   };
 
+  bool _mapReady = false;
+  Timer? _readyTimer;
+  Timer? _fallbackTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (_cubit.state.status == MapStatus.ready) _startFallback();
     _cubit.init();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _readyTimer?.cancel();
+    _fallbackTimer?.cancel();
     if (widget.cubit == null) _cubit.close();
     super.dispose();
+  }
+
+  void _onMapReady() {
+    _readyTimer ??= Timer(MapScreen.tilesDelay, _showMap);
+  }
+
+  void _startFallback() {
+    _fallbackTimer ??= Timer(MapScreen.maxMapWait, _showMap);
+  }
+
+  void _showMap() {
+    if (mounted && !_mapReady) setState(() => _mapReady = true);
   }
 
   @override
@@ -103,29 +142,46 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     return BlocConsumer<MapCubit, MapState>(
       bloc: _cubit,
       listenWhen: (previous, current) =>
-          previous.resumable == null && current.resumable != null,
-      listener: _offerResume,
+          (previous.resumable == null && current.resumable != null) ||
+          (previous.status != MapStatus.ready &&
+              current.status == MapStatus.ready),
+      listener: (context, state) {
+        if (state.status == MapStatus.ready) _startFallback();
+        _offerResume(context, state);
+      },
       builder: (context, state) {
         final start = state.start;
+        final loading =
+            state.status == MapStatus.checking ||
+            (state.status == MapStatus.ready && !_mapReady);
         return Scaffold(
           body: Stack(
             children: [
               Positioned.fill(
                 child: start == null
                     ? const ColoredBox(color: RbColors.surface100)
-                    : mapBuilder(context, start),
+                    : mapBuilder(context, start, _onMapReady),
               ),
-              Positioned(
-                left: RbSpace.s3,
-                right: RbSpace.s3,
-                bottom: RbSpace.s3,
-                child: SafeArea(
-                  child: _StatusCard(
-                    state: state,
-                    onRetry: _cubit.retry,
-                    onOpenSettings: _cubit.openSettings,
-                    onContinue: widget.onContinue,
+              if (state.status != MapStatus.checking)
+                Positioned(
+                  left: RbSpace.s3,
+                  right: RbSpace.s3,
+                  bottom: RbSpace.s3,
+                  child: SafeArea(
+                    child: _StatusCard(
+                      state: state,
+                      onRetry: _cubit.retry,
+                      onOpenSettings: _cubit.openSettings,
+                      onContinue: widget.onContinue,
+                    ),
                   ),
+                ),
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: MapScreen.fadeDuration,
+                  child: loading
+                      ? const _LoadingOverlay(key: ValueKey('map-loading'))
+                      : const SizedBox.shrink(key: ValueKey('map-shown')),
                 ),
               ),
             ],
@@ -136,9 +192,41 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 }
 
-Widget _googleMap(BuildContext context, Fix start) {
+/// App name, the route loader and the caption over `surface-100`; shown
+/// while the start fix is fetched and the map is created.
+class _LoadingOverlay extends StatelessWidget {
+  const _LoadingOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: RbColors.surface100,
+      child: SizedBox.expand(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              MapScreen.loadingTitle,
+              style: RbText.display.copyWith(color: RbColors.ink),
+            ),
+            const SizedBox(height: RbSpace.s3),
+            const RbRouteLoader(),
+            const SizedBox(height: RbSpace.s3),
+            Text(
+              MapScreen.loadingCaption,
+              style: RbText.caption.copyWith(color: RbColors.inkMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget _googleMap(BuildContext context, Fix start, VoidCallback onMapReady) {
   final target = LatLng(start.point.lat, start.point.lng);
   return GoogleMap(
+    onMapCreated: (_) => onMapReady(),
     initialCameraPosition: CameraPosition(target: target, zoom: 16),
     markers: {
       Marker(
@@ -241,21 +329,7 @@ class _StatusCard extends StatelessWidget {
   }
 
   List<Widget> _content() => switch (state.status) {
-    MapStatus.checking => [
-      Row(
-        children: [
-          const SizedBox.square(
-            dimension: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: RbSpace.s2),
-          Text(
-            'Obtendo sua localização...',
-            style: RbText.body.copyWith(color: RbColors.ink),
-          ),
-        ],
-      ),
-    ],
+    MapStatus.checking => const [],
     MapStatus.ready => [_caption('Ponto de partida definido')],
     MapStatus.denied => [
       const RbInlineError(text: deniedMessage),
