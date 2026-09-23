@@ -19,10 +19,9 @@ Feito com Flutter 3.47.5 e o design system **Rota** (tokens em `lib/core/theme/r
 
 ## Demonstração
 
-> Vídeo/GIF do fluxo completo: em breve neste espaço.
+> Vídeo do fluxo completo: em breve neste espaço.
 
-O APK de release fica anexado na página de Releases do repositório:
-`https://github.com/Sancho18/routebreeze/releases`.
+APK de release (Android): [Release v0.1.0](https://github.com/Sancho18/routebreeze/releases/tag/v0.1.0), arquivo `app-release.apk`. Esse APK já sai com uma chave de teste embutida (restrita às APIs que o app usa), então dá para instalar com `adb install app-release.apk` e testar sem configurar nada. Para rodar a partir do código, veja "Configuração da chave do Google".
 
 ## Requisitos
 
