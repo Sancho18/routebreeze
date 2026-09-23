@@ -16,11 +16,17 @@ import 'features/route/presentation/route_screen.dart';
 
 /// Root widget: theme, named routes and the lifecycle re-lock gate.
 ///
-/// [now] is the clock used by the gate (tests inject a fake one).
+/// [now] is the clock used by the gate (tests inject a fake one);
+/// [navigatorObservers] are forwarded to the root navigator.
 class RouteBreezeApp extends StatefulWidget {
-  const RouteBreezeApp({super.key, this.now = DateTime.now});
+  const RouteBreezeApp({
+    super.key,
+    this.now = DateTime.now,
+    this.navigatorObservers = const [],
+  });
 
   final DateTime Function() now;
+  final List<NavigatorObserver> navigatorObservers;
 
   @override
   State<RouteBreezeApp> createState() => _RouteBreezeAppState();
@@ -46,6 +52,7 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
       title: 'RouteBreeze',
       theme: buildRbTheme(),
       navigatorKey: _navigatorKey,
+      navigatorObservers: widget.navigatorObservers,
       initialRoute: '/lock',
       // The platform may hand over its own initial route (Android `route`
       // intent extra, deep link); the app always starts locked (LOCK-01).
@@ -95,11 +102,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
             plan: args.plan,
             onExit: () => Navigator.of(context).pop(),
             // The cubit already cleared the persisted route (OFFL-05).
-            // SPEC_DEVIATION: NAV-06 says "Nova rota" returns to the
-            // Addresses screen; it returns to the Map screen instead.
-            // Reason: a fresh Map screen acquires the current position, so
-            // the next route starts from where the driver is (ROUTE-01)
-            // and not from the previous start fix.
+            // "Nova rota" returns to the Map screen to obtain a fresh start
+            // position for the next route (NAV-06, ROUTE-01).
             onNewRoute: () =>
                 Navigator.of(context)
                     .pushNamedAndRemoveUntil('/map', (_) => false),

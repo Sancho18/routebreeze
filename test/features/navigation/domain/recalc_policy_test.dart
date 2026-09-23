@@ -32,6 +32,11 @@ void main() {
       expect(detector.isArrived(fixAt(30, accuracy: 50), stop), isTrue);
     });
 
+    test('30 m from the stop with accuracy 50.1 m is not arrived '
+        '(Assumptions: arrival accuracy gate)', () {
+      expect(detector.isArrived(fixAt(30, accuracy: 50.1), stop), isFalse);
+    });
+
     test('40.0 m from the stop is arrived (NAV-04)', () {
       expect(detector.isArrived(fixAt(40), stop), isTrue);
     });

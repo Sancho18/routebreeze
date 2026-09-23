@@ -1,6 +1,6 @@
 // Journey through the named routes of RouteBreezeApp with real cubits and
 // fake services: LOCK-02, MAP-02, MAP-07, ADDR-02, ADDR-03, ADDR-10,
-// ROUTE-03, ROUTE-04, NAV-01, NAV-02, NAV-07 and OFFL-04.
+// ROUTE-03, ROUTE-04, ROUTE-06, NAV-01, NAV-02, NAV-07 and OFFL-04.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -9,8 +9,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/app.dart';
 import 'package:routebreeze/core/di/injector.dart';
+import 'package:routebreeze/core/error/failure.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
+import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
@@ -64,6 +66,7 @@ void main() {
   );
 
   late MockLocationService location;
+  late MockRoutesApi routes;
   late MockRouteStorage storage;
   late StreamController<Fix> positions;
   late StreamController<bool> online;
@@ -136,7 +139,7 @@ void main() {
       return Stop(placeId, '$name, São Paulo', points[name]!);
     });
 
-    final routes = MockRoutesApi();
+    routes = MockRoutesApi();
     when(() => routes.computeRoutes(any())).thenAnswer((_) async => response);
 
     storage = MockRouteStorage();
@@ -241,6 +244,40 @@ void main() {
     expect(find.text('Ordem otimizada'), findsOneWidget);
     expect(find.text('12,3 km · 10 min'), findsOneWidget);
     expect(find.byType(GoogleMap), findsNothing);
+  });
+
+  testWidgets('a failed route calculation shows "Tentar novamente" and the '
+      'AppBar back returns to the intact address form (ROUTE-06)', (
+    tester,
+  ) async {
+    await bootToMap(tester);
+    await tester.tap(find.text(MapScreen.continueLabel));
+    await tester.pumpAndSettle();
+    await pickAddress(tester, 0, 'Rua A');
+    await pickAddress(tester, 1, 'Rua B');
+    await pickAddress(tester, 2, 'Rua C');
+
+    when(() => routes.computeRoutes(any()))
+        .thenAnswer((_) async => throw const ApiFailure(500, 'boom'));
+    await tester.tap(find.text(AddressesScreen.confirmLabel));
+    await tester.pumpAndSettle();
+    expect(find.byType(RouteScreen), findsOneWidget);
+    expect(find.text(RouteScreen.failureMessage), findsOneWidget);
+    expect(find.text(RouteScreen.retryLabel), findsOneWidget);
+    verifyNever(() => storage.save(any()));
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RouteScreen), findsNothing);
+    expect(find.byType(AddressesScreen), findsOneWidget);
+    expect(find.text('Rua A, São Paulo'), findsOneWidget);
+    expect(find.text('Rua B, São Paulo'), findsOneWidget);
+    expect(find.text('Rua C, São Paulo'), findsOneWidget);
+    final confirm = tester.widget<RbPrimaryButton>(
+      find.widgetWithText(RbPrimaryButton, AddressesScreen.confirmLabel),
+    );
+    expect(confirm.enabled, isTrue);
   });
 
   testWidgets('a persisted, unfinished route is offered after unlocking and '

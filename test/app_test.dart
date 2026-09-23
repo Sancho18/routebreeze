@@ -28,6 +28,16 @@ class MockLocationService extends Mock implements LocationService {}
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
 
+/// Collects the names of the routes pushed on the root navigator.
+class _RecordingObserver extends NavigatorObserver {
+  final pushed = <String?>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushed.add(route.settings.name);
+  }
+}
+
 void main() {
   late MockLocalAuthService auth;
   late MockLocationService location;
@@ -98,6 +108,29 @@ void main() {
 
       expect(find.byType(LockScreen), findsOneWidget);
       expect(find.byType(MapScreen), findsNothing);
+    });
+
+    testWidgets('a platform initial route is replaced by "/lock" as the first '
+        'route, not merely guarded (LOCK-01)', (tester) async {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/map';
+      addTearDown(
+        tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+      );
+      // The prompt never answers, so the only route is the initial one.
+      when(() => auth.authenticate())
+          .thenAnswer((_) => Completer<AuthResult>().future);
+      final observer = _RecordingObserver();
+
+      await tester.pumpWidget(
+        RouteBreezeApp(now: () => clock, navigatorObservers: [observer]),
+      );
+
+      expect(find.byType(LockScreen), findsOneWidget);
+      // `onGenerateInitialRoutes` replaced the platform route with `/lock`;
+      // the `_guarded` fallback alone would have pushed a `/map` route that
+      // merely rendered the Lock screen.
+      expect(observer.pushed.first, '/lock');
+      expect(observer.pushed, isNot(contains('/map')));
     });
 
     testWidgets('a route pushed while locked shows the Lock screen, not the '
