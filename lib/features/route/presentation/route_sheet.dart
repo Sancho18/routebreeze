@@ -39,8 +39,8 @@ class RouteSheet extends StatelessWidget {
   static const String visitedLabel = 'Visitado';
   static const String markVisitedLabel = 'Marcar como visitado';
 
-  /// Vertical gap between stop rows.
-  static const double rowGap = RbSpace.s3;
+  /// Vertical gap between stop rows (`space-2`: "linhas de uma lista").
+  static const double rowGap = RbSpace.s2;
 
   /// Key of the row for the stop with [placeId].
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');

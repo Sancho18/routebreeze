@@ -154,7 +154,7 @@ void main() {
       expect(find.byIcon(Icons.check), findsNothing);
     });
 
-    testWidgets('rows are separated by s3 (16 px)', (tester) async {
+    testWidgets('rows are separated by space-2 (8 px)', (tester) async {
       await pumpSheet(tester, plan: plan());
 
       expect(
@@ -163,7 +163,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(row('pc')).dy - tester.getBottomLeft(row('pa')).dy,
-        16,
+        8,
       );
     });
 
