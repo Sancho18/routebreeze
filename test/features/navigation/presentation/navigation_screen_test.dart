@@ -149,6 +149,8 @@ void main() {
       );
 
       expect(primary(tester, 'Iniciar').enabled, isTrue);
+      expect(primary(tester, 'Iniciar').color, RbColors.brand);
+      expect(find.text('Marcar como visitado'), findsNothing);
       expect(find.text('Aguardando sinal de GPS'), findsNothing);
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
       verify(() => cubit.start()).called(1);
@@ -178,10 +180,25 @@ void main() {
       expect(find.text('Iniciar'), findsNothing);
       expect(find.text('Aguardando sinal de GPS'), findsNothing);
       expect(primary(tester, 'Encerrar').enabled, isTrue);
+      expect(primary(tester, 'Encerrar').color, RbColors.danger);
       expect(tester.widget<RouteSheet>(find.byType(RouteSheet)).plan, visited);
-      expect(find.text('Visitado'), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.text('Visitado'), findsNothing);
 
-      await tester.tap(find.widgetWithText(TextButton, 'Marcar como visitado'));
+      final markVisited = find.widgetWithText(
+        RbPrimaryButton,
+        'Marcar como visitado',
+      );
+      expect(primary(tester, 'Marcar como visitado').color, RbColors.brand);
+      expect(
+        tester.getBottomLeft(markVisited).dy,
+        lessThan(
+          tester
+              .getTopLeft(find.widgetWithText(RbPrimaryButton, 'Encerrar'))
+              .dy,
+        ),
+      );
+      await tester.tap(markVisited);
       verify(() => cubit.markNextVisited()).called(1);
 
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
@@ -346,21 +363,16 @@ void main() {
       );
 
       // The placeholder map has no hittable content; the detector above it
-      // still receives the pointer events.
-      await tester.tap(find.byKey(mapKey), warnIfMissed: false);
-      await tester.drag(
-        find.byKey(mapKey),
-        const Offset(4, 4),
-        warnIfMissed: false,
-      );
+      // still receives the pointer events. Touch the upper part of the map,
+      // away from the sheet that covers its lower half.
+      final point =
+          tester.getTopLeft(find.byKey(mapKey)) + const Offset(120, 120);
+      await tester.tapAt(point);
+      await tester.dragFrom(point, const Offset(4, 4));
       await tester.pump();
       verifyNever(() => cubit.onMapDragged());
 
-      await tester.drag(
-        find.byKey(mapKey),
-        const Offset(0, -80),
-        warnIfMissed: false,
-      );
+      await tester.dragFrom(point, const Offset(0, -80));
       await tester.pump();
       verify(() => cubit.onMapDragged()).called(1);
     });
@@ -378,10 +390,9 @@ void main() {
         ),
       );
 
-      await tester.drag(
-        find.byKey(mapKey),
+      await tester.dragFrom(
+        tester.getTopLeft(find.byKey(mapKey)) + const Offset(120, 120),
         const Offset(0, -80),
-        warnIfMissed: false,
       );
       await tester.pump();
 

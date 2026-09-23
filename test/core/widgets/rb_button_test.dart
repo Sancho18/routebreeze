@@ -100,5 +100,41 @@ void main() {
       await tester.pump();
       expect(taps, 0);
     });
+
+    testWidgets('color: danger background with white label while enabled, '
+        'border/ink-muted while disabled', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        wrap(
+          RbPrimaryButton(
+            label: label,
+            color: RbColors.danger,
+            onPressed: () => taps++,
+          ),
+        ),
+      );
+
+      expect(buttonMaterial(tester).color, RbColors.danger);
+      expect(labelStyle(tester).color, Colors.white);
+      expect(tester.getSize(find.byType(RbPrimaryButton)).height, 52);
+      await tester.tap(find.byType(RbPrimaryButton));
+      expect(taps, 1);
+
+      await tester.pumpWidget(
+        wrap(
+          RbPrimaryButton(
+            label: label,
+            color: RbColors.danger,
+            enabled: false,
+            onPressed: () => taps++,
+          ),
+        ),
+      );
+
+      expect(buttonMaterial(tester).color, RbColors.border);
+      expect(labelStyle(tester).color, RbColors.inkMuted);
+      await tester.tap(find.byType(RbPrimaryButton));
+      expect(taps, 1);
+    });
   });
 }

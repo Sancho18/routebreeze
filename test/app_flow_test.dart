@@ -313,7 +313,7 @@ void main() {
     expect(find.byType(NavigationScreen), findsOneWidget);
     expect(find.text('Rua A, São Paulo'), findsOneWidget);
     expect(find.text('Rua B, São Paulo'), findsOneWidget);
-    expect(find.text('Visitado'), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.byType(AddressesScreen), findsNothing);
   });
 }

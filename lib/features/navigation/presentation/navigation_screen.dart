@@ -255,6 +255,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         startLabel: navigating
                             ? NavigationScreen.stopLabel
                             : NavigationScreen.startLabel,
+                        startColor: navigating
+                            ? RbColors.danger
+                            : RbColors.brand,
                         onStart: navigating ? _stop : _cubit.start,
                         onMarkVisited: navigating
                             ? _cubit.markNextVisited

@@ -4,7 +4,8 @@ import '../theme/rb_tokens.dart';
 
 /// Primary action button (DS-03).
 ///
-/// Enabled: `brand` background with white `bodyStrong` text. Disabled:
+/// Enabled: [color] background (`brand` by default; `danger` for destructive
+/// actions such as "Encerrar") with white `bodyStrong` text. Disabled:
 /// `border` background with `inkMuted` text. Both states share `radius-lg`
 /// and a fixed height of 52 so the button never moves between states.
 /// While [loading] a 20 px spinner replaces the label and taps are ignored.
@@ -15,6 +16,7 @@ class RbPrimaryButton extends StatelessWidget {
     this.onPressed,
     this.enabled = true,
     this.loading = false,
+    this.color = RbColors.brand,
   });
 
   final String label;
@@ -22,11 +24,14 @@ class RbPrimaryButton extends StatelessWidget {
   final bool enabled;
   final bool loading;
 
+  /// Background while enabled. Only DS colors are expected here.
+  final Color color;
+
   static const double height = 52;
 
   @override
   Widget build(BuildContext context) {
-    final background = enabled ? RbColors.brand : RbColors.border;
+    final background = enabled ? color : RbColors.border;
     final foreground = enabled ? Colors.white : RbColors.inkMuted;
     final radius = BorderRadius.circular(RbRadius.lg);
     final active = enabled && !loading;

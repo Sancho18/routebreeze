@@ -14,7 +14,7 @@ extension on RbTone {
   };
 }
 
-/// Small status label (NAV-04 "Visitado", RECALC-04/05/06 badges).
+/// Small status label (RECALC-04/05/06 badges).
 ///
 /// `radius-sm`; tone color at 12% as background with the tone color as text.
 /// Neutral uses `border` background and `ink-muted` text.

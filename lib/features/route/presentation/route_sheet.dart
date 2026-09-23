@@ -4,14 +4,15 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
-import '../../../core/widgets/rb_feedback.dart';
 import '../domain/route_plan.dart';
 import 'route_format.dart';
 
 /// Bottom sheet with the optimized order (ROUTE-04): heading, numbered stop
-/// list with the "Visitado" chip (NAV-04), totals caption and the primary
-/// action. [onMarkVisited] adds the manual "Marcar como visitado" action for
-/// the next stop (NAV-05); [footer] is rendered below the actions.
+/// list (visited stops get a `success` check badge, NAV-04), totals caption
+/// and the primary action. [onMarkVisited] adds the "Marcar como visitado"
+/// button above it for the next stop (NAV-05); [startColor] paints the
+/// primary action (`danger` for "Encerrar", NAV-07); [footer] is rendered
+/// below the actions.
 class RouteSheet extends StatelessWidget {
   const RouteSheet({
     super.key,
@@ -20,6 +21,7 @@ class RouteSheet extends StatelessWidget {
     required this.onStart,
     this.onMarkVisited,
     this.startLabel = 'Iniciar',
+    this.startColor = RbColors.brand,
     this.footer,
   });
 
@@ -28,11 +30,17 @@ class RouteSheet extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback? onMarkVisited;
   final String startLabel;
+  final Color startColor;
   final Widget? footer;
 
   static const String heading = 'Ordem otimizada';
+
+  /// Semantics label of the check badge on a visited stop.
   static const String visitedLabel = 'Visitado';
   static const String markVisitedLabel = 'Marcar como visitado';
+
+  /// Vertical gap between stop rows.
+  static const double rowGap = RbSpace.s3;
 
   /// Key of the row for the stop with [placeId].
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');
@@ -67,7 +75,7 @@ class RouteSheet extends StatelessWidget {
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
                 itemCount: plan.stops.length,
-                separatorBuilder: (_, _) => const SizedBox(height: RbSpace.s2),
+                separatorBuilder: (_, _) => const SizedBox(height: rowGap),
                 itemBuilder: (_, i) => _StopRow(plan.stops[i]),
               ),
             ),
@@ -78,20 +86,19 @@ class RouteSheet extends StatelessWidget {
               style: RbText.caption.copyWith(color: RbColors.inkMuted),
             ),
             const SizedBox(height: RbSpace.s3),
+            if (onMarkVisited != null && !plan.isComplete) ...[
+              RbPrimaryButton(
+                label: markVisitedLabel,
+                onPressed: onMarkVisited,
+              ),
+              const SizedBox(height: RbSpace.s2),
+            ],
             RbPrimaryButton(
               label: startLabel,
               enabled: startEnabled,
               onPressed: onStart,
+              color: startColor,
             ),
-            if (onMarkVisited != null && !plan.isComplete)
-              TextButton(
-                onPressed: onMarkVisited,
-                style: TextButton.styleFrom(
-                  foregroundColor: RbColors.brand,
-                  textStyle: RbText.bodyStrong,
-                ),
-                child: const Text(markVisitedLabel),
-              ),
             ?footer,
           ],
         ),
@@ -100,17 +107,20 @@ class RouteSheet extends StatelessWidget {
   }
 }
 
-/// Number badge (`brand` circle, white `bodyStrong`), address in `body`
-/// (`ink-muted` once visited) and the `success` "Visitado" chip.
+/// Number badge (`brand` circle, white `bodyStrong`) and address in `body`.
+/// Once visited the badge turns `success` with a white check icon and the
+/// address goes `ink-muted` (NAV-04).
 class _StopRow extends StatelessWidget {
   const _StopRow(this.stop);
 
   final RouteStop stop;
 
   static const double badgeSize = 24;
+  static const double checkSize = 16;
 
   @override
   Widget build(BuildContext context) {
+    final visited = stop.visited;
     return Row(
       key: RouteSheet.stopKey(stop.stop.placeId),
       children: [
@@ -118,31 +128,31 @@ class _StopRow extends StatelessWidget {
           width: badgeSize,
           height: badgeSize,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: RbColors.brand,
+          decoration: BoxDecoration(
+            color: visited ? RbColors.success : RbColors.brand,
             shape: BoxShape.circle,
           ),
-          child: Text(
-            '${stop.order}',
-            style: RbText.bodyStrong.copyWith(color: Colors.white),
-          ),
+          child: visited
+              ? const Icon(
+                  Icons.check,
+                  size: checkSize,
+                  color: Colors.white,
+                  semanticLabel: RouteSheet.visitedLabel,
+                )
+              : Text(
+                  '${stop.order}',
+                  style: RbText.bodyStrong.copyWith(color: Colors.white),
+                ),
         ),
         const SizedBox(width: RbSpace.s2),
         Expanded(
           child: Text(
             stop.stop.address,
             style: RbText.body.copyWith(
-              color: stop.visited ? RbColors.inkMuted : RbColors.ink,
+              color: visited ? RbColors.inkMuted : RbColors.ink,
             ),
           ),
         ),
-        if (stop.visited) ...[
-          const SizedBox(width: RbSpace.s2),
-          const RbStatusChip(
-            label: RouteSheet.visitedLabel,
-            tone: RbTone.success,
-          ),
-        ],
       ],
     );
   }

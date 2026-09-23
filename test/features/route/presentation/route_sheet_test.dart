@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
-import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
@@ -30,6 +29,10 @@ void main() {
   );
 
   final startFinder = find.widgetWithText(RbPrimaryButton, 'Iniciar');
+  final markVisitedFinder = find.widgetWithText(
+    RbPrimaryButton,
+    'Marcar como visitado',
+  );
 
   Future<void> pumpSheet(
     WidgetTester tester, {
@@ -37,6 +40,8 @@ void main() {
     bool startEnabled = true,
     VoidCallback? onStart,
     VoidCallback? onMarkVisited,
+    String startLabel = 'Iniciar',
+    Color startColor = RbColors.brand,
     Widget? footer,
   }) async {
     await tester.pumpWidget(
@@ -49,6 +54,8 @@ void main() {
               startEnabled: startEnabled,
               onStart: onStart ?? () {},
               onMarkVisited: onMarkVisited,
+              startLabel: startLabel,
+              startColor: startColor,
               footer: footer,
             ),
           ),
@@ -61,6 +68,21 @@ void main() {
 
   Text textIn(WidgetTester tester, Finder scope, String text) => tester
       .widget<Text>(find.descendant(of: scope, matching: find.text(text)));
+
+  Container badgeIn(WidgetTester tester, Finder scope, Finder content) =>
+      tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.descendant(of: scope, matching: content),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+
+  Material materialOf(WidgetTester tester, Finder button) =>
+      tester.widget<Material>(
+        find.descendant(of: button, matching: find.byType(Material)).first,
+      );
 
   group('RouteSheet (ROUTE-04)', () {
     testWidgets('surface-200 container with top radius-lg and the heading '
@@ -115,14 +137,7 @@ void main() {
       final y3 = tester.getTopLeft(row('pc')).dy;
       expect(y1 < y2 && y2 < y3, isTrue);
 
-      final badge = tester.widget<Container>(
-        find
-            .ancestor(
-              of: find.descendant(of: row('pb'), matching: find.text('1')),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
+      final badge = badgeIn(tester, row('pb'), find.text('1'));
       final decoration = badge.decoration! as BoxDecoration;
       expect(decoration.color, RbColors.brand);
       expect(decoration.shape, BoxShape.circle);
@@ -136,7 +151,20 @@ void main() {
       expect(address.style!.fontSize, 15);
       expect(address.style!.fontWeight, FontWeight.w400);
       expect(address.style!.color, RbColors.ink);
-      expect(find.byType(RbStatusChip), findsNothing);
+      expect(find.byIcon(Icons.check), findsNothing);
+    });
+
+    testWidgets('rows are separated by s3 (16 px)', (tester) async {
+      await pumpSheet(tester, plan: plan());
+
+      expect(
+        tester.getTopLeft(row('pa')).dy - tester.getBottomLeft(row('pb')).dy,
+        RouteSheet.rowGap,
+      );
+      expect(
+        tester.getTopLeft(row('pc')).dy - tester.getBottomLeft(row('pa')).dy,
+        16,
+      );
     });
 
     testWidgets('totals caption "12,3 km · 10 min" in caption/ink-muted', (
@@ -149,21 +177,37 @@ void main() {
       expect(totals.style!.color, RbColors.inkMuted);
     });
 
-    testWidgets('visited stop shows the success "Visitado" chip and its '
-        'address in ink-muted (NAV-04)', (tester) async {
+    testWidgets('visited stop: success badge with a white check (semantics '
+        '"Visitado") instead of the number, address in ink-muted, no chip '
+        '(NAV-04)', (tester) async {
       await pumpSheet(tester, plan: plan(firstVisited: true));
 
-      final chip = tester.widget<RbStatusChip>(
-        find.descendant(of: row('pb'), matching: find.byType(RbStatusChip)),
+      final check = find.byIcon(Icons.check);
+      expect(check, findsOneWidget);
+      expect(find.descendant(of: row('pb'), matching: check), findsOneWidget);
+      final icon = tester.widget<Icon>(check);
+      expect(icon.color, Colors.white);
+      expect(icon.size, 16);
+      expect(icon.semanticLabel, 'Visitado');
+      expect(find.text('Visitado'), findsNothing);
+      expect(
+        find.descendant(of: row('pb'), matching: find.text('1')),
+        findsNothing,
       );
-      expect(chip.label, 'Visitado');
-      expect(chip.tone, RbTone.success);
-      expect(find.byType(RbStatusChip), findsOneWidget);
+
+      final badge = badgeIn(tester, row('pb'), check);
+      final decoration = badge.decoration! as BoxDecoration;
+      expect(decoration.color, RbColors.success);
+      expect(decoration.shape, BoxShape.circle);
+      expect(tester.getSize(find.byWidget(badge)), const Size(24, 24));
+
       expect(
         textIn(tester, row('pb'), 'Rua B, 2').style!.color,
         RbColors.inkMuted,
       );
       expect(textIn(tester, row('pa'), 'Rua A, 1').style!.color, RbColors.ink);
+      final unvisited = badgeIn(tester, row('pa'), find.text('2'));
+      expect((unvisited.decoration! as BoxDecoration).color, RbColors.brand);
     });
 
     testWidgets('"Iniciar" enabled in brand calls onStart', (tester) async {
@@ -198,15 +242,73 @@ void main() {
       expect(started, 0);
     });
 
-    testWidgets('"Marcar como visitado" appears only with onMarkVisited and '
-        'calls it (NAV-05)', (tester) async {
+    testWidgets('"Marcar como visitado" appears only with onMarkVisited, as '
+        'a brand primary button above the start action, and calls it '
+        '(NAV-05)', (tester) async {
       await pumpSheet(tester, plan: plan());
       expect(find.text('Marcar como visitado'), findsNothing);
+      expect(find.byType(RbPrimaryButton), findsOneWidget);
 
       var marked = 0;
-      await pumpSheet(tester, plan: plan(), onMarkVisited: () => marked++);
-      await tester.tap(find.text('Marcar como visitado'));
+      var started = 0;
+      await pumpSheet(
+        tester,
+        plan: plan(),
+        onStart: () => started++,
+        onMarkVisited: () => marked++,
+      );
+
+      expect(markVisitedFinder, findsOneWidget);
+      expect(find.byType(TextButton), findsNothing);
+      expect(materialOf(tester, markVisitedFinder).color, RbColors.brand);
+      expect(
+        tester.widget<Text>(find.text('Marcar como visitado')).style!.color,
+        Colors.white,
+      );
+      expect(
+        tester.getBottomLeft(markVisitedFinder).dy,
+        lessThan(tester.getTopLeft(startFinder).dy),
+      );
+      expect(
+        tester.getTopLeft(startFinder).dy -
+            tester.getBottomLeft(markVisitedFinder).dy,
+        RbSpace.s2,
+      );
+
+      await tester.tap(markVisitedFinder);
       expect(marked, 1);
+      expect(started, 0);
+      await tester.tap(startFinder);
+      expect(started, 1);
+    });
+
+    testWidgets('"Encerrar" is painted with startColor danger and white text '
+        '(NAV-07, DS-03)', (tester) async {
+      var stopped = 0;
+      await pumpSheet(
+        tester,
+        plan: plan(),
+        startLabel: 'Encerrar',
+        startColor: RbColors.danger,
+        onStart: () => stopped++,
+        onMarkVisited: () {},
+      );
+
+      final stop = find.widgetWithText(RbPrimaryButton, 'Encerrar');
+      expect(stop, findsOneWidget);
+      expect(startFinder, findsNothing);
+      expect(materialOf(tester, stop).color, RbColors.danger);
+      expect(
+        tester.widget<Text>(find.text('Encerrar')).style!.color,
+        Colors.white,
+      );
+      expect(materialOf(tester, markVisitedFinder).color, RbColors.brand);
+      expect(
+        tester.getBottomLeft(markVisitedFinder).dy,
+        lessThan(tester.getTopLeft(stop).dy),
+      );
+      await tester.tap(stop);
+      expect(stopped, 1);
     });
 
     testWidgets('"Marcar como visitado" is hidden once every stop is visited', (
@@ -220,7 +322,8 @@ void main() {
       await pumpSheet(tester, plan: complete, onMarkVisited: () {});
 
       expect(find.text('Marcar como visitado'), findsNothing);
-      expect(find.byType(RbStatusChip), findsNWidgets(3));
+      expect(find.byIcon(Icons.check), findsNWidgets(3));
+      expect(find.byType(RbPrimaryButton), findsOneWidget);
     });
 
     testWidgets('with 12 stops on a 640 px screen the heading, totals and '
