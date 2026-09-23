@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../theme/rb_tokens.dart';
 
-/// Primary action button (DS-03).
+/// Primary action button.
 ///
-/// Enabled: [color] background (`brand` by default; `danger` for destructive
-/// actions such as "Encerrar") with white `bodyStrong` text. Disabled:
-/// `border` background with `inkMuted` text. Both states share `radius-lg`
-/// and a fixed height of 52 so the button never moves between states.
-/// While [loading] a 20 px spinner replaces the label and taps are ignored.
+/// Enabled and disabled states share the same radius and a fixed height of 52
+/// so the button never moves between states. While [loading] a spinner
+/// replaces the label and taps are ignored.
 class RbPrimaryButton extends StatelessWidget {
   const RbPrimaryButton({
     super.key,

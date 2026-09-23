@@ -96,7 +96,7 @@ void main() {
       verify(() => auth.authenticate()).called(1);
     });
 
-    testWidgets('a platform initial route cannot skip the lock (LOCK-01)', (
+    testWidgets('a platform initial route cannot skip the lock', (
       tester,
     ) async {
       tester.binding.platformDispatcher.defaultRouteNameTestValue = '/map';
@@ -111,7 +111,7 @@ void main() {
     });
 
     testWidgets('a platform initial route is replaced by "/lock" as the first '
-        'route, not merely guarded (LOCK-01)', (tester) async {
+        'route, not merely guarded', (tester) async {
       tester.binding.platformDispatcher.defaultRouteNameTestValue = '/map';
       addTearDown(
         tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
@@ -134,7 +134,7 @@ void main() {
     });
 
     testWidgets('a route pushed while locked shows the Lock screen, not the '
-        'screen behind it (LOCK-01)', (tester) async {
+        'screen behind it', (tester) async {
       // The prompt never answers: the app stays locked.
       when(() => auth.authenticate())
           .thenAnswer((_) => Completer<AuthResult>().future);
@@ -188,7 +188,7 @@ void main() {
     });
 
     testWidgets('"Nova rota" after completion returns to a fresh Map screen '
-        'that acquires the position again (NAV-06, ROUTE-01)', (tester) async {
+        'that acquires the position again', (tester) async {
       const origin = GeoPoint(-23.5614, -46.6559);
       final start = Fix(origin, 8, DateTime.utc(2026, 9, 22, 10));
       final completed = RoutePlan(
@@ -242,8 +242,9 @@ void main() {
       verify(() => location.checkAccess()).called(1);
     });
 
-    testWidgets('background pauses the navigation and foreground resumes it '
-        '(NAV-08)', (tester) async {
+    testWidgets('background pauses the navigation and foreground resumes it', (
+      tester,
+    ) async {
       await bootAndUnlock(tester);
       final events = <String>[];
       final session = getIt<SessionState>();

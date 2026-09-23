@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/rb_tokens.dart';
 
-/// DS text field (ADDR-01, ADDR-05).
-///
-/// `surface-200` fill, `border` outline with `radius-md` (brand when focused,
-/// danger on error), padding 16, placeholder in `ink-muted`, [errorText] in
-/// `caption`/`danger` under the field, optional [trailing] widget.
+/// Design-system text field with an optional [trailing] widget and
+/// [errorText] rendered under the field.
 class RbTextField extends StatelessWidget {
   const RbTextField({
     super.key,

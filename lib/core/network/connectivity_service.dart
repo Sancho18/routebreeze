@@ -1,6 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-/// Online/offline signal (OFFL-01, OFFL-02, RECALC-06).
 abstract class ConnectivityService {
   /// Emits on every change, without repeating the same value.
   Stream<bool> get isOnline;

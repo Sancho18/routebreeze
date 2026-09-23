@@ -55,7 +55,7 @@ void main() {
     expect(MapCubit(location).state.resumable, isNull);
   });
 
-  group('resume (OFFL-04, OFFL-05)', () {
+  group('resume', () {
     final plan = RoutePlan(
       origin: const GeoPoint(-23.5614, -46.6559),
       stops: const [
@@ -206,7 +206,7 @@ void main() {
     );
 
     blocTest<MapCubit, MapState>(
-      'a non-timeout error from the fix → timeout (retryable, MAP-06)',
+      'a non-timeout error from the fix → timeout (retryable)',
       build: () {
         stubAccess(LocationAccess.granted);
         stubFix(StateError('provider'));
@@ -218,7 +218,7 @@ void main() {
     );
 
     blocTest<MapCubit, MapState>(
-      'an error from the access check → timeout (retryable, MAP-06)',
+      'an error from the access check → timeout (retryable)',
       build: () {
         when(() => location.checkAccess()).thenThrow(Exception('platform'));
         return MapCubit(location);
@@ -229,7 +229,7 @@ void main() {
     );
 
     blocTest<MapCubit, MapState>(
-      'an error from the permission request → timeout (retryable, MAP-06)',
+      'an error from the permission request → timeout (retryable)',
       build: () {
         stubAccess(LocationAccess.denied);
         when(() => location.requestPermission())
@@ -360,7 +360,7 @@ void main() {
     );
 
     blocTest<MapCubit, MapState>(
-      'denied (still requestable, MAP-03) opens no settings screen',
+      'denied (still requestable) opens no settings screen',
       build: () => MapCubit(location),
       seed: () => const MapState(status: MapStatus.denied),
       act: (cubit) => cubit.openSettings(),

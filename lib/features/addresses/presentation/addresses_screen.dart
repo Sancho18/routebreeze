@@ -13,9 +13,7 @@ import '../domain/stop.dart';
 import 'address_field_widget.dart';
 import 'address_form_cubit.dart';
 
-/// Addresses screen per the DS example: title, "Ponto A/B/C…" fields,
-/// "Adicionar ponto" link, "Confirmar rota" and the helper caption; offline
-/// banner on top (ADDR-01, ADDR-05, ADDR-08, ADDR-10, OFFL-01).
+/// Address entry screen: "Ponto A/B/C…" fields with the offline banner on top.
 class AddressesScreen extends StatefulWidget {
   const AddressesScreen({
     super.key,

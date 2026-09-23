@@ -129,7 +129,6 @@ void main() {
     async.flushMicrotasks();
   }
 
-  /// prepare + a good fix + start.
   NavigationCubit navigating(FakeAsync async) {
     final cubit = build(async)..prepare();
     async.flushMicrotasks();
@@ -158,8 +157,8 @@ void main() {
   });
 
   group('prepare and start', () {
-    test('waits for GPS: "Iniciar" needs a fix of 50 m or better (NAV-01) '
-        'and start subscribes with a 5 m filter (NAV-02)', () {
+    test('waits for GPS: "Iniciar" needs a fix of 50 m or better '
+        'and start subscribes with a 5 m filter', () {
       fakeAsync((async) {
         final cubit = build(async)..prepare();
         async.flushMicrotasks();
@@ -203,7 +202,7 @@ void main() {
 
   group('arrival', () {
     test('within 40 m of the next stop marks it visited and persists the '
-        'plan (NAV-04, OFFL-03)', () {
+        'plan', () {
       fakeAsync((async) {
         final cubit = navigating(async);
 
@@ -225,7 +224,7 @@ void main() {
     });
 
     test('"Marcar como visitado" marks the next stop exactly like the '
-        'automatic case (NAV-05)', () {
+        'automatic case', () {
       fakeAsync((async) {
         final cubit = navigating(async);
 
@@ -244,7 +243,7 @@ void main() {
     });
 
     test('the last stop completes the route: stream stopped, storage '
-        'cleared, navigation no longer active (NAV-06, OFFL-05)', () {
+        'cleared, navigation no longer active', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         emitFix(async, atStop(a));
@@ -265,7 +264,7 @@ void main() {
   group('recalculation', () {
     test('3 far fixes → one request from the current position through the '
         'unvisited stops; the plan is replaced and "Rota recalculada" '
-        'shows for 4 s (RECALC-03, RECALC-04)', () {
+        'shows for 4 s', () {
       stubPlan(recalculated);
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -301,28 +300,30 @@ void main() {
       });
     });
 
-    test('visited stops are kept and only the unvisited ones are requested '
-        '(RECALC-03)', () {
-      stubPlan(recalculated);
-      fakeAsync((async) {
-        final cubit = navigating(async);
-        emitFix(async, atStop(a));
+    test(
+      'visited stops are kept and only the unvisited ones are requested',
+      () {
+        stubPlan(recalculated);
+        fakeAsync((async) {
+          final cubit = navigating(async);
+          emitFix(async, atStop(a));
 
-        goOffRoute(async);
+          goOffRoute(async);
 
-        verify(
-          () => routes.plan(
-            farPoint,
-            [b],
-            keepVisited: const [RouteStop(stop: a, order: 1, visited: true)],
-          ),
-        ).called(1);
-        cubit.close();
-      });
-    });
+          verify(
+            () => routes.plan(
+              farPoint,
+              [b],
+              keepVisited: const [RouteStop(stop: a, order: 1, visited: true)],
+            ),
+          ).called(1);
+          cubit.close();
+        });
+      },
+    );
 
     test('a failed request keeps the plan and shows "Falha ao recalcular" '
-        'for 4 s; a new attempt is allowed after 20 s (RECALC-05)', () {
+        'for 4 s; a new attempt is allowed after 20 s', () {
       stubPlan(failure);
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -361,7 +362,7 @@ void main() {
     });
 
     test('a second deviation within 20 s of the last recalculation makes no '
-        'request; after 20 s it does (RECALC-03)', () {
+        'request; after 20 s it does', () {
       stubPlan(recalculated);
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -388,7 +389,7 @@ void main() {
       });
     });
 
-    test('no second request while one is in flight (RECALC-07)', () {
+    test('no second request while one is in flight', () {
       fakeAsync((async) {
         final pending = Completer<RoutePlan>();
         stubPlan(pending);
@@ -413,7 +414,7 @@ void main() {
     });
 
     test('offline: "Recálculo pendente (sem conexão)" without a request, '
-        'then the recalculation runs on reconnect (RECALC-06)', () {
+        'then the recalculation runs on reconnect', () {
       stubPlan(recalculated);
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -450,7 +451,7 @@ void main() {
     });
 
     test('a stop visited while a recalculation is in flight stays visited '
-        'in the replaced plan (NAV-05, RECALC-04, OFFL-03)', () {
+        'in the replaced plan', () {
       fakeAsync((async) {
         final pending = Completer<RoutePlan>();
         stubPlan(pending);
@@ -485,7 +486,7 @@ void main() {
     });
 
     test('completion during an in-flight recalculation is final: the stale '
-        'plan is dropped and storage stays cleared (NAV-06, OFFL-05)', () {
+        'plan is dropped and storage stays cleared', () {
       fakeAsync((async) {
         final pending = Completer<RoutePlan>();
         stubPlan(pending);
@@ -511,7 +512,7 @@ void main() {
     });
 
     test('a pending recalculation is dropped when the route completes: '
-        'reconnecting makes no request (RECALC-06, NAV-06)', () {
+        'reconnecting makes no request', () {
       stubPlan(recalculated);
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -542,7 +543,7 @@ void main() {
 
     test('an imprecise fix never triggers or seeds a recalculation: after a '
         'failure and 20 s, a 120 m fix makes no request and the next '
-        'accepted fix is the origin (RECALC-02, RECALC-03)', () {
+        'accepted fix is the origin', () {
       stubPlan(failure);
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -569,7 +570,7 @@ void main() {
     });
 
     test('a pending recalculation starts from the last accepted fix, not '
-        'from a later imprecise one (RECALC-02, RECALC-06)', () {
+        'from a later imprecise one', () {
       stubPlan(recalculated);
       fakeAsync((async) {
         final cubit = navigating(async);
@@ -593,8 +594,7 @@ void main() {
   });
 
   group('camera', () {
-    test('dragging the map stops following; "Recentralizar" resumes it '
-        '(NAV-03)', () {
+    test('dragging the map stops following; "Recentralizar" resumes it', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         expect(cubit.state.following, isTrue);
@@ -611,7 +611,7 @@ void main() {
 
   group('lifecycle', () {
     test('pause cancels the position stream and keeps the state; resume '
-        'resubscribes (NAV-08)', () {
+        'resubscribes', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         final before = cubit.state;
@@ -633,7 +633,7 @@ void main() {
     });
 
     test('prepare hands pause/resume to the session for the lifecycle gate; '
-        'stop clears them (NAV-08)', () {
+        'stop clears them', () {
       fakeAsync((async) {
         final cubit = build(async);
         expect(session.onPause, isNull);
@@ -657,7 +657,7 @@ void main() {
     });
 
     test('closing a stale cubit leaves the hooks and the active flag of a '
-        'cubit prepared after it untouched (NAV-08, LOCK-08)', () {
+        'cubit prepared after it untouched', () {
       fakeAsync((async) {
         final first = build(async)..prepare();
         async.flushMicrotasks();
@@ -687,7 +687,7 @@ void main() {
       });
     });
 
-    test('resume without a pause does not subscribe twice (NAV-08)', () {
+    test('resume without a pause does not subscribe twice', () {
       fakeAsync((async) {
         final cubit = navigating(async);
 
@@ -698,8 +698,7 @@ void main() {
       });
     });
 
-    test('"Encerrar" stops the streams and leaves the route intact '
-        '(NAV-07)', () {
+    test('"Encerrar" stops the streams and leaves the route intact', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         emitFix(async, atStop(a));
@@ -733,8 +732,7 @@ void main() {
   });
 
   group('stream error', () {
-    test('shows "Perdemos o sinal de GPS" and keeps the last position '
-        '(edge case)', () {
+    test('shows "Perdemos o sinal de GPS" and keeps the last position', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         final last = cubit.state.fix;
@@ -756,7 +754,7 @@ void main() {
     });
 
     test('after a stream error the position stream is resubscribed once '
-        '5 s later and the next fix clears the error (NAV-02)', () {
+        '5 s later and the next fix clears the error', () {
       fakeAsync((async) {
         final cubit = navigating(async);
 
@@ -783,7 +781,7 @@ void main() {
     });
 
     test('a stream error while waiting for GPS (before "Iniciar") shows the '
-        'message and resubscribes 5 s later (NAV-01, edge case)', () {
+        'message and resubscribes 5 s later', () {
       fakeAsync((async) {
         final cubit = build(async)..prepare();
         async.flushMicrotasks();
@@ -806,7 +804,7 @@ void main() {
       });
     });
 
-    test('a stream that ends is resubscribed on resume (NAV-08)', () {
+    test('a stream that ends is resubscribed on resume', () {
       fakeAsync((async) {
         final cubit = navigating(async);
 
@@ -823,7 +821,7 @@ void main() {
       });
     });
 
-    test('resume after a stream error resubscribes at once (NAV-08)', () {
+    test('resume after a stream error resubscribes at once', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         fixes.addError(StateError('gps off'));

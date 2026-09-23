@@ -27,34 +27,33 @@ class MapState extends Equatable {
 
   final MapStatus status;
 
-  /// The start fix; set only when [status] is `ready` (MAP-07).
+  /// The start fix; set only when [status] is `ready`.
   final Fix? start;
 
   /// A persisted, unfinished route to offer with "Continuar rota?"; set only
-  /// with `ready` (OFFL-04).
+  /// with `ready`.
   final RoutePlan? resumable;
 
   @override
   List<Object?> get props => [status, start, resumable];
 }
 
-/// Permission flow and start fix for the Map screen (MAP-01..MAP-07), plus
-/// the persisted route offer (OFFL-04, OFFL-05).
+/// Permission flow and start fix for the Map screen, plus the offer to
+/// resume a persisted route.
 class MapCubit extends Cubit<MapState> {
   MapCubit(this._location, {this._routes}) : super(const MapState());
 
   final LocationService _location;
   final RouteRepository? _routes;
 
-  /// Accepted horizontal accuracy for the start fix (MAP-02).
+  /// Accepted horizontal accuracy for the start fix.
   static const double maxAccuracyMeters = 50;
 
-  /// Time allowed for the first fix (MAP-02, MAP-06).
+  /// Time allowed for the first fix.
   static const Duration fixTimeout = Duration(seconds: 15);
 
   /// Any failure to check access or get the fix (timeout, platform error)
-  /// ends in [MapStatus.timeout], whose card offers "Tentar novamente"
-  /// (MAP-06).
+  /// ends in [MapStatus.timeout], whose card offers "Tentar novamente".
   Future<void> init() async {
     if (state.status != MapStatus.checking) emit(const MapState());
     final Fix fix;
@@ -90,8 +89,7 @@ class MapCubit extends Cubit<MapState> {
 
   Future<void> retry() => init();
 
-  /// "Nova rota" on the resume offer: the persisted route is deleted
-  /// (OFFL-05).
+  /// "Nova rota" on the resume offer: the persisted route is deleted.
   Future<void> dismissResume() async {
     emit(MapState(status: state.status, start: state.start));
     await _routes?.clear();

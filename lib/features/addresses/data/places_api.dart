@@ -6,9 +6,8 @@ import '../../../core/network/api_client.dart';
 import '../domain/stop.dart';
 import '../domain/suggestion.dart';
 
-/// Places API (New): autocomplete and place details (ADDR-02, ADDR-03).
-///
-/// Both methods throw a `Failure` on transport or HTTP errors (ADDR-11).
+/// Places API (New) autocomplete and place details; both throw a `Failure` on
+/// transport or HTTP errors.
 abstract class PlacesApi {
   Future<List<Suggestion>> autocomplete({
     required String input,
@@ -26,7 +25,7 @@ class PlacesApiImpl implements PlacesApi {
 
   static const String baseUrl = 'https://places.googleapis.com/v1';
 
-  /// Location bias around the start position (spec: 50 km).
+  /// Suggestions are biased to a 50 km circle around the start position.
   static const double biasRadiusMeters = 50000;
 
   static const int maxSuggestions = 5;

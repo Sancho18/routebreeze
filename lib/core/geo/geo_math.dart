@@ -45,7 +45,6 @@ double distanceToPolylineMeters(GeoPoint point, List<GeoPoint> line) {
   return best;
 }
 
-/// Distance from the origin (0, 0) to the segment [a]–[b].
 double _distanceFromOriginToSegment(
   math.Point<double> a,
   math.Point<double> b,

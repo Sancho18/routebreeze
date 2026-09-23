@@ -7,12 +7,9 @@ import '../../../core/widgets/rb_button.dart';
 import '../domain/route_plan.dart';
 import 'route_format.dart';
 
-/// Bottom sheet with the optimized order (ROUTE-04): heading, numbered stop
-/// list (visited stops get a `success` check badge, NAV-04), totals caption
-/// and the primary action. [onMarkVisited] adds the "Marcar como visitado"
-/// button above it for the next stop (NAV-05); [startColor] paints the
-/// primary action (`danger` for "Encerrar", NAV-07); [footer] is rendered
-/// below the actions.
+/// Bottom sheet with the optimized stop order, totals and the primary action.
+/// [onMarkVisited] adds the "Marcar como visitado" button above the primary
+/// action for the next stop; [footer] is rendered below the actions.
 class RouteSheet extends StatelessWidget {
   const RouteSheet({
     super.key,
@@ -39,14 +36,12 @@ class RouteSheet extends StatelessWidget {
   static const String visitedLabel = 'Visitado';
   static const String markVisitedLabel = 'Marcar como visitado';
 
-  /// Vertical gap between stop rows (`space-2`: "linhas de uma lista").
   static const double rowGap = RbSpace.s2;
 
-  /// Key of the row for the stop with [placeId].
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');
 
   /// The stop list never grows past this (or 40% of the screen): heading,
-  /// totals and actions stay visible and the list scrolls (B-05).
+  /// totals and actions stay visible and the list scrolls.
   static const double maxListHeight = 320;
 
   @override
@@ -107,9 +102,7 @@ class RouteSheet extends StatelessWidget {
   }
 }
 
-/// Number badge (`brand` circle, white `bodyStrong`) and address in `body`.
-/// Once visited the badge turns `success` with a white check icon and the
-/// address goes `ink-muted` (NAV-04).
+/// One stop row; a visited stop gets a check badge and a muted address.
 class _StopRow extends StatelessWidget {
   const _StopRow(this.stop);
 

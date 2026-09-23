@@ -24,7 +24,7 @@ import '../session/session_state.dart';
 
 final GetIt getIt = GetIt.instance;
 
-/// Composition root. Each feature task registers its own types here.
+/// Composition root.
 ///
 /// [apiKey] overrides `Env.googleMapsApiKey` (tests).
 Future<void> configureDependencies({String? apiKey}) async {

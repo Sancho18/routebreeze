@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 
 void main() {
-  group('MapMarkers (ROUTE-03)', () {
+  group('MapMarkers', () {
     test(
       'numbered draws a PNG with non-empty bytes at the pixel ratio',
       () async {
@@ -31,7 +31,7 @@ void main() {
       expect(identical(first, other), isFalse);
     });
 
-    test('position draws a smaller PNG dot once (NAV-02)', () async {
+    test('position draws a smaller PNG dot once', () async {
       final markers = MapMarkers();
 
       final icon = await markers.position();

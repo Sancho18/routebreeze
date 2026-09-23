@@ -31,7 +31,7 @@ void main() {
     computedAt: DateTime.utc(2026, 9, 22, 10, 30),
   );
 
-  group('RoutePlan JSON (OFFL-03)', () {
+  group('RoutePlan JSON', () {
     test('round-trips ordered stops, visited flags, polyline and totals', () {
       final visited = plan.markVisited('pb');
 
@@ -64,7 +64,7 @@ void main() {
     });
   });
 
-  group('RoutePlan progress (ROUTE-02, NAV-04)', () {
+  group('RoutePlan progress', () {
     test('unvisited keeps the optimized order and skips visited stops', () {
       expect(plan.unvisited.map((s) => s.stop.placeId), ['pb', 'pa', 'pc']);
       expect(plan.unvisited.map((s) => s.order), [1, 2, 3]);

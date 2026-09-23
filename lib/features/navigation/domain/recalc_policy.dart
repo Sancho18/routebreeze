@@ -2,9 +2,8 @@ import '../../../core/geo/geo_math.dart';
 import '../../addresses/domain/stop.dart';
 import '../../location/domain/fix.dart';
 
-/// Arrival at a stop (NAV-04): within [radiusMeters] great-circle distance,
-/// counted only for fixes with accuracy of [maxAccuracyMeters] or better
-/// (spec Assumptions: arrival accuracy gate).
+/// Arrival at a stop: within [radiusMeters] great-circle distance, counted
+/// only for fixes with accuracy of [maxAccuracyMeters] or better.
 class ArrivalDetector {
   ArrivalDetector({this.radiusMeters = 40, this.maxAccuracyMeters = 50});
 
@@ -16,16 +15,13 @@ class ArrivalDetector {
       haversineMeters(fix.point, stop.point) <= radiusMeters;
 }
 
-/// What to do with an off-route verdict.
 enum RecalcDecision {
-  /// Request a new route now.
   run,
 
-  /// Not now: one is in flight (RECALC-07) or the interval has not passed
-  /// (RECALC-03).
+  /// Not now: one is in flight or the interval has not passed.
   wait,
 
-  /// Offline: mark it pending and run when connectivity returns (RECALC-06).
+  /// Offline: mark it pending and run when connectivity returns.
   deferOffline,
 
   /// Not off-route.
@@ -33,7 +29,7 @@ enum RecalcDecision {
 }
 
 /// Bounds recalculations: at most one in flight and at least [minInterval]
-/// between two requests (RECALC-03, RECALC-06, RECALC-07).
+/// between two requests.
 class RecalcPolicy {
   RecalcPolicy({this.minInterval = const Duration(seconds: 20)});
 

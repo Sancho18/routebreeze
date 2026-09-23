@@ -7,8 +7,8 @@ import '../../../core/geo/geo_point.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../domain/route_plan.dart';
 
-/// What the route map draws (ROUTE-03): the start and numbered stop markers,
-/// the `brand` polyline and the bounds the camera fits.
+/// What the route map draws: the start and numbered stop markers, the route
+/// polyline and the bounds the camera fits.
 class RouteMapObjects {
   const RouteMapObjects({
     required this.origin,
@@ -25,12 +25,11 @@ class RouteMapObjects {
   static const String startMarkerId = 'start';
   static const String polylineId = 'route';
 
-  /// Marker id of the stop with [placeId].
   static String stopMarkerId(String placeId) => 'stop-$placeId';
 }
 
-/// Pure mapping from a [plan] to map objects. [numberedIcons] is keyed by
-/// stop order; [startIcon] marks "Partida".
+/// Pure mapping from a [plan] to map objects; [numberedIcons] is keyed by stop
+/// order.
 RouteMapObjects buildMapObjects(
   RoutePlan plan, {
   required Map<int, BitmapDescriptor> numberedIcons,

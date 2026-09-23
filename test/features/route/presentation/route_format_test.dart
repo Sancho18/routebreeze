@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/features/route/presentation/route_format.dart';
 
 void main() {
-  group('formatDistance (ROUTE-04: km with one decimal)', () {
+  group('formatDistance (km with one decimal)', () {
     test('12345 m → "12,3 km"', () {
       expect(formatDistance(12345), '12,3 km');
     });
@@ -16,7 +16,7 @@ void main() {
     });
   });
 
-  group('formatDuration (ROUTE-04: minutes)', () {
+  group('formatDuration (minutes)', () {
     test('605 s → "10 min"', () {
       expect(formatDuration(605), '10 min');
     });

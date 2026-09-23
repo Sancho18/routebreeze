@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../core/geo/geo_point.dart';
 
-/// A resolved delivery address: Place Details result (ADDR-03).
+/// A resolved delivery address (Place Details result).
 class Stop extends Equatable {
   const Stop(this.placeId, this.address, this.point);
 

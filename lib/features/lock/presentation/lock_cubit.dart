@@ -18,8 +18,6 @@ class LockState extends Equatable {
   List<Object?> get props => [status, reason];
 }
 
-/// Drives the Lock screen: starts locked, `unlock()` prompts the device
-/// authentication, `lock()` returns to locked (LOCK-01, LOCK-02, LOCK-04..06).
 class LockCubit extends Cubit<LockState> {
   LockCubit(this._auth) : super(const LockState());
 

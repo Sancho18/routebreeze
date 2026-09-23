@@ -1,6 +1,3 @@
-// Totals copy for the route sheet (ROUTE-04): distance in km with one
-// decimal (comma), duration in minutes.
-
 /// `12345` → `"12,3 km"`; below 1000 m → `"850 m"`.
 String formatDistance(int meters) {
   if (meters < 1000) return '$meters m';

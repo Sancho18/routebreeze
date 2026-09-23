@@ -7,13 +7,11 @@ import '../error/failure.dart';
 /// Connect and receive timeout for Google web services.
 const Duration apiTimeout = Duration(seconds: 10);
 
-/// Delay before the single retry on a connection error (OFFL-06).
+/// Delay before the single retry on a connection error.
 const Duration retryDelay = Duration(seconds: 2);
 
-/// A [Dio] configured for Google web services: API key header, JSON
-/// content type, 10 s timeouts and one retry after 2 s on connection errors.
-///
-/// [adapter] replaces the HTTP transport (tests).
+/// A [Dio] for Google web services; [adapter] replaces the HTTP transport
+/// (tests).
 Dio buildGoogleDio({required String apiKey, HttpClientAdapter? adapter}) {
   final dio = Dio(
     BaseOptions(
@@ -57,7 +55,6 @@ class RetryOnConnectionErrorInterceptor extends Interceptor {
   }
 }
 
-/// Maps a [DioException] to the app's [Failure] vocabulary.
 Failure mapDioError(DioException error) => switch (error.type) {
   DioExceptionType.connectionTimeout ||
   DioExceptionType.sendTimeout ||

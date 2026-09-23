@@ -103,7 +103,7 @@ void main() {
 
   group('NavigationScreen', () {
     testWidgets('prepares on open; without a good fix it shows '
-        '"Aguardando sinal de GPS" and keeps "Iniciar" disabled (NAV-01)', (
+        '"Aguardando sinal de GPS" and keeps "Iniciar" disabled', (
       tester,
     ) async {
       await pumpScreen(
@@ -136,9 +136,7 @@ void main() {
     });
 
     testWidgets('a fix of 50 m enables "Iniciar", which starts the cubit, '
-        'and draws the current-position marker (NAV-01, NAV-02)', (
-      tester,
-    ) async {
+        'and draws the current-position marker', (tester) async {
       await pumpScreen(
         tester,
         NavigationState(
@@ -165,8 +163,9 @@ void main() {
     });
 
     testWidgets('navigating: "Encerrar" stops and exits, "Marcar como '
-        'visitado" marks the next stop, visited stops leave the map '
-        '(NAV-05, NAV-07)', (tester) async {
+        'visitado" marks the next stop, visited stops leave the map', (
+      tester,
+    ) async {
       final visited = plan.markVisited('pa');
       await pumpScreen(
         tester,
@@ -214,9 +213,7 @@ void main() {
     });
 
     testWidgets('shows the badge text per kind: warning for recalculated and '
-        'pending, danger for failed (RECALC-04, RECALC-05, RECALC-06)', (
-      tester,
-    ) async {
+        'pending, danger for failed', (tester) async {
       const cases = [
         (NavigationBadge.recalculated, 'Rota recalculada', RbColors.warning),
         (NavigationBadge.recalcFailed, 'Falha ao recalcular', RbColors.danger),
@@ -253,7 +250,7 @@ void main() {
       expect(find.byType(RbStatusChip), findsNothing);
     });
 
-    testWidgets('offline shows the "Sem conexão" banner in danger (OFFL-01)', (
+    testWidgets('offline shows the "Sem conexão" banner in danger', (
       tester,
     ) async {
       await pumpScreen(
@@ -279,8 +276,9 @@ void main() {
       expect(box.color, RbColors.danger);
     });
 
-    testWidgets('a stream error shows "Perdemos o sinal de GPS" in danger '
-        '(edge case)', (tester) async {
+    testWidgets('a stream error shows "Perdemos o sinal de GPS" in danger', (
+      tester,
+    ) async {
       await pumpScreen(
         tester,
         NavigationState(
@@ -297,7 +295,7 @@ void main() {
     });
 
     testWidgets('a recalculation badge and the GPS error show together, '
-        'badge above the error (RECALC-04, edge case)', (tester) async {
+        'badge above the error', (tester) async {
       await pumpScreen(
         tester,
         NavigationState(
@@ -320,7 +318,7 @@ void main() {
     });
 
     testWidgets('"Recentralizar" appears only while not following and '
-        'recenters (NAV-03)', (tester) async {
+        'recenters', (tester) async {
       await pumpScreen(
         tester,
         NavigationState(
@@ -351,7 +349,7 @@ void main() {
     });
 
     testWidgets('dragging the map while following reports onMapDragged; a '
-        'tap or a tiny move does not (NAV-03)', (tester) async {
+        'tap or a tiny move does not', (tester) async {
       await pumpScreen(
         tester,
         NavigationState(
@@ -400,7 +398,7 @@ void main() {
     });
 
     testWidgets('completed replaces the sheet with "Rota concluída" in '
-        'success and "Nova rota" (NAV-06)', (tester) async {
+        'success and "Nova rota"', (tester) async {
       final done = plan.markVisited('pa').markVisited('pb');
       await pumpScreen(
         tester,

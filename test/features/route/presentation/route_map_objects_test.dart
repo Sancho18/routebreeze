@@ -49,7 +49,7 @@ void main() {
   Marker marker(String id) =>
       objects.markers.singleWhere((m) => m.markerId.value == id);
 
-  group('buildMapObjects (ROUTE-03)', () {
+  group('buildMapObjects', () {
     test('one start marker plus N numbered markers on the ordered stops', () {
       expect(objects.markers, hasLength(4));
       expect(objects.markers.map((m) => m.markerId.value), {

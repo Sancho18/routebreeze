@@ -6,8 +6,7 @@ import '../data/routes_api.dart';
 import 'route_plan.dart';
 import 'route_planner.dart';
 
-/// Computes, persists and restores the active route: planner + Routes API +
-/// storage (ROUTE-01, OFFL-03..05, RECALC-03).
+/// Computes, persists and restores the active route.
 class RouteRepository {
   RouteRepository(
     this._api,
@@ -21,11 +20,9 @@ class RouteRepository {
   final RoutePlanner _planner;
   final DateTime Function() _now;
 
-  /// One `computeRoutes` call over [stops] (the unvisited ones). The result
-  /// keeps [keepVisited] first with their numbers and numbers the new order
-  /// after them, so the initial plan is 1..N. The plan is saved before it
-  /// is returned; a storage failure does not discard the computed plan.
-  /// Throws the `Failure` of a failed request.
+  /// [keepVisited] stay first with their numbers; the new order is numbered
+  /// after them (the initial plan is 1..N). The plan is saved before it is
+  /// returned; a storage failure does not discard it.
   Future<RoutePlan> plan(
     GeoPoint origin,
     List<Stop> stops, {

@@ -31,8 +31,6 @@ class AddressFormState extends Equatable {
   final List<Stop>? submitted;
   final Failure? failure;
 
-  /// "Confirmar rota" is enabled only online with every field valid
-  /// (ADDR-10, OFFL-02).
   bool get canConfirm =>
       online && AddressFormValidator.validate(fields).isValid;
 
@@ -56,8 +54,7 @@ class AddressFormState extends Equatable {
   List<Object?> get props => [fields, online, submitting, submitted, failure];
 }
 
-/// Address list with autocomplete sessions, debounce and validation
-/// (ADDR-02..ADDR-04, ADDR-08..ADDR-12, OFFL-02).
+/// Address list with autocomplete sessions, debounce and validation.
 class AddressFormCubit extends Cubit<AddressFormState> {
   AddressFormCubit(
     this._places, {
@@ -77,7 +74,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
 
   final PlacesApi _places;
 
-  /// Start position used as the autocomplete location bias (ADDR-02).
+  /// Start position used as the autocomplete location bias.
   final GeoPoint bias;
   final Uuid _uuid;
   final Map<String, Timer> _timers = {};
@@ -98,7 +95,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
   };
 
   /// Text equal to the selected address keeps the field valid and starts no
-  /// search (ADDR-02: only unresolved text queries autocomplete).
+  /// search; only unresolved text queries autocomplete.
   void onTextChanged(String id, String text) {
     final field = _field(id);
     final selected = field.selected;
@@ -172,7 +169,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
       emit(state.copyWith(fields: [...state.fields, _newField()]));
 
   /// Only fields beyond the first three can go; validator messages on the
-  /// remaining fields are re-derived (ADDR-09, duplicate edge case).
+  /// remaining fields are re-derived (a duplicate may no longer be one).
   void removeField(String id) {
     final index = state.fields.indexWhere((f) => f.id == id);
     if (index < AddressFormValidator.minFields) return;
@@ -215,7 +212,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
   void setOnline(bool online) => emit(state.copyWith(online: online));
 
   /// Clears the submission outcome; the fields stay so the form is intact
-  /// when the user comes back (ADDR-12).
+  /// when the user comes back.
   void reset() =>
       emit(state.copyWith(submitting: false, submitted: null, failure: null));
 

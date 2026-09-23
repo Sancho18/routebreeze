@@ -24,11 +24,8 @@ typedef RouteMapBuilder = Widget Function(
   RouteMapObjects objects,
 );
 
-/// Route screen: computes the optimized route on open (ROUTE-05), shows the
-/// failure copy with "Tentar novamente" (ROUTE-06), and when ready draws the
-/// polyline and numbered markers (ROUTE-03) under the [RouteSheet]
-/// (ROUTE-04). "Iniciar" hands the plan to [onStart]. Offline banner on top
-/// (OFFL-01).
+/// Route screen: computes the optimized route on open and, once ready, draws
+/// it on the map under the [RouteSheet]; "Iniciar" hands the plan to [onStart].
 class RouteScreen extends StatefulWidget {
   const RouteScreen({
     super.key,
@@ -157,8 +154,7 @@ class _RouteScreenState extends State<RouteScreen> {
 Widget _googleMap(BuildContext context, RouteMapObjects objects) =>
     _RouteMap(objects: objects);
 
-/// `GoogleMap` fitted to the route once the platform view has laid out
-/// (ROUTE-03).
+/// `GoogleMap` fitted to the route once the platform view has laid out.
 class _RouteMap extends StatefulWidget {
   const _RouteMap({required this.objects});
 
@@ -198,7 +194,6 @@ class _RouteMapState extends State<_RouteMap> {
   }
 }
 
-/// Centered progress with the loading caption (ROUTE-05).
 class _Loading extends StatelessWidget {
   const _Loading();
 
@@ -220,7 +215,6 @@ class _Loading extends StatelessWidget {
   }
 }
 
-/// Failure copy in `danger` with "Tentar novamente" (ROUTE-06).
 class _Failure extends StatelessWidget {
   const _Failure({required this.onRetry});
 

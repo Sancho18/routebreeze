@@ -6,9 +6,7 @@ import '../domain/address_field.dart';
 import '../domain/suggestion.dart';
 import 'address_form_cubit.dart';
 
-/// One address input: `RbTextField` with the field's error, a spinner while
-/// searching, a remove control for added fields and the suggestion rows
-/// under it (ADDR-01, ADDR-02, ADDR-05, ADDR-08).
+/// One address input with its suggestion list under it.
 class AddressFieldWidget extends StatefulWidget {
   const AddressFieldWidget({
     super.key,

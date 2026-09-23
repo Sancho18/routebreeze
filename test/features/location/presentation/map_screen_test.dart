@@ -79,7 +79,6 @@ void main() {
   RbPrimaryButton cta(WidgetTester tester) =>
       tester.widget<RbPrimaryButton>(ctaFinder);
 
-  /// The CTA is disabled: `border` background, `ink-muted` label (MAP-07).
   void expectCtaDisabled(WidgetTester tester) {
     expect(cta(tester).enabled, isFalse);
     final material = tester.widget<Material>(
@@ -209,7 +208,7 @@ void main() {
       });
     }
 
-    group('coming back from Settings (MAP-04, MAP-05)', () {
+    group('coming back from Settings', () {
       for (final status in [
         MapStatus.denied,
         MapStatus.deniedForever,
@@ -260,7 +259,7 @@ void main() {
       });
     });
 
-    group('resume offer (OFFL-04, OFFL-05)', () {
+    group('resume offer', () {
       final plan = RoutePlan(
         origin: const GeoPoint(-23.5614, -46.6559),
         stops: const [

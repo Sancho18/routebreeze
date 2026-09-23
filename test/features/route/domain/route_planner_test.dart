@@ -12,7 +12,7 @@ void main() {
   const mid = Stop('mid', 'Rua Meio, 2', GeoPoint(-23.60, -46.70));
   const far = Stop('far', 'Rua Longe, 3', GeoPoint(-23.70, -46.80));
 
-  group('buildRequest (ROUTE-01)', () {
+  group('buildRequest', () {
     test('3 stops: the farthest becomes the destination, the others are '
         'intermediates in input order', () {
       final request = planner.buildRequest(origin, const [mid, far, near]);
@@ -52,7 +52,7 @@ void main() {
     });
 
     test('recalculation from a new origin applies the same farthest rule '
-        'to the unvisited stops (RECALC-03)', () {
+        'to the unvisited stops', () {
       const nearFar = GeoPoint(-23.69, -46.79);
 
       final request = planner.buildRequest(nearFar, const [mid, near]);
@@ -85,7 +85,7 @@ void main() {
     });
   });
 
-  group('order (ROUTE-02, ROUTE-07)', () {
+  group('order', () {
     const request = RouteRequest(
       origin: origin,
       intermediates: [mid, near],

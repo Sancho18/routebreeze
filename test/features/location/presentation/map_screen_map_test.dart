@@ -1,5 +1,3 @@
-// MAP-02: the default map of the Map screen centers on the start fix at
-// zoom 16 and shows the "Partida" marker.
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,7 +20,7 @@ void main() {
   );
 
   testWidgets('ready mounts a GoogleMap centered on the start at zoom 16 '
-      'with the "Partida" marker (MAP-02)', (tester) async {
+      'with the "Partida" marker', (tester) async {
     final platform = FakeGoogleMapPlatform.install(tester);
     final cubit = MockMapCubit();
     when(() => cubit.init()).thenAnswer((_) async {});

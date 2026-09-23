@@ -6,24 +6,20 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/theme/rb_tokens.dart';
 
-/// Marker icons for the route map (ROUTE-03): numbered `brand` circles drawn
-/// with `dart:ui` and cached per number, a distinct start marker and the
-/// current-position dot (NAV-02).
+/// Marker icons for the route map: numbered circles drawn with `dart:ui` and
+/// cached per number, a distinct start marker and the current-position dot.
 class MapMarkers {
   MapMarkers();
 
   /// Circle radius in logical pixels.
   static const double radius = 18;
 
-  /// Current-position dot radius in logical pixels.
   static const double positionRadius = 10;
 
   final Map<int, BitmapDescriptor> _cache = {};
   BitmapDescriptor? _position;
 
-  /// A `brand` circle with a white ring and the white `bodyStrong` number
-  /// [n], rendered at [pixelRatio]. The same instance is returned on every
-  /// later call for the same number.
+  /// Cached per number: the same instance is returned on every later call.
   Future<BitmapDescriptor> numbered(int n, {double pixelRatio = 3}) async {
     final cached = _cache[n];
     if (cached != null) return cached;
@@ -35,16 +31,13 @@ class MapMarkers {
     return icon;
   }
 
-  /// The current-position marker: a smaller `brand` dot with a white ring,
-  /// drawn once.
   Future<BitmapDescriptor> position({double pixelRatio = 3}) async =>
       _position ??= BitmapDescriptor.bytes(
         await _paint(positionRadius, pixelRatio),
         imagePixelRatio: pixelRatio,
       );
 
-  /// The "Partida" marker: an azure default pin, distinct from the numbered
-  /// circles.
+  /// The "Partida" marker: a default pin, distinct from the numbered circles.
   BitmapDescriptor start() =>
       BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
 

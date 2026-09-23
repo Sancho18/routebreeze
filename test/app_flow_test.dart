@@ -1,6 +1,5 @@
 // Journey through the named routes of RouteBreezeApp with real cubits and
-// fake services: LOCK-02, MAP-02, MAP-07, ADDR-02, ADDR-03, ADDR-10,
-// ROUTE-03, ROUTE-04, ROUTE-06, NAV-01, NAV-02, NAV-07 and OFFL-04.
+// fake services.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -178,7 +177,7 @@ void main() {
   }
 
   /// Types [name] in field [index], waits the debounce and picks the
-  /// suggestion (ADDR-02, ADDR-03).
+  /// suggestion.
   Future<void> pickAddress(WidgetTester tester, int index, String name) async {
     await tester.enterText(find.byType(TextField).at(index), name);
     await tester.pump(const Duration(milliseconds: 300));
@@ -192,9 +191,7 @@ void main() {
       'navigation and "Encerrar" back to the route', (tester) async {
     final platform = await bootToMap(tester);
 
-    // MAP-02: the map is on the start fix at zoom 16.
     expect(platform.maps.single.initialCameraPosition['zoom'], 16.0);
-    // MAP-07: the start is known, so the action is enabled.
     await tester.tap(find.text(MapScreen.continueLabel));
     await tester.pumpAndSettle();
     expect(find.byType(AddressesScreen), findsOneWidget);
@@ -204,13 +201,12 @@ void main() {
     await pickAddress(tester, 1, 'Rua B');
     await pickAddress(tester, 2, 'Rua C');
 
-    // ADDR-10 → ROUTE-01: one request with the origin and the three stops.
     await tester.tap(find.text(AddressesScreen.confirmLabel));
     await tester.pumpAndSettle();
     expect(find.byType(RouteScreen), findsOneWidget);
     expect(find.text('Ordem otimizada'), findsOneWidget);
     expect(find.text('12,3 km · 10 min'), findsOneWidget);
-    // ROUTE-02/ROUTE-07: optimized order C, A, then the farthest stop B.
+    // Optimized order C, A, then the farthest stop B as the destination.
     final listed = tester
         .widgetList<Text>(find.textContaining(', São Paulo'))
         .map((t) => t.data)
@@ -225,7 +221,6 @@ void main() {
     await tester.tap(find.text('Iniciar'));
     await tester.pumpAndSettle();
     expect(find.byType(NavigationScreen), findsOneWidget);
-    // NAV-01: no fix yet.
     expect(find.text(NavigationScreen.waitingGpsCaption), findsOneWidget);
     verify(() => location.watch(distanceFilterMeters: 5)).called(1);
 
@@ -236,7 +231,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(NavigationScreen.stopLabel), findsOneWidget);
 
-    // NAV-07: "Encerrar" returns to the Route screen with the route intact.
+    // "Encerrar" returns to the Route screen with the route intact.
     await tester.tap(find.text(NavigationScreen.stopLabel));
     await tester.pumpAndSettle();
     expect(find.byType(NavigationScreen), findsNothing);
@@ -247,9 +242,7 @@ void main() {
   });
 
   testWidgets('a failed route calculation shows "Tentar novamente" and the '
-      'AppBar back returns to the intact address form (ROUTE-06)', (
-    tester,
-  ) async {
+      'AppBar back returns to the intact address form', (tester) async {
     await bootToMap(tester);
     await tester.tap(find.text(MapScreen.continueLabel));
     await tester.pumpAndSettle();
@@ -281,7 +274,7 @@ void main() {
   });
 
   testWidgets('a persisted, unfinished route is offered after unlocking and '
-      '"Continuar" opens the navigation with it (OFFL-04)', (tester) async {
+      '"Continuar" opens the navigation with it', (tester) async {
     final persisted = RoutePlan(
       origin: origin,
       stops: const [

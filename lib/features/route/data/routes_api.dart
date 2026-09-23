@@ -38,8 +38,8 @@ class RouteResponse extends Equatable {
   bool get stringify => true;
 }
 
-/// Routes API `computeRoutes` (ROUTE-01). Throws a `Failure` on transport or
-/// HTTP errors and on an unusable answer (ROUTE-06).
+/// Routes API `computeRoutes`. Throws a `Failure` on transport or HTTP errors
+/// and on an unusable answer.
 abstract class RoutesApi {
   Future<RouteResponse> computeRoutes(RouteRequest request);
 }
@@ -98,10 +98,9 @@ class RoutesApiImpl implements RoutesApi {
     },
   };
 
-  /// The first route must exist and carry exactly [expectedLegs] legs
-  /// (intermediates + 1), numeric totals and, when present, an optimized
-  /// index that is a permutation of the intermediates; anything else is a
-  /// failed request.
+  /// The first route must carry exactly [expectedLegs] legs (intermediates
+  /// + 1), numeric totals and, when present, an optimized index that is a
+  /// permutation of the intermediates; anything else is a failed request.
   static RouteResponse _parse(Map<String, dynamic>? data, int expectedLegs) {
     final routes = data?['routes'];
     if (routes is! List || routes.isEmpty || routes.first is! Map) {
@@ -134,7 +133,6 @@ class RoutesApiImpl implements RoutesApi {
     );
   }
 
-  /// [index] must hold every intermediate position `0..n-1` exactly once.
   static List<int> _permutation(List<Object?> index, int n) {
     final parsed = [
       for (final i in index)

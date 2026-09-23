@@ -3,8 +3,7 @@ import 'package:equatable/equatable.dart';
 import '../../../core/geo/geo_point.dart';
 import '../../addresses/domain/stop.dart';
 
-/// A stop in its optimized position (`order` is 1..N) with its visited flag
-/// (ROUTE-02, NAV-04).
+/// A stop in its optimized position (`order` is 1..N) with its visited flag.
 class RouteStop extends Equatable {
   const RouteStop({
     required this.stop,
@@ -38,7 +37,6 @@ class RouteStop extends Equatable {
   bool get stringify => true;
 }
 
-/// Distance and duration of one leg between consecutive route points.
 class RouteLeg extends Equatable {
   const RouteLeg({required this.distanceMeters, required this.durationSeconds});
 
@@ -63,7 +61,7 @@ class RouteLeg extends Equatable {
 }
 
 /// The active route: ordered stops, decoded polyline and totals. This is the
-/// unit persisted between sessions (OFFL-03).
+/// unit persisted between sessions.
 class RoutePlan extends Equatable {
   const RoutePlan({
     required this.origin,
@@ -96,17 +94,14 @@ class RoutePlan extends Equatable {
 
   final GeoPoint origin;
 
-  /// Optimized order, numbered 1..N.
   final List<RouteStop> stops;
 
-  /// Decoded route geometry.
   final List<GeoPoint> polyline;
   final int distanceMeters;
   final int durationSeconds;
   final List<RouteLeg> legs;
   final DateTime computedAt;
 
-  /// Stops not yet visited, in optimized order.
   List<RouteStop> get unvisited => [
     for (final stop in stops)
       if (!stop.visited) stop,
@@ -114,10 +109,8 @@ class RoutePlan extends Equatable {
 
   bool get isComplete => stops.every((stop) => stop.visited);
 
-  /// The next stop to reach, or null when the route is complete.
   RouteStop? get nextStop => unvisited.firstOrNull;
 
-  /// A copy with the stop identified by [placeId] marked visited.
   RoutePlan markVisited(String placeId) => RoutePlan(
     origin: origin,
     stops: [

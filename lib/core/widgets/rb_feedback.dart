@@ -14,10 +14,7 @@ extension on RbTone {
   };
 }
 
-/// Small status label (RECALC-04/05/06 badges).
-///
-/// `radius-sm`; tone color at 12% as background with the tone color as text.
-/// Neutral uses `border` background and `ink-muted` text.
+/// Small status label tinted by [tone].
 class RbStatusChip extends StatelessWidget {
   const RbStatusChip({super.key, required this.label, required this.tone});
 
@@ -46,10 +43,7 @@ class RbStatusChip extends StatelessWidget {
   }
 }
 
-/// Full-width banner at the top of a screen (OFFL-01 "Sem conexão").
-///
-/// Tone color as background with white `body-strong` text; neutral uses
-/// `border` background and `ink` text. Padding `s2` vertical, `s3` horizontal.
+/// Full-width banner at the top of a screen (e.g. "Sem conexão").
 class RbBanner extends StatelessWidget {
   const RbBanner({super.key, required this.text, required this.tone});
 
@@ -74,8 +68,7 @@ class RbBanner extends StatelessWidget {
   }
 }
 
-/// Inline error copy in `danger`/`body` with an optional text action
-/// (ROUTE-06 "Tentar novamente", MAP-03..06 buttons).
+/// Inline error copy with an optional text action (e.g. "Tentar novamente").
 class RbInlineError extends StatelessWidget {
   const RbInlineError({
     super.key,

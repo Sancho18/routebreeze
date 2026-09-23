@@ -24,8 +24,7 @@ class RouteState extends Equatable {
   List<Object?> get props => [status, plan, failure];
 }
 
-/// Computes the optimized route for the Route screen (ROUTE-05, ROUTE-06).
-/// The repository persists the plan on success (OFFL-03).
+/// Computes the optimized route; the repository persists the plan on success.
 class RouteCubit extends Cubit<RouteState> {
   RouteCubit(this._repository) : super(const RouteState());
 

@@ -27,21 +27,20 @@ void main() {
     });
 
     test('30 m from the stop with accuracy 60 m is not arrived; with 50 m '
-        'it is (Assumptions: arrival accuracy gate)', () {
+        'it is', () {
       expect(detector.isArrived(fixAt(30, accuracy: 60), stop), isFalse);
       expect(detector.isArrived(fixAt(30, accuracy: 50), stop), isTrue);
     });
 
-    test('30 m from the stop with accuracy 50.1 m is not arrived '
-        '(Assumptions: arrival accuracy gate)', () {
+    test('30 m from the stop with accuracy 50.1 m is not arrived', () {
       expect(detector.isArrived(fixAt(30, accuracy: 50.1), stop), isFalse);
     });
 
-    test('40.0 m from the stop is arrived (NAV-04)', () {
+    test('40.0 m from the stop is arrived', () {
       expect(detector.isArrived(fixAt(40), stop), isTrue);
     });
 
-    test('40.1 m from the stop is not arrived (NAV-04)', () {
+    test('40.1 m from the stop is not arrived', () {
       expect(detector.isArrived(fixAt(40.1), stop), isFalse);
     });
   });
@@ -75,12 +74,12 @@ void main() {
       );
     });
 
-    test('off-route with one in flight → wait (RECALC-07)', () {
+    test('off-route with one in flight → wait', () {
       expect(decide(inFlight: true), RecalcDecision.wait);
       expect(decide(inFlight: true, online: false), RecalcDecision.wait);
     });
 
-    test('off-route while offline → deferOffline (RECALC-06)', () {
+    test('off-route while offline → deferOffline', () {
       expect(decide(online: false), RecalcDecision.deferOffline);
       expect(
         decide(
@@ -91,21 +90,21 @@ void main() {
       );
     });
 
-    test('off-route 19 s after the last recalculation → wait (RECALC-03)', () {
+    test('off-route 19 s after the last recalculation → wait', () {
       expect(
         decide(lastRecalcAt: now.subtract(const Duration(seconds: 19))),
         RecalcDecision.wait,
       );
     });
 
-    test('off-route 20 s after the last recalculation → run (RECALC-03)', () {
+    test('off-route 20 s after the last recalculation → run', () {
       expect(
         decide(lastRecalcAt: now.subtract(const Duration(seconds: 20))),
         RecalcDecision.run,
       );
     });
 
-    test('off-route for the first time → run (RECALC-03)', () {
+    test('off-route for the first time → run', () {
       expect(decide(), RecalcDecision.run);
     });
   });

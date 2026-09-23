@@ -1,6 +1,5 @@
-// NAV-02, NAV-03: the default navigation map shows the current position at
-// zoom 16, moves the camera with each fix while following and again when
-// "Recentralizar" resumes following.
+// The real `GoogleMap` on a fake platform: initial camera placement and the
+// moves that following and "Recentralizar" trigger.
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -100,7 +99,7 @@ void main() {
 
   group('NavigationScreen default map', () {
     testWidgets('mounts a GoogleMap on the current position at zoom 16 with '
-        'the "me" marker (NAV-02)', (tester) async {
+        'the "me" marker', (tester) async {
       await pumpScreen(tester, navigating(first));
 
       expect(find.byType(GoogleMap), findsOneWidget);
@@ -115,8 +114,9 @@ void main() {
       expect(map.cameraAnimations, isEmpty);
     });
 
-    testWidgets('each new fix moves the camera to it while following '
-        '(NAV-02)', (tester) async {
+    testWidgets('each new fix moves the camera to it while following', (
+      tester,
+    ) async {
       await pumpScreen(tester, navigating(first));
       final map = platform.maps.single;
 
@@ -131,9 +131,7 @@ void main() {
     });
 
     testWidgets('after a drag the camera stays put; "Recentralizar" '
-        '(following again) moves it back to the position (NAV-03)', (
-      tester,
-    ) async {
+        '(following again) moves it back to the position', (tester) async {
       await pumpScreen(tester, navigating(first));
       final map = platform.maps.single;
 

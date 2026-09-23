@@ -8,7 +8,7 @@ import '../domain/auth_result.dart';
 import 'lock_cubit.dart';
 
 /// Lock screen: prompts on the first frame, shows the failure copy per
-/// reason in `danger` and lets the user retry (LOCK-01, LOCK-04..06).
+/// reason and lets the user retry.
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.onUnlocked, this.cubit});
 

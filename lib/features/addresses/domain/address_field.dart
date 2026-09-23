@@ -5,7 +5,7 @@ import 'suggestion.dart';
 
 const Object _unset = Object();
 
-/// One address input with its autocomplete session (ADDR-02..ADDR-04).
+/// One address input with its autocomplete session.
 class AddressField extends Equatable {
   const AddressField({
     required this.id,
@@ -20,7 +20,6 @@ class AddressField extends Equatable {
   final String id;
   final String text;
 
-  /// The chosen suggestion resolved through Place Details.
   final Stop? selected;
 
   /// Places session token; rotated after each successful details call.
@@ -30,7 +29,7 @@ class AddressField extends Equatable {
   final String? error;
 
   /// Valid only while a suggestion is selected and the text was not edited
-  /// since (ADDR-04).
+  /// since.
   bool get isValid => selected != null && text == selected!.address;
 
   AddressField copyWith({

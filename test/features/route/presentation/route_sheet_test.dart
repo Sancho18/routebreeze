@@ -13,7 +13,7 @@ void main() {
   const b = Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70));
   const c = Stop('pc', 'Rua C, 3', GeoPoint(-23.70, -46.80));
 
-  /// Typed order was a, b, c; optimized order is b, a, c (ROUTE-07).
+  /// Typed order was a, b, c; optimized order is b, a, c.
   RoutePlan plan({bool firstVisited = false}) => RoutePlan(
     origin: origin,
     stops: [
@@ -84,7 +84,7 @@ void main() {
         find.descendant(of: button, matching: find.byType(Material)).first,
       );
 
-  group('RouteSheet (ROUTE-04)', () {
+  group('RouteSheet', () {
     testWidgets('surface-200 container with top radius-lg and the heading '
         '"Ordem otimizada" in heading style', (tester) async {
       await pumpSheet(tester, plan: plan());
@@ -112,9 +112,7 @@ void main() {
     });
 
     testWidgets('lists the stops in optimized order, numbered 1..N with a '
-        'brand badge and the address in body (ROUTE-02, ROUTE-07)', (
-      tester,
-    ) async {
+        'brand badge and the address in body', (tester) async {
       await pumpSheet(tester, plan: plan());
 
       expect(textIn(tester, row('pb'), '1').data, '1');
@@ -178,8 +176,9 @@ void main() {
     });
 
     testWidgets('visited stop: success badge with a white check (semantics '
-        '"Visitado") instead of the number, address in ink-muted, no chip '
-        '(NAV-04)', (tester) async {
+        '"Visitado") instead of the number, address in ink-muted, no chip', (
+      tester,
+    ) async {
       await pumpSheet(tester, plan: plan(firstVisited: true));
 
       final check = find.byIcon(Icons.check);
@@ -243,8 +242,9 @@ void main() {
     });
 
     testWidgets('"Marcar como visitado" appears only with onMarkVisited, as '
-        'a brand primary button above the start action, and calls it '
-        '(NAV-05)', (tester) async {
+        'a brand primary button above the start action, and calls it', (
+      tester,
+    ) async {
       await pumpSheet(tester, plan: plan());
       expect(find.text('Marcar como visitado'), findsNothing);
       expect(find.byType(RbPrimaryButton), findsOneWidget);
@@ -282,8 +282,9 @@ void main() {
       expect(started, 1);
     });
 
-    testWidgets('"Encerrar" is painted with startColor danger and white text '
-        '(NAV-07, DS-03)', (tester) async {
+    testWidgets('"Encerrar" is painted with startColor danger and white text', (
+      tester,
+    ) async {
       var stopped = 0;
       await pumpSheet(
         tester,

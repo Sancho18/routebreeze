@@ -45,18 +45,18 @@ void main() {
       expect(detector.strikes, 0);
     });
 
-    test('2 far fixes are not off-route (RECALC-01)', () {
+    test('2 far fixes are not off-route', () {
       expect(feedAll([far(), far()]), [false, false]);
       expect(detector.strikes, 2);
     });
 
-    test('3 consecutive far fixes declare off-route (RECALC-01)', () {
+    test('3 consecutive far fixes declare off-route', () {
       expect(feedAll([far(), far(), far()]), [false, false, true]);
       expect(detector.strikes, 3);
     });
 
     test('a near fix resets the count: far, near, far, far, far → true only '
-        'at the 3rd consecutive (RECALC-01)', () {
+        'at the 3rd consecutive', () {
       expect(feedAll([far(), near(), far(), far(), far()]), [
         false,
         false,
@@ -66,7 +66,7 @@ void main() {
       ]);
     });
 
-    test('accuracy 31 m is ignored: neither counts nor resets (RECALC-02)', () {
+    test('accuracy 31 m is ignored: neither counts nor resets', () {
       expect(
         feedAll([far(accuracy: 31), far(accuracy: 31), far(accuracy: 31)]),
         [false, false, false],
@@ -81,14 +81,14 @@ void main() {
       ]);
     });
 
-    test('accuracy exactly 30 m counts (RECALC-01)', () {
+    test('accuracy exactly 30 m counts', () {
       expect(
         feedAll([far(accuracy: 30), far(accuracy: 30), far(accuracy: 30)]),
         [false, false, true],
       );
     });
 
-    test('the same fix arriving twice counts once (edge case)', () {
+    test('the same fix arriving twice counts once', () {
       final t1 = t0.add(const Duration(minutes: 1));
       expect(feedAll([far(at: t1), far(at: t1), far()]), [false, false, false]);
       expect(detector.strikes, 2);
@@ -96,17 +96,17 @@ void main() {
       expect(detector.feed(far(), polyline), isTrue);
     });
 
-    test('50.0 m from the polyline is not off-route (RECALC-01)', () {
+    test('50.0 m from the polyline is not off-route', () {
       expect(feedAll([fix(50), fix(50), fix(50)]), [false, false, false]);
       expect(detector.strikes, 0);
     });
 
-    test('50.1 m from the polyline is off-route after 3 fixes (RECALC-01)', () {
+    test('50.1 m from the polyline is off-route after 3 fixes', () {
       expect(feedAll([fix(50.1), fix(50.1), fix(50.1)]), [false, false, true]);
     });
 
     test('an ignored fix gives no verdict and keeps the strikes: after 3 far '
-        'fixes, a 31 m fix or a repeated fix is false (RECALC-02)', () {
+        'fixes, a 31 m fix or a repeated fix is false', () {
       feedAll([far(), far(), far()]);
       final last = t0.add(Duration(seconds: seq));
 
@@ -119,7 +119,7 @@ void main() {
       expect(detector.strikes, 4);
     });
 
-    test('stays off-route on further far fixes until reset (RECALC-01)', () {
+    test('stays off-route on further far fixes until reset', () {
       feedAll([far(), far(), far()]);
 
       expect(detector.feed(far(), polyline), isTrue);

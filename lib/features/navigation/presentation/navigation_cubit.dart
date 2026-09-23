@@ -17,7 +17,7 @@ enum NavigationPhase { idle, waitingGps, navigating, completed }
 
 enum BadgeKind { recalculated, recalcFailed, recalcPending }
 
-/// Transient status shown over the map (RECALC-04, RECALC-05, RECALC-06).
+/// Transient status shown over the map.
 class NavigationBadge extends Equatable {
   const NavigationBadge(this.kind, this.text);
 
@@ -61,20 +61,19 @@ class NavigationState extends Equatable {
   /// Last known position; kept through stream errors.
   final Fix? fix;
 
-  /// Camera follows the position until the user drags the map (NAV-03).
+  /// Camera follows the position until the user drags the map.
   final bool following;
   final NavigationBadge? badge;
   final bool online;
 
-  /// Off-route while offline: recalculate on reconnect (RECALC-06).
+  /// Off-route while offline: recalculate on reconnect.
   final bool recalcPending;
   final bool recalcInFlight;
 
-  /// "Perdemos o sinal de GPS" after a stream error.
   final String? error;
   final DateTime? lastRecalcAt;
 
-  /// "Iniciar" is enabled only on a fix of 50 m or better (NAV-01).
+  /// "Iniciar" is enabled only on a fix of 50 m or better.
   bool get canStart =>
       phase == NavigationPhase.waitingGps &&
       fix != null &&
@@ -124,10 +123,8 @@ class NavigationState extends Equatable {
   bool get stringify => true;
 }
 
-/// Live navigation over one [RoutePlan] (NAV-01..NAV-08): position stream,
-/// arrival detection, off-route detection with bounded recalculation
-/// (RECALC-03..RECALC-07), offline deferral and persistence (OFFL-03,
-/// OFFL-05).
+/// Live navigation over one [RoutePlan]: position stream, arrival,
+/// off-route recalculation and offline deferral.
 class NavigationCubit extends Cubit<NavigationState> {
   NavigationCubit({
     required RoutePlan plan,
@@ -154,18 +151,15 @@ class NavigationCubit extends Cubit<NavigationState> {
   final RecalcPolicy _policy;
   final DateTime Function() _now;
 
-  /// Accuracy gate for "Iniciar" (NAV-01).
   static const double maxStartAccuracyMeters = 50;
 
-  /// Position stream distance filter (NAV-02).
+  /// Position stream distance filter; skipping sub-5 m moves saves battery.
   static const int distanceFilterMeters = 5;
 
-  /// How long a result badge stays visible (RECALC-04, RECALC-05).
   static const Duration badgeDuration = Duration(seconds: 4);
 
   static const String gpsLostMessage = 'Perdemos o sinal de GPS';
 
-  /// Delay before listening again after the position stream errors or ends.
   static const Duration resubscribeDelay = Duration(seconds: 5);
 
   StreamSubscription<Fix>? _positions;
@@ -173,12 +167,10 @@ class NavigationCubit extends Cubit<NavigationState> {
   Timer? _badgeTimer;
   Timer? _resubscribeTimer;
 
-  /// Last fix accepted by the off-route check (RECALC-02); the origin of a
+  /// Last fix accepted by the off-route check; the origin of a
   /// recalculation deferred while offline.
   Fix? _lastAccepted;
 
-  /// Starts watching the position and connectivity; "Iniciar" waits for a
-  /// fix of 50 m or better.
   void prepare() {
     emit(state.copyWith(phase: NavigationPhase.waitingGps));
     _session
@@ -197,13 +189,12 @@ class NavigationCubit extends Cubit<NavigationState> {
     emit(state.copyWith(phase: NavigationPhase.navigating, following: true));
   }
 
-  /// Stops the streams and leaves the route intact (NAV-07).
+  /// Stops the streams and leaves the route intact.
   void stop() {
     _cancelAll();
     emit(state.copyWith(phase: NavigationPhase.idle));
   }
 
-  /// "Marcar como visitado" for the next stop (NAV-05).
   Future<void> markNextVisited() async {
     final next = state.plan.nextStop;
     if (next != null) await _visit(next);
@@ -213,7 +204,8 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   void onMapDragged() => emit(state.copyWith(following: false));
 
-  /// Pauses the position stream in background (NAV-08); state is kept.
+  /// Pauses the position stream while the app is in the background; state
+  /// is kept.
   void pause() {
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
@@ -221,7 +213,6 @@ class NavigationCubit extends Cubit<NavigationState> {
     _positions = null;
   }
 
-  /// Resumes the position stream on foreground (NAV-08).
   void resume() {
     if (_positions != null) return;
     if (state.phase == NavigationPhase.navigating ||
@@ -230,7 +221,7 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
-  /// Runs a pending recalculation when connectivity returns (RECALC-06).
+  /// Runs a pending recalculation when connectivity returns.
   void onOnlineChanged(bool online) {
     emit(state.copyWith(online: online));
     final fix = _lastAccepted;
@@ -285,8 +276,8 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   void _onStreamError(Object error) => _onStreamEnded();
 
-  /// The stream errored or ended (edge case): keep the last position, show
-  /// the message and listen again after [resubscribeDelay] while tracking.
+  /// Keeps the last position, shows the message and listens again after
+  /// [resubscribeDelay] while tracking.
   void _onStreamEnded() {
     _positions?.cancel();
     _positions = null;
@@ -328,8 +319,7 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
-  /// Marks [next] visited and persists (OFFL-03); when every stop is
-  /// visited the stream stops and storage is cleared (NAV-06, OFFL-05).
+  /// Once every stop is visited the stream stops and storage is cleared.
   Future<void> _visit(RouteStop next) async {
     final plan = state.plan.markVisited(next.stop.placeId);
     _deviation.reset();
@@ -353,10 +343,10 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
-  /// One request from [origin] through the unvisited stops (RECALC-03);
-  /// the visited ones keep their numbers. Stops visited while the request
-  /// is in flight stay visited in the answer; an answer that arrives after
-  /// the route completed is dropped and storage cleared again (OFFL-05).
+  /// One request from [origin] through the unvisited stops; the visited
+  /// ones keep their numbers. Stops visited while the request is in flight
+  /// stay visited in the answer; an answer that arrives after the route
+  /// completed is dropped and storage cleared again.
   Future<void> _recalculate(GeoPoint origin) async {
     final plan = state.plan;
     if (plan.unvisited.isEmpty) return;

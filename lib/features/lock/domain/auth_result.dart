@@ -1,4 +1,4 @@
-/// Outcome of a device authentication attempt (LOCK-01..06).
+/// Outcome of a device authentication attempt.
 enum AuthResult {
   success,
   canceled,

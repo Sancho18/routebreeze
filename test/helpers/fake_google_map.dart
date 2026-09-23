@@ -1,6 +1,5 @@
 // Test double for the platform side of `GoogleMap`: lets the default map
-// builders run in widget tests so camera and marker behavior can be asserted
-// (MAP-02, ROUTE-03, NAV-02, NAV-03).
+// builders run in widget tests so camera and marker behavior can be asserted.
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';

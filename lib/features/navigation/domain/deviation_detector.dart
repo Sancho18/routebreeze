@@ -2,11 +2,10 @@ import '../../../core/geo/geo_math.dart';
 import '../../../core/geo/geo_point.dart';
 import '../../location/domain/fix.dart';
 
-/// Off-route detection (RECALC-01, RECALC-02): the user is off-route after
-/// [consecutive] accepted fixes in a row farther than [thresholdMeters] from
-/// the active polyline. A fix with accuracy worse than [maxAccuracyMeters]
-/// is ignored, as is a fix repeating the previous accepted timestamp
-/// (edge case: the same fix arriving twice counts once).
+/// Off-route after [consecutive] accepted fixes in a row farther than
+/// [thresholdMeters] from the active polyline. Fixes with accuracy worse
+/// than [maxAccuracyMeters], or repeating the previous accepted timestamp
+/// (the same fix delivered twice), are ignored.
 class DeviationDetector {
   DeviationDetector({
     this.thresholdMeters = 50,
@@ -21,12 +20,10 @@ class DeviationDetector {
   int _strikes = 0;
   DateTime? _lastAt;
 
-  /// Accepted far fixes in a row so far.
   int get strikes => _strikes;
 
   /// Feeds one fix and returns true while the user is declared off-route.
-  /// The verdict holds on further far fixes until [reset]; an ignored fix
-  /// gives no verdict (false) and leaves the strikes as they are.
+  /// An ignored fix returns false and leaves the strike count untouched.
   bool feed(Fix fix, List<GeoPoint> polyline) {
     if (fix.accuracyMeters > maxAccuracyMeters || fix.at == _lastAt) {
       return false;
@@ -37,7 +34,7 @@ class DeviationDetector {
     return _strikes >= consecutive;
   }
 
-  /// Clears the strike count (after each recalculation).
+  /// Called after each recalculation.
   void reset() {
     _strikes = 0;
   }

@@ -99,7 +99,7 @@ void main() {
 
   group('RouteScreen', () {
     testWidgets('computes the route on open and shows the loading indicator '
-        'with its caption (ROUTE-05)', (tester) async {
+        'with its caption', (tester) async {
       await pumpScreen(tester, const RouteState(status: RouteStatus.loading));
 
       verify(() => cubit.compute(origin, stops)).called(1);
@@ -115,7 +115,7 @@ void main() {
     });
 
     testWidgets('failure shows the copy in danger with "Tentar novamente" '
-        'that retries, and a way back to Addresses (ROUTE-06)', (tester) async {
+        'that retries, and a way back to Addresses', (tester) async {
       await pumpScreen(
         tester,
         const RouteState(
@@ -138,9 +138,7 @@ void main() {
     });
 
     testWidgets('ready draws the map objects for the plan and shows the '
-        'sheet; "Iniciar" hands the plan over (ROUTE-03, ROUTE-04)', (
-      tester,
-    ) async {
+        'sheet; "Iniciar" hands the plan over', (tester) async {
       await pumpScreen(
         tester,
         RouteState(status: RouteStatus.ready, plan: plan),
@@ -184,7 +182,7 @@ void main() {
     });
 
     testWidgets('offline shows the "Sem conexão" danger banner on top and '
-        'hides it once back online (OFFL-01)', (tester) async {
+        'hides it once back online', (tester) async {
       await pumpScreen(
         tester,
         RouteState(status: RouteStatus.ready, plan: plan),
@@ -211,7 +209,7 @@ void main() {
     });
 
     testWidgets('an offline initial check shows the banner without waiting '
-        'for a change (OFFL-01)', (tester) async {
+        'for a change', (tester) async {
       when(() => connectivity.check()).thenAnswer((_) async => false);
 
       await pumpScreen(tester, const RouteState(status: RouteStatus.loading));

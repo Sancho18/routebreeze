@@ -54,7 +54,7 @@ ThemeData buildRbTheme() {
   );
 
   // Replace (not merge) the text theme: `ThemeData()` merges over
-  // `Typography.black`, which would leak a platform `fontFamily` (DS-02).
+  // `Typography.black`, which would leak a platform `fontFamily`.
   return base.copyWith(textTheme: _textTheme);
 }
 

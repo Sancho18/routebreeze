@@ -62,7 +62,7 @@ void main() {
     when(() => storage.clear()).thenAnswer((_) async {});
   });
 
-  group('plan (ROUTE-01, ROUTE-02, OFFL-03)', () {
+  group('plan', () {
     test('calls the API once with the planner request and returns the '
         'ordered plan numbered 1..N, decoded and saved', () async {
       when(() => api.computeRoutes(any())).thenAnswer(
@@ -102,50 +102,47 @@ void main() {
       expect(verify(() => storage.save(captureAny())).captured, [expected]);
     });
 
-    test(
-      'keeps visited stops with their numbers and numbers the new order '
-      'after them, requesting only the unvisited stops (RECALC-03)',
-      () async {
-        when(() => api.computeRoutes(any())).thenAnswer(
-          (_) async => const RouteResponse(
-            encodedPolyline: encoded,
-            distanceMeters: 8000,
-            durationSeconds: 400,
-            legs: [
-              RouteLeg(distanceMeters: 4000, durationSeconds: 200),
-              RouteLeg(distanceMeters: 4000, durationSeconds: 200),
-            ],
-            optimizedIndex: [0],
-          ),
-        );
-        const visited = RouteStop(stop: near, order: 1, visited: true);
-        const current = GeoPoint(-23.566, -46.661);
+    test('keeps visited stops with their numbers and numbers the new order '
+        'after them, requesting only the unvisited stops', () async {
+      when(() => api.computeRoutes(any())).thenAnswer(
+        (_) async => const RouteResponse(
+          encodedPolyline: encoded,
+          distanceMeters: 8000,
+          durationSeconds: 400,
+          legs: [
+            RouteLeg(distanceMeters: 4000, durationSeconds: 200),
+            RouteLeg(distanceMeters: 4000, durationSeconds: 200),
+          ],
+          optimizedIndex: [0],
+        ),
+      );
+      const visited = RouteStop(stop: near, order: 1, visited: true);
+      const current = GeoPoint(-23.566, -46.661);
 
-        final plan = await repository.plan(
-          current,
-          const [far, mid],
-          keepVisited: const [visited],
-        );
+      final plan = await repository.plan(
+        current,
+        const [far, mid],
+        keepVisited: const [visited],
+      );
 
-        expect(plan.stops, const [
-          visited,
-          RouteStop(stop: mid, order: 2, visited: false),
-          RouteStop(stop: far, order: 3, visited: false),
-        ]);
-        expect(plan.origin, current);
-        expect(plan.distanceMeters, 8000);
-        expect(plan.durationSeconds, 400);
-        final sent = verify(() => api.computeRoutes(captureAny())).captured;
-        expect(sent, [
-          const RouteRequest(
-            origin: current,
-            intermediates: [mid],
-            destination: far,
-          ),
-        ]);
-        expect(verify(() => storage.save(captureAny())).captured, [plan]);
-      },
-    );
+      expect(plan.stops, const [
+        visited,
+        RouteStop(stop: mid, order: 2, visited: false),
+        RouteStop(stop: far, order: 3, visited: false),
+      ]);
+      expect(plan.origin, current);
+      expect(plan.distanceMeters, 8000);
+      expect(plan.durationSeconds, 400);
+      final sent = verify(() => api.computeRoutes(captureAny())).captured;
+      expect(sent, [
+        const RouteRequest(
+          origin: current,
+          intermediates: [mid],
+          destination: far,
+        ),
+      ]);
+      expect(verify(() => storage.save(captureAny())).captured, [plan]);
+    });
 
     test('an origin more than 50 km from every stop still sends one request '
         'and returns the ordered plan (edge case)', () async {
@@ -188,7 +185,7 @@ void main() {
       verify(() => storage.save(plan)).called(1);
     });
 
-    test('API failure propagates and nothing is saved (ROUTE-06)', () async {
+    test('API failure propagates and nothing is saved', () async {
       when(() => api.computeRoutes(any()))
           .thenThrow(const ApiFailure(null, 'Resposta inválida da Routes API'));
 
@@ -200,7 +197,7 @@ void main() {
     });
   });
 
-  group('persistence (OFFL-03, OFFL-04, OFFL-05)', () {
+  group('persistence', () {
     final plan = RoutePlan(
       origin: origin,
       stops: const [RouteStop(stop: near, order: 1, visited: false)],

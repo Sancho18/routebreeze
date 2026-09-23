@@ -44,7 +44,7 @@ void main() {
     });
 
     test('a fix 50 m beside the line at São Paulo latitude measures 50 m '
-        '(RECALC-01 threshold)', () {
+        '(the deviation threshold)', () {
       const lat = -23.5645;
       const line = [GeoPoint(lat, -46.66), GeoPoint(lat, -46.64)];
       // 50 m north of the line: 50 / 111195 m per degree.

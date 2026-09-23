@@ -14,10 +14,8 @@ import 'map_cubit.dart';
 /// real `GoogleMap` cannot render in widget tests.
 typedef MapBuilder = Widget Function(BuildContext context, Fix start);
 
-/// Map screen: start fix on a map at zoom 16 with the "Partida" marker,
-/// permission/service cards with the spec copy and the "Para onde vamos?"
-/// action enabled only when the start is known (MAP-02..MAP-07). A
-/// persisted, unfinished route is offered with "Continuar rota?" (OFFL-04).
+/// Map screen: obtains the start fix (or shows the permission/service card)
+/// and offers to resume a persisted, unfinished route.
 class MapScreen extends StatefulWidget {
   const MapScreen({
     super.key,
@@ -54,7 +52,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   late final MapCubit _cubit = widget.cubit ?? getIt<MapCubit>();
 
   /// Statuses whose action sends the user to Settings; coming back must
-  /// re-check without a tap (MAP-03..MAP-05).
+  /// re-check without a tap.
   static const Set<MapStatus> _recheckOnResume = {
     MapStatus.denied,
     MapStatus.deniedForever,
@@ -193,8 +191,6 @@ class _ResumeDialog extends StatelessWidget {
   }
 }
 
-/// `surface-200` card with the copy and action for each [MapStatus], plus
-/// the "Para onde vamos?" button, enabled only when `ready` (MAP-07).
 class _StatusCard extends StatelessWidget {
   const _StatusCard({
     required this.state,

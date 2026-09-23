@@ -1,4 +1,4 @@
-/// Re-lock rule for foreground returns (LOCK-07, LOCK-08).
+/// Re-lock rule for foreground returns.
 class RelockPolicy {
   const RelockPolicy({this.threshold = const Duration(seconds: 30)});
 

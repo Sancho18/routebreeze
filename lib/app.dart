@@ -39,8 +39,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
     onUnlocked: () => Navigator.of(context).pushReplacementNamed('/map'),
   );
 
-  /// Screens behind the lock render the Lock screen until it is unlocked
-  /// (LOCK-01), so a route reached by any other path shows no route data.
+  /// Screens behind the lock render the Lock screen until it is unlocked,
+  /// so a route reached by any other path shows no route data.
   WidgetBuilder _guarded(WidgetBuilder builder) =>
       (context) => getIt<LockCubit>().state.status == LockStatus.unlocked
       ? builder(context)
@@ -55,7 +55,7 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
       navigatorObservers: widget.navigatorObservers,
       initialRoute: '/lock',
       // The platform may hand over its own initial route (Android `route`
-      // intent extra, deep link); the app always starts locked (LOCK-01).
+      // intent extra, deep link); the app always starts locked.
       onGenerateInitialRoutes: (_) => [
         MaterialPageRoute<void>(
           settings: const RouteSettings(name: '/lock'),
@@ -101,9 +101,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
           return NavigationScreen(
             plan: args.plan,
             onExit: () => Navigator.of(context).pop(),
-            // The cubit already cleared the persisted route (OFFL-05).
-            // "Nova rota" returns to the Map screen to obtain a fresh start
-            // position for the next route (NAV-06, ROUTE-01).
+            // "Nova rota" goes back to the Map screen so the next route starts
+            // from a fresh position; the cubit already cleared the persisted one.
             onNewRoute: () =>
                 Navigator.of(context)
                     .pushNamedAndRemoveUntil('/map', (_) => false),
@@ -120,8 +119,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
 }
 
 /// Records when the app leaves the foreground and, on return, re-locks
-/// per [RelockPolicy] (LOCK-07, LOCK-08). Pauses the live navigation while
-/// in background and resumes it on return (NAV-08).
+/// per [RelockPolicy]. Pauses the live navigation while in background and
+/// resumes it on return.
 class AppLifecycleGate extends StatefulWidget {
   const AppLifecycleGate({
     super.key,

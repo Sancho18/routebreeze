@@ -254,7 +254,7 @@ void main() {
       });
     });
 
-    test('offline: no request; typed text is kept (OFFL-02)', () {
+    test('offline: no request; typed text is kept', () {
       fakeAsync((async) {
         final cubit = build();
         cubit.setOnline(false);
@@ -274,7 +274,7 @@ void main() {
       });
     });
 
-    test('autocomplete failure → field error, text kept (ADDR-11)', () {
+    test('autocomplete failure → field error, text kept', () {
       fakeAsync((async) {
         final cubit = build();
         final token = field(cubit, 'f1').sessionToken;
@@ -340,7 +340,7 @@ void main() {
       });
     });
 
-    test('editing after a selection invalidates the field (ADDR-04)', () {
+    test('editing after a selection invalidates the field', () {
       fakeAsync((async) {
         final cubit = build();
         fillValid(async, cubit, 'f1', stop);
@@ -355,7 +355,7 @@ void main() {
     });
 
     test('text equal to the selected address keeps the selection and does '
-        'not query autocomplete (ADDR-02, ADDR-04)', () {
+        'not query autocomplete', () {
       fakeAsync((async) {
         final cubit = build();
         fillValid(async, cubit, 'f1', stop);
@@ -409,7 +409,7 @@ void main() {
     });
   });
 
-  group('non-Failure errors from the API (ADDR-11)', () {
+  group('non-Failure errors from the API', () {
     test('details throwing a TypeError → field error, loading off, text and '
         'suggestions kept', () {
       fakeAsync((async) {
@@ -488,7 +488,7 @@ void main() {
     });
 
     test('removing the field that held the duplicate clears "Endereço '
-        'repetido" on the remaining one (edge case, ADDR-09)', () {
+        'repetido" on the remaining one', () {
       fakeAsync((async) {
         final cubit = build();
         fillValid(async, cubit, 'f1', stopFor('a'));
@@ -563,7 +563,7 @@ void main() {
       });
     });
 
-    test('reset clears the submission and keeps the fields (ADDR-12)', () {
+    test('reset clears the submission and keeps the fields', () {
       fakeAsync((async) {
         final cubit = build();
         fillValid(async, cubit, 'f1', stopFor('a'));

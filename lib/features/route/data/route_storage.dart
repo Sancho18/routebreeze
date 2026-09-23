@@ -4,11 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/route_plan.dart';
 
-/// Local persistence of the active route (OFFL-03, OFFL-05).
+/// Local persistence of the active route so it survives an app restart.
 abstract class RouteStorage {
   Future<void> save(RoutePlan plan);
 
-  /// The persisted plan, or null when there is none.
   Future<RoutePlan?> load();
 
   Future<void> clear();

@@ -12,9 +12,7 @@ import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
 import 'navigation_cubit.dart';
 
-/// What the navigation map draws: start and numbered unvisited stops, the
-/// polyline and the current-position marker, plus the camera target and
-/// whether the camera follows it (NAV-02, NAV-03).
+/// What the navigation map draws and where its camera goes.
 class NavigationMapModel {
   const NavigationMapModel({
     required this.markers,
@@ -38,12 +36,8 @@ typedef NavigationMapBuilder = Widget Function(
   NavigationMapModel model,
 );
 
-/// Live navigation screen (route `/navigation`): map that follows the
-/// position, "Recentralizar" when it does not, offline banner and
-/// recalculation badges, and the [RouteSheet] in navigation mode with
-/// "Iniciar"/"Encerrar" and "Marcar como visitado". When every stop is
-/// visited the sheet becomes "Rota concluída" + "Nova rota" (NAV-01..07,
-/// RECALC-04..06).
+/// Live navigation: map following the position, status overlays and the
+/// [RouteSheet] in navigation mode.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -57,19 +51,16 @@ class NavigationScreen extends StatefulWidget {
 
   final RoutePlan plan;
 
-  /// "Encerrar": the stream is stopped and the Route screen is shown again.
+  /// Called on "Encerrar" once the stream is stopped.
   final VoidCallback onExit;
 
-  /// "Nova rota" after completion.
   final VoidCallback onNewRoute;
 
   /// Overrides the cubit from `getIt` (tests).
   final NavigationCubit? cubit;
 
-  /// Overrides the `GoogleMap` builder (tests).
   final NavigationMapBuilder? mapBuilder;
 
-  /// Overrides the marker icon source (tests).
   final MapMarkers? markers;
 
   static const String title = 'Navegação';
@@ -81,7 +72,7 @@ class NavigationScreen extends StatefulWidget {
   static const String completedTitle = 'Rota concluída';
   static const String newRouteLabel = 'Nova rota';
 
-  /// Camera zoom while following (spec "Map camera").
+  /// Camera zoom while following.
   static const double zoom = 16;
 
   @override
@@ -105,7 +96,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   Future<_Icons>? _icons;
   Offset? _pointerDown;
 
-  /// Pointer travel that counts as a map drag (NAV-03).
+  /// Pointer travel that counts as a map drag.
   static const double dragSlop = 12;
 
   @override
@@ -277,8 +268,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 }
 
-/// `GoogleMap` that follows the position at zoom 16 while the model says
-/// so; user drags are detected by the screen from pointer events.
+/// `GoogleMap` that follows the position while the model says so; drags
+/// are detected by the screen from pointer events.
 class _NavigationMap extends StatefulWidget {
   const _NavigationMap({required this.model});
 
@@ -321,8 +312,7 @@ class _NavigationMapState extends State<_NavigationMap> {
   }
 }
 
-/// Offline banner (OFFL-01), recalculation badge (RECALC-04..06) and the
-/// GPS error, stacked at the top of the map.
+/// Offline banner, recalculation badge and GPS error at the top of the map.
 class _TopOverlay extends StatelessWidget {
   const _TopOverlay({required this.state});
 
@@ -377,7 +367,7 @@ class _TopOverlay extends StatelessWidget {
   }
 }
 
-/// `surface-200` backdrop so a chip stays legible over the map.
+/// Backdrop so a chip stays legible over the map.
 class _Card extends StatelessWidget {
   const _Card({required this.child});
 
@@ -395,7 +385,7 @@ class _Card extends StatelessWidget {
   }
 }
 
-/// Caption under the sheet actions while the fix is worse than 50 m (NAV-01).
+/// Caption under the sheet actions while the fix is worse than 50 m.
 class _WaitingGps extends StatelessWidget {
   const _WaitingGps();
 
@@ -412,7 +402,6 @@ class _WaitingGps extends StatelessWidget {
   }
 }
 
-/// "Rota concluída" in `success` with "Nova rota" (NAV-06).
 class _Completed extends StatelessWidget {
   const _Completed({required this.onNewRoute});
 

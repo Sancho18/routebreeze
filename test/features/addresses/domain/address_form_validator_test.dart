@@ -33,8 +33,7 @@ void main() {
       expect(result.errors, isEmpty);
     });
 
-    test('the result is a value: equal fields give an equal result '
-        '(ADDR-10)', () {
+    test('the result is a value: equal fields give an equal result', () {
       final fields = [valid('a'), valid('b'), valid('c')];
 
       expect(

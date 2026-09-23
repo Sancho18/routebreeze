@@ -47,7 +47,7 @@ void main() {
 
   group('compute', () {
     blocTest<RouteCubit, RouteState>(
-      'loading → ready with the plan from the repository (ROUTE-05, OFFL-03)',
+      'loading → ready with the plan from the repository',
       build: () {
         when(() => repository.plan(origin, stops))
             .thenAnswer((_) async => plan);
@@ -62,7 +62,7 @@ void main() {
     );
 
     blocTest<RouteCubit, RouteState>(
-      'loading → failure when the request fails (ROUTE-06)',
+      'loading → failure when the request fails',
       build: () {
         when(() => repository.plan(origin, stops)).thenThrow(failure);
         return RouteCubit(repository);
@@ -75,7 +75,7 @@ void main() {
     );
 
     blocTest<RouteCubit, RouteState>(
-      'loading → failure(Unknown) on an unexpected error (ROUTE-06)',
+      'loading → failure(Unknown) on an unexpected error',
       build: () {
         when(() => repository.plan(origin, stops))
             .thenThrow(const FormatException('bad polyline'));

@@ -31,7 +31,6 @@ import 'package:routebreeze/features/route/domain/route_planner.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
-/// Start position: Av. Paulista, São Paulo.
 const GeoPoint start = GeoPoint(-23.5645, -46.6527);
 
 /// The three stops in the order they are typed (A, B, C). Rua Augusta is
@@ -150,7 +149,6 @@ void _replace<T extends Object>(T instance) {
     ..registerSingleton<T>(instance);
 }
 
-/// Pumps real frames until [finder] matches or [timeout] elapses.
 Future<void> pumpUntil(
   WidgetTester tester,
   Finder finder, {

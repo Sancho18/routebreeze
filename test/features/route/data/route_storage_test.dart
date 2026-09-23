@@ -40,7 +40,7 @@ void main() {
     storage = RouteStorageImpl();
   });
 
-  group('RouteStorage (OFFL-03, OFFL-05)', () {
+  group('RouteStorage', () {
     test('save persists the plan as JSON under active_route and load '
         'restores it', () async {
       await storage.save(plan);

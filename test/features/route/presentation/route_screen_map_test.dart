@@ -1,5 +1,5 @@
-// ROUTE-03: the default map of the Route screen draws the plan and fits the
-// camera to the whole route once the platform view exists.
+// The default map of the Route screen draws the plan and fits the camera to
+// the whole route once the platform view exists.
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -95,7 +95,7 @@ void main() {
 
   group('RouteScreen default map', () {
     testWidgets('mounts a GoogleMap on the origin at zoom 14 with the start, '
-        'the numbered stops and the brand polyline (ROUTE-03)', (tester) async {
+        'the numbered stops and the brand polyline', (tester) async {
       await pumpReady(tester);
 
       expect(find.byType(GoogleMap), findsOneWidget);
@@ -111,7 +111,7 @@ void main() {
     });
 
     testWidgets('fits the camera to the route bounds 300 ms after the map '
-        'is created, not before (ROUTE-03)', (tester) async {
+        'is created, not before', (tester) async {
       await pumpReady(tester);
       final map = platform.maps.single;
       expect(map.callsOf('map#waitForMap'), hasLength(1));

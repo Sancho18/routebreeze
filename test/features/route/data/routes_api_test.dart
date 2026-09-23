@@ -66,7 +66,7 @@ void main() {
       '{"distanceMeters":4000,"duration":"200s"}],'
       '"optimizedIntermediateWaypointIndex":[1,0]}]}';
 
-  group('computeRoutes request (ROUTE-01)', () {
+  group('computeRoutes request', () {
     test('POSTs origin, farthest destination, intermediates, '
         'optimizeWaypointOrder, DRIVE, pt-BR, br, METRIC with the field '
         'mask limited to polyline, legs and the optimized index', () async {
@@ -148,7 +148,7 @@ void main() {
 
   group('computeRoutes response', () {
     test('parses polyline, totals, "605s" durations, legs and the '
-        'optimized index (ROUTE-02)', () async {
+        'optimized index', () async {
       final response = await api(fixture).computeRoutes(request);
 
       expect(
@@ -186,7 +186,7 @@ void main() {
       ]);
     });
 
-    test('no routes → ApiFailure (ROUTE-06)', () async {
+    test('no routes → ApiFailure', () async {
       await expectLater(
         api('{"routes":[]}').computeRoutes(request),
         throwsA(invalid),
@@ -206,7 +206,7 @@ void main() {
       await expectLater(api2.computeRoutes(request), throwsA(invalid));
     });
 
-    group('invalid optimized index → ApiFailure (ROUTE-02, edge case)', () {
+    group('invalid optimized index → ApiFailure', () {
       String withIndex(String index) =>
           '{"routes":[{"distanceMeters":12345,"duration":"605s",'
           '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
@@ -232,22 +232,19 @@ void main() {
       }
     });
 
-    test(
-      'a leg that is not an object → ApiFailure (ROUTE-06, edge case)',
-      () async {
-        await expectLater(
-          api(
-            '{"routes":[{"distanceMeters":12345,"duration":"605s",'
-            '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
-            '"legs":[{"distanceMeters":4000,"duration":"200s"},'
-            '"leg",'
-            '{"distanceMeters":4000,"duration":"200s"}],'
-            '"optimizedIntermediateWaypointIndex":[1,0]}]}',
-          ).computeRoutes(request),
-          throwsA(invalid),
-        );
-      },
-    );
+    test('a leg that is not an object → ApiFailure', () async {
+      await expectLater(
+        api(
+          '{"routes":[{"distanceMeters":12345,"duration":"605s",'
+          '"polyline":{"encodedPolyline":"_p~iF~ps|U"},'
+          '"legs":[{"distanceMeters":4000,"duration":"200s"},'
+          '"leg",'
+          '{"distanceMeters":4000,"duration":"200s"}],'
+          '"optimizedIntermediateWaypointIndex":[1,0]}]}',
+        ).computeRoutes(request),
+        throwsA(invalid),
+      );
+    });
 
     group('non-numeric totals → ApiFailure (edge case)', () {
       test('duration that is not "<seconds>s"', () async {
@@ -309,7 +306,7 @@ void main() {
       });
     });
 
-    test('HTTP error → ApiFailure with the API message (ROUTE-06)', () async {
+    test('HTTP error → ApiFailure with the API message', () async {
       final api2 = api(
         '{"error":{"code":400,"message":"Invalid waypoint"}}',
         400,

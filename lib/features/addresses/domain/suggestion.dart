@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-/// One Places Autocomplete prediction (ADDR-02).
+/// One Places Autocomplete prediction.
 class Suggestion extends Equatable {
   const Suggestion(this.placeId, this.mainText, this.secondaryText);
 
