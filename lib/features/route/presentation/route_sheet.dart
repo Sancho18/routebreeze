@@ -38,6 +38,10 @@ class RouteSheet extends StatelessWidget {
 
   static const double rowGap = RbSpace.s2;
 
+  /// The 1 px `border` divider sits inside [rowGap], starting under the
+  /// address text (past the 24 px badge and its `s2` gap).
+  static const double dividerIndent = _StopRow.badgeSize + RbSpace.s2;
+
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');
 
   /// The stop list never grows past this (or 40% of the screen): heading,
@@ -70,7 +74,12 @@ class RouteSheet extends StatelessWidget {
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
                 itemCount: plan.stops.length,
-                separatorBuilder: (_, _) => const SizedBox(height: rowGap),
+                separatorBuilder: (_, _) => const Divider(
+                  height: rowGap,
+                  thickness: 1,
+                  indent: dividerIndent,
+                  color: RbColors.border,
+                ),
                 itemBuilder: (_, i) => _StopRow(plan.stops[i]),
               ),
             ),
