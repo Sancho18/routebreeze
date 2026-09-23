@@ -9,7 +9,7 @@ App Flutter de roteirização de entregas: bloqueio biométrico, endereços com 
 O RouteBreeze ajuda um entregador a visitar vários endereços na melhor ordem. O fluxo tem seis passos:
 
 1. **Bloqueio.** O app abre pedindo biometria. Se não houver biometria cadastrada, usa o PIN, padrão ou senha do aparelho.
-2. **Mapa.** O mapa centraliza na posição atual (zoom 16) com o marcador "Partida". Esse é o ponto de origem da rota.
+2. **Mapa.** Enquanto a posição e o mapa carregam, um loading com a marca e uma rota animada cobre a tela. Depois o mapa centraliza na posição atual (zoom 16) com o marcador "Partida". Esse é o ponto de origem da rota.
 3. **Endereços.** O entregador digita três ou mais endereços e escolhe cada um na lista de sugestões do Google Places.
 4. **Rota otimizada.** Uma única chamada à Routes API devolve a melhor ordem de visita. O app desenha a rota no mapa e numera as paradas de 1 a N.
 5. **Navegação.** Ao tocar em "Iniciar", a posição é acompanhada em tempo real. A câmera segue o usuário e cada parada é marcada como visitada ao chegar.
@@ -105,7 +105,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 405 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 418 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -118,15 +118,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 257 | 256 | 99,6 % |
+| lib/core | 322 | 320 | 99,4 % |
 | lib (raiz: `app.dart`, `main.dart`) | 80 | 78 | 97,5 % |
 | lib/features/addresses | 306 | 304 | 99,3 % |
-| lib/features/location | 166 | 166 | 100,0 % |
+| lib/features/location | 191 | 191 | 100,0 % |
 | lib/features/lock | 71 | 71 | 100,0 % |
 | lib/features/navigation | 339 | 336 | 99,1 % |
 | lib/features/route | 425 | 422 | 99,3 % |
-| **Total (todos os arquivos)** | 1644 | 1633 | 99,3 % |
-| **Total (sem native-only)** | 1639 | 1630 | 99,5 % |
+| **Total (todos os arquivos)** | 1734 | 1722 | 99,3 % |
+| **Total (sem native-only)** | 1729 | 1719 | 99,4 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -241,7 +241,7 @@ Uma chave, restrita às quatro APIs usadas e com cotas diárias. Ela não tem re
 
 ### Design system Rota como código
 
-Os tokens ficam em um só arquivo (`RbColors`, `RbText`, `RbSpace`, `RbRadius`): 9 cores, 6 estilos de texto, 4 espaçamentos e 3 raios. Os widgets base (`RbPrimaryButton`, `RbTextField`, `RbBanner`, `RbStatusChip`, `RbInlineError`) usam só esses valores, e `buildRbTheme` os aplica ao Material. Fonte do sistema, sem fonte embarcada. O botão primário desabilitado usa `border` com texto `ink-muted`; habilitado usa `brand` com texto branco `body-strong` no mesmo raio e altura, então nada pula de lugar. Na lista de paradas, a parada visitada troca o número por um círculo `success` com um check ("entrega concluída" é um dos usos listados para `success`), e as linhas ficam a `space-2` uma da outra, como o DS pede para linhas de lista.
+Os tokens ficam em um só arquivo (`RbColors`, `RbText`, `RbSpace`, `RbRadius`): 9 cores, 6 estilos de texto, 4 espaçamentos e 3 raios. Os widgets base (`RbPrimaryButton`, `RbTextField`, `RbBanner`, `RbStatusChip`, `RbInlineError`, `RbRouteLoader`) usam só esses valores, e `buildRbTheme` os aplica ao Material. Fonte do sistema, sem fonte embarcada. O botão primário desabilitado usa `border` com texto `ink-muted`; habilitado usa `brand` com texto branco `body-strong` no mesmo raio e altura, então nada pula de lugar. Na lista de paradas, a parada visitada troca o número por um círculo `success` com um check ("entrega concluída" é um dos usos listados para `success`), e as linhas ficam a `space-2` uma da outra, como o DS pede para linhas de lista.
 
 Uma extensão que o DS não lista: o botão "Encerrar" da navegação usa `danger` como fundo, com texto branco, e fica abaixo de "Marcar como visitado" (em `brand`). O DS reserva `danger` para erros, falha de autenticação, permissão negada e sem internet; usei a mesma cor para a única ação destrutiva do app porque ela interrompe a navegação em andamento e a cor evita o toque por engano ao lado do botão que o motorista usa o tempo todo. É a mesma paleta, o mesmo `radius-lg` e a mesma altura do botão primário, então o componente é o `RbPrimaryButton` com a cor trocada. A rota é desenhada em `brand` com 5 px, os marcadores numerados são desenhados em canvas e o marcador de partida é um pino distinto. Testes de widget conferem esses valores.
 
@@ -270,6 +270,7 @@ Zoom 16 na partida. Na tela de rota a câmera enquadra a rota inteira. Na navega
 | Falha do Autocomplete ou do Place Details | "Não foi possível buscar endereços. Tente novamente." sob o campo; texto mantido |
 | Falha da Routes API (erro HTTP, sem rota, legs a menos) | "Não foi possível calcular a rota." com "Tentar novamente"; voltar mantém o formulário preenchido |
 | Falha no recálculo | Rota anterior mantida; aviso "Falha ao recalcular" por 4 s; nova tentativa após 20 s |
+| Mapa demora a ser criado | O loading com a marca segue até o `GoogleMap` avisar que foi criado (mais 400 ms para os primeiros tiles); se o aviso nunca vier, some sozinho após 5 s |
 | Chave de API ausente | O app falha ao abrir com uma mensagem que cita `env.json` |
 | Biometria cancelada | "Autenticação cancelada"; "Desbloquear" continua disponível |
 | Muitas tentativas de biometria | "Muitas tentativas. Aguarde e tente novamente" |

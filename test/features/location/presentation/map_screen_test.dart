@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
+import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
@@ -19,8 +22,17 @@ void main() {
   late List<Fix> continued;
   late List<(RoutePlan, Fix)> resumed;
   late List<Fix> mapsBuilt;
+  late List<VoidCallback> mapReadyCallbacks;
 
   const mapKey = Key('map-placeholder');
+  final overlay = find.byType(RbRouteLoader);
+
+  /// Lets a reported map pass the tiles grace and the overlay fade out.
+  Future<void> settleOverlay(WidgetTester tester) async {
+    await tester.pump(MapScreen.tilesDelay);
+    await tester.pumpAndSettle();
+  }
+
   final start = Fix(
     const GeoPoint(-23.5614, -46.6559),
     12,
@@ -39,24 +51,31 @@ void main() {
     continued = [];
     resumed = [];
     mapsBuilt = [];
+    mapReadyCallbacks = [];
     when(() => cubit.init()).thenAnswer((_) async {});
     when(() => cubit.dismissResume()).thenAnswer((_) async {});
     when(() => cubit.retry()).thenAnswer((_) async {});
     when(() => cubit.openSettings()).thenAnswer((_) async {});
   });
 
+  /// Pumps the screen; the placeholder map reports itself ready at once
+  /// unless [mapReady] is false, and the loading overlay is given time to
+  /// fade so the card is reachable.
   Future<void> pumpMap(
     WidgetTester tester,
     MapState state, {
     Stream<MapState> states = const Stream.empty(),
+    bool mapReady = true,
   }) async {
     whenListen(cubit, states, initialState: state);
     await tester.pumpWidget(
       MaterialApp(
         home: MapScreen(
           cubit: cubit,
-          mapBuilder: (_, fix) {
+          mapBuilder: (_, fix, onMapReady) {
             mapsBuilt.add(fix);
+            mapReadyCallbacks.add(onMapReady);
+            if (mapReady) onMapReady();
             return const SizedBox.expand(key: mapKey);
           },
           onContinue: continued.add,
@@ -65,6 +84,9 @@ void main() {
       ),
     );
     await tester.pump();
+    if (mapReady && state.status == MapStatus.ready) {
+      await settleOverlay(tester);
+    }
   }
 
   Future<void> setLifecycle(WidgetTester tester, AppLifecycleState state) =>
@@ -104,16 +126,142 @@ void main() {
   }
 
   group('MapScreen', () {
-    testWidgets('checking: starts init, shows the progress copy on a '
-        'surface-200 card and keeps the CTA disabled', (tester) async {
+    testWidgets('checking: starts init and covers the screen with the '
+        'branded loading (app name in display, route loader, caption) '
+        'instead of the card', (tester) async {
       await pumpMap(tester, const MapState());
 
       verify(() => cubit.init()).called(1);
-      expect(find.text('Obtendo sua localização...'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.byKey(mapKey), findsNothing);
-      expectCtaDisabled(tester);
+      expect(ctaFinder, findsNothing);
+      expect(overlay, findsOneWidget);
 
+      final title = tester.widget<Text>(find.text('RouteBreeze'));
+      expect(title.style!.fontSize, 34);
+      expect(title.style!.fontWeight, FontWeight.w700);
+      expect(title.style!.color, RbColors.ink);
+      final caption = tester.widget<Text>(
+        find.text('Obtendo sua localização...'),
+      );
+      expect(caption.style!.fontSize, 13);
+      expect(caption.style!.color, RbColors.inkMuted);
+      final background = tester.widget<ColoredBox>(
+        find
+            .ancestor(
+              of: find.text('RouteBreeze'),
+              matching: find.byType(ColoredBox),
+            )
+            .first,
+      );
+      expect(background.color, RbColors.surface100);
+      expect(
+        tester.getTopLeft(overlay).dy,
+        greaterThan(tester.getBottomLeft(find.text('RouteBreeze')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('Obtendo sua localização...')).dy,
+        greaterThan(tester.getBottomLeft(overlay).dy),
+      );
+
+      // Still loading after a long wait: no fallback while the fix is unknown.
+      await tester.pump(MapScreen.maxMapWait + MapScreen.tilesDelay);
+      await tester.pump(MapScreen.fadeDuration);
+      expect(overlay, findsOneWidget);
+    });
+
+    testWidgets('ready: the overlay stays until the map reports itself '
+        'created, then waits the tiles grace and fades out', (tester) async {
+      await pumpMap(
+        tester,
+        MapState(status: MapStatus.ready, start: start),
+        mapReady: false,
+      );
+
+      expect(find.byKey(mapKey), findsOneWidget);
+      expect(overlay, findsOneWidget);
+      expect(mapReadyCallbacks, hasLength(1));
+
+      mapReadyCallbacks.first();
+      await tester.pump();
+      expect(overlay, findsOneWidget);
+      await tester.pump(MapScreen.tilesDelay);
+      await tester.pump();
+      // Fading: still in the tree, on its way out.
+      expect(overlay, findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(overlay, findsNothing);
+      expect(find.text('RouteBreeze'), findsNothing);
+      expect(cta(tester).enabled, isTrue);
+
+      // A second report is a no-op.
+      mapReadyCallbacks.first();
+      await settleOverlay(tester);
+      expect(overlay, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('ready: the overlay gives up after maxMapWait when the map '
+        'never reports itself created', (tester) async {
+      await pumpMap(
+        tester,
+        MapState(status: MapStatus.ready, start: start),
+        mapReady: false,
+      );
+
+      await tester.pump(MapScreen.maxMapWait - const Duration(seconds: 1));
+      expect(overlay, findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(overlay, findsNothing);
+    });
+
+    testWidgets('checking → ready: the fallback starts when the fix arrives', (
+      tester,
+    ) async {
+      await pumpMap(
+        tester,
+        const MapState(),
+        states: Stream.value(MapState(status: MapStatus.ready, start: start)),
+        mapReady: false,
+      );
+      await tester.pump();
+      expect(find.byKey(mapKey), findsOneWidget);
+      expect(overlay, findsOneWidget);
+
+      await tester.pump(MapScreen.maxMapWait);
+      await tester.pumpAndSettle();
+      expect(overlay, findsNothing);
+    });
+
+    testWidgets('errors show the card at once, and a retry brings the '
+        'loading back', (tester) async {
+      final states = StreamController<MapState>();
+      addTearDown(states.close);
+      await pumpMap(
+        tester,
+        const MapState(status: MapStatus.denied),
+        states: states.stream,
+        mapReady: false,
+      );
+      expect(overlay, findsNothing);
+      expect(find.text(deniedMessage), findsOneWidget);
+
+      states.add(const MapState());
+      await tester.pump();
+      await tester.pump();
+      expect(overlay, findsOneWidget);
+      expect(ctaFinder, findsNothing);
+      await tester.pump(MapScreen.fadeDuration);
+      expect(overlay, findsOneWidget);
+    });
+
+    testWidgets('the card keeps the CTA disabled while the fix is unusable', (
+      tester,
+    ) async {
+      await pumpMap(tester, const MapState(status: MapStatus.timeout));
+
+      expect(overlay, findsNothing);
+      expectCtaDisabled(tester);
       final card = tester.widget<Container>(
         find.ancestor(of: ctaFinder, matching: find.byType(Container)).first,
       );
@@ -128,7 +276,7 @@ void main() {
       await pumpMap(tester, MapState(status: MapStatus.ready, start: start));
 
       expect(find.byKey(mapKey), findsOneWidget);
-      expect(mapsBuilt, [start]);
+      expect(mapsBuilt, everyElement(start));
       expect(find.text('Ponto de partida definido'), findsOneWidget);
       expect(cta(tester).enabled, isTrue);
       expect(find.byType(CircularProgressIndicator), findsNothing);
