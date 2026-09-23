@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
@@ -38,6 +39,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(GoogleMap), findsOneWidget);
+    // onMapCreated fired through the fake channel: the loading is gone.
+    expect(find.byType(RbRouteLoader), findsNothing);
+    expect(find.text(MapScreen.loadingTitle), findsNothing);
     final map = platform.maps.single;
     expect(map.initialCameraPosition['zoom'], 16.0);
     expect(map.initialCameraPosition['target'], [-23.5614, -46.6559]);

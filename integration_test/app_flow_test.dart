@@ -15,6 +15,7 @@ import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
+import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
@@ -163,6 +164,20 @@ Future<void> pumpUntil(
   }
 }
 
+Future<void> pumpUntilGone(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 20),
+}) async {
+  final end = DateTime.now().add(timeout);
+  while (finder.evaluate().isNotEmpty) {
+    if (DateTime.now().isAfter(end)) {
+      fail('Timed out waiting for $finder to go away');
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 Finder primaryButton(String label) =>
     find.widgetWithText(RbPrimaryButton, label);
 
@@ -230,8 +245,10 @@ void main() {
     // Lock: the prompt runs on the first frame and succeeds.
     await pumpUntil(tester, find.byType(MapScreen));
 
-    // Map: start fix accepted, "Para onde vamos?" becomes enabled.
+    // Map: start fix accepted, the loading fades and "Para onde vamos?"
+    // becomes enabled.
     await pumpUntil(tester, enabledPrimaryButton(MapScreen.continueLabel));
+    await pumpUntilGone(tester, find.byType(RbRouteLoader));
     await tester.tap(primaryButton(MapScreen.continueLabel));
     await pumpUntil(tester, find.byType(AddressesScreen));
     expect(find.text(AddressesScreen.title), findsOneWidget);

@@ -152,7 +152,8 @@ void main() {
       expect(find.byIcon(Icons.check), findsNothing);
     });
 
-    testWidgets('rows are separated by space-2 (8 px)', (tester) async {
+    testWidgets('rows are separated by space-2 (8 px) with a 1 px border '
+        'divider inside the gap, indented past the badge', (tester) async {
       await pumpSheet(tester, plan: plan());
 
       expect(
@@ -162,6 +163,23 @@ void main() {
       expect(
         tester.getTopLeft(row('pc')).dy - tester.getBottomLeft(row('pa')).dy,
         8,
+      );
+
+      final dividers = find.byType(Divider);
+      expect(dividers, findsNWidgets(2));
+      final divider = tester.widget<Divider>(dividers.first);
+      expect(divider.height, 8);
+      expect(divider.thickness, 1);
+      expect(divider.color, RbColors.border);
+      expect(divider.indent, 32);
+      expect(divider.endIndent, isNull);
+      expect(
+        tester.getTopLeft(dividers.first).dy,
+        tester.getBottomLeft(row('pb')).dy,
+      );
+      expect(
+        tester.getTopLeft(dividers.first).dx,
+        tester.getTopLeft(row('pb')).dx,
       );
     });
 
