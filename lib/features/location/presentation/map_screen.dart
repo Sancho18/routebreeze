@@ -167,14 +167,22 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
               if (state.status != MapStatus.checking)
                 Positioned(
                   left: RbSpace.s3,
+                  top: RbSpace.s3,
                   right: RbSpace.s3,
                   bottom: RbSpace.s3,
                   child: SafeArea(
-                    child: _StatusCard(
-                      state: state,
-                      onRetry: _cubit.retry,
-                      onOpenSettings: _cubit.openSettings,
-                      onContinue: widget.onContinue,
+                    // With large text the card can outgrow the screen; it
+                    // then scrolls instead of being cut at the top.
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: SingleChildScrollView(
+                        child: _StatusCard(
+                          state: state,
+                          onRetry: _cubit.retry,
+                          onOpenSettings: _cubit.openSettings,
+                          onContinue: widget.onContinue,
+                        ),
+                      ),
                     ),
                   ),
                 ),
