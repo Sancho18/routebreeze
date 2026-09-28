@@ -522,5 +522,78 @@ void main() {
         );
       });
     });
+    group('map padding', () {
+      final progress = RouteProgress(
+        next: const RouteStop(stop: a, order: 1, visited: false),
+        toNextMeters: 1234,
+        toNextSeconds: 250,
+        remainingMeters: 8400,
+        remainingSeconds: 1320,
+        at: DateTime.utc(2026, 9, 22, 14, 28),
+      );
+      NavigationState navigating({
+        bool online = true,
+        bool following = true,
+        NavigationBadge? badge,
+      }) => NavigationState(
+        plan: plan,
+        phase: NavigationPhase.navigating,
+        fix: fix,
+        progress: progress,
+        online: online,
+        following: following,
+        badge: badge,
+      );
+
+      testWidgets('top is the next stop card with its margin, bottom is the '
+          'sheet: the camera centers the position between them', (
+        tester,
+      ) async {
+        await pumpScreen(tester, navigating());
+
+        final mapTop = tester.getTopLeft(find.byKey(mapKey)).dy;
+        final padding = mapsBuilt.last.padding;
+        expect(
+          padding.top,
+          tester.getBottomLeft(find.byType(NextStopCard)).dy - mapTop,
+        );
+        expect(padding.bottom, tester.getSize(find.byType(RouteSheet)).height);
+        expect(padding.left, 0);
+        expect(padding.right, 0);
+      });
+
+      testWidgets('the offline banner adds to the top; a badge and '
+          '"Recentralizar" change nothing', (tester) async {
+        await pumpScreen(tester, navigating());
+        final base = mapsBuilt.last.padding;
+
+        await pumpScreen(
+          tester,
+          navigating(badge: NavigationBadge.recalculated, following: false),
+        );
+        expect(find.text('Recentralizar'), findsOneWidget);
+        expect(mapsBuilt.last.padding, base);
+
+        await pumpScreen(tester, navigating(online: false));
+        expect(
+          mapsBuilt.last.padding.top,
+          base.top + tester.getSize(find.byType(RbBanner)).height,
+        );
+        expect(mapsBuilt.last.padding.bottom, base.bottom);
+      });
+
+      testWidgets('before "Iniciar" only the sheet pads the map', (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
+        );
+
+        final padding = mapsBuilt.last.padding;
+        expect(padding.top, 0);
+        expect(padding.bottom, tester.getSize(find.byType(RouteSheet)).height);
+      });
+    });
   });
 }

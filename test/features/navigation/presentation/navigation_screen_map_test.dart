@@ -7,12 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
+import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
+import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 import '../../../helpers/fake_google_map.dart';
 
@@ -147,6 +150,30 @@ void main() {
           [-23.563, -46.657],
         ],
       ]);
+    });
+    testWidgets('the map is created with the padding of the card and the '
+        'sheet and told when it changes, without moving the camera', (
+      tester,
+    ) async {
+      await pumpScreen(tester, navigating(first));
+      final map = platform.maps.single;
+      final mapTop = tester.getTopLeft(find.byType(GoogleMap)).dy;
+      final top = tester.getBottomLeft(find.byType(NextStopCard)).dy - mapTop;
+      final bottom = tester.getSize(find.byType(RouteSheet)).height;
+
+      final options = map.creationParams['options']! as Map<Object?, Object?>;
+      expect(options['padding'], [top, 0.0, bottom, 0.0]);
+
+      await emit(tester, navigating(first).copyWith(online: false));
+
+      final banner = tester.getSize(find.byType(RbBanner)).height;
+      final updates = [
+        for (final call in map.callsOf('map#update'))
+          ((call.arguments as Map<Object?, Object?>)['options']
+              as Map<Object?, Object?>)['padding'],
+      ].nonNulls;
+      expect(updates.last, [top + banner, 0.0, bottom, 0.0]);
+      expect(map.cameraAnimations, isEmpty);
     });
   });
 }
