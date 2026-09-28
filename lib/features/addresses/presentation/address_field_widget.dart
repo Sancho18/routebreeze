@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_text_field.dart';
 import '../domain/address_field.dart';
@@ -54,6 +55,7 @@ class _AddressFieldWidgetState extends State<AddressFieldWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final field = widget.field;
     final onRemove = widget.onRemove;
     return Column(
@@ -77,7 +79,7 @@ class _AddressFieldWidgetState extends State<AddressFieldWidget> {
               : onRemove == null
               ? null
               : IconButton(
-                  icon: const Icon(Icons.close, color: RbColors.inkMuted),
+                  icon: Icon(Icons.close, color: rb.inkMuted),
                   tooltip: 'Remover ponto',
                   onPressed: onRemove,
                 ),
@@ -86,11 +88,11 @@ class _AddressFieldWidgetState extends State<AddressFieldWidget> {
           Padding(
             padding: const EdgeInsets.only(top: RbSpace.s1),
             child: Material(
-              color: RbColors.surface200,
+              color: rb.surface200,
               clipBehavior: Clip.antiAlias,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(RbRadius.md),
-                side: const BorderSide(color: RbColors.border),
+                side: BorderSide(color: rb.border),
               ),
               child: Column(
                 children: [
@@ -99,14 +101,14 @@ class _AddressFieldWidgetState extends State<AddressFieldWidget> {
                       dense: true,
                       title: Text(
                         suggestion.mainText,
-                        style: RbText.bodyStrong.copyWith(color: RbColors.ink),
+                        style: RbText.bodyStrong.copyWith(color: rb.ink),
                       ),
                       subtitle: suggestion.secondaryText.isEmpty
                           ? null
                           : Text(
                               suggestion.secondaryText,
                               style: RbText.caption.copyWith(
-                                color: RbColors.inkMuted,
+                                color: rb.inkMuted,
                               ),
                             ),
                       onTap: () => widget.onSuggestionSelected(suggestion),
