@@ -308,7 +308,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                               startLabel: navigating
                                   ? NavigationScreen.stopLabel
                                   : NavigationScreen.startLabel,
-                              startColor: navigating ? rb.danger : null,
+                              startColor: navigating ? rb.dangerStrong : null,
                               onStart: navigating ? _stop : _cubit.start,
                               onMarkVisited: navigating
                                   ? _cubit.markNextVisited
@@ -418,7 +418,7 @@ class _TopOverlay extends StatelessWidget {
               horizontal: RbSpace.s2,
               vertical: RbSpace.s1,
             ),
-            child: RbInlineError(text: error),
+            child: RbInlineError(text: error, liveRegion: true),
           ),
         ),
     ];
@@ -537,7 +537,7 @@ class _Completed extends StatelessWidget {
           children: [
             Text(
               NavigationScreen.completedTitle,
-              style: RbText.heading.copyWith(color: rb.success),
+              style: RbText.heading.copyWith(color: rb.successStrong),
             ),
             const SizedBox(height: RbSpace.s3),
             RbPrimaryButton(

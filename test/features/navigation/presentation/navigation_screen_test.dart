@@ -223,7 +223,7 @@ void main() {
       expect(find.text('Iniciar'), findsNothing);
       expect(find.text('Aguardando sinal de GPS'), findsNothing);
       expect(primary(tester, 'Encerrar').enabled, isTrue);
-      expect(primary(tester, 'Encerrar').color, RbColors.danger);
+      expect(primary(tester, 'Encerrar').color, const Color(0xFFD01E23));
       expect(tester.widget<RouteSheet>(find.byType(RouteSheet)).plan, visited);
       expect(find.byIcon(Icons.check), findsOneWidget);
       expect(find.text('Visitado'), findsNothing);
@@ -333,9 +333,9 @@ void main() {
       expect(box.color, const Color(0xFFD01E23));
     });
 
-    testWidgets('a stream error shows "Perdemos o sinal de GPS" in danger', (
-      tester,
-    ) async {
+    testWidgets('a stream error shows "Perdemos o sinal de GPS" in danger, '
+        'announced as a live region', (tester) async {
+      final semantics = tester.ensureSemantics();
       await pumpScreen(
         tester,
         NavigationState(
@@ -349,6 +349,14 @@ void main() {
       final text = tester.widget<Text>(find.text('Perdemos o sinal de GPS'));
       expect(text.style!.color, const Color(0xFFD01E23));
       expect(markerIds(mapsBuilt.last), contains('me'));
+      expect(
+        tester
+            .getSemantics(find.byType(RbInlineError))
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+      semantics.dispose();
     });
 
     testWidgets('a recalculation badge and the GPS error show together, '
@@ -451,7 +459,7 @@ void main() {
     });
 
     testWidgets('completed replaces the sheet with "Rota concluída" in '
-        'success and "Nova rota"', (tester) async {
+        'successStrong and "Nova rota"', (tester) async {
       final done = plan.markVisited('pa').markVisited('pb');
       await pumpScreen(
         tester,
@@ -464,7 +472,7 @@ void main() {
       );
 
       final title = tester.widget<Text>(find.text('Rota concluída'));
-      expect(title.style!.color, RbColors.success);
+      expect(title.style!.color, const Color(0xFF0D7F4A));
       expect(title.style!.fontSize, 17);
       expect(find.byType(RouteSheet), findsNothing);
       expect(find.text('Encerrar'), findsNothing);
