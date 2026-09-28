@@ -4,10 +4,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 
 /// Marker icons for the route map: numbered circles drawn with `dart:ui` and
 /// cached per number, a distinct start marker and the current-position dot.
+/// Both themes share them: the light `brand` disc with a white ring reads on
+/// the light and the dark map.
 class MapMarkers {
   MapMarkers();
 
@@ -54,7 +57,7 @@ class MapMarkers {
       ..drawCircle(
         center,
         size / 2 - 2 * pixelRatio,
-        Paint()..color = RbColors.brand,
+        Paint()..color = RbPalette.light.brand,
       );
     if (label != null) {
       final text = TextPainter(
