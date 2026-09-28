@@ -17,6 +17,7 @@ import 'package:routebreeze/features/addresses/domain/suggestion.dart';
 import 'package:routebreeze/features/addresses/presentation/address_form_cubit.dart';
 import 'package:routebreeze/features/addresses/presentation/addresses_screen.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockAddressFormCubit extends MockCubit<AddressFormState>
@@ -328,5 +329,61 @@ void main() {
       expect(confirmed, [stops]);
       verify(() => cubit.reset()).called(1);
     });
+  });
+
+  group('AddressesScreen accessibility', () {
+    // Each state with a text that proves it is on screen.
+    final states = <String, (AddressFormState, String)>{
+      'empty': (AddressFormState(fields: threeEmpty), AddressesScreen.helper),
+      'with a field error': (
+        AddressFormState(
+          fields: [
+            valid('f1'),
+            empty('f2').copyWith(error: 'Campo obrigatório'),
+            empty('f3'),
+          ],
+        ),
+        'Campo obrigatório',
+      ),
+      'with suggestions open': (
+        AddressFormState(
+          fields: [
+            empty('f1').copyWith(text: 'Av.', suggestions: [suggestion]),
+            empty('f2'),
+            empty('f3'),
+          ],
+        ),
+        'Avenida Paulista, 1000',
+      ),
+      'offline': (
+        AddressFormState(fields: threeValid, online: false),
+        'Sem conexão',
+      ),
+    };
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+        testWidgets('$name meets the contrast, tap target and label '
+            'guidelines in ${mode.name} mode', (tester) async {
+          await pumpScreen(tester, state, mode: mode);
+          expect(find.text(text), findsOneWidget);
+
+          await expectAccessibleGuidelines(tester);
+        });
+      }
+    }
+
+    for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+      testWidgets('$name lays out at 200% text on a 360×800 phone', (
+        tester,
+      ) async {
+        await setLargeTextPhone(tester);
+        await pumpScreen(tester, state, mode: ThemeMode.light);
+
+        expect(find.text(text), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
+      });
+    }
   });
 }
