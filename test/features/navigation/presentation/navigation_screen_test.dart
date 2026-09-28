@@ -268,12 +268,16 @@ void main() {
     testWidgets('shows the badge text per kind: warning for recalculated and '
         'pending, danger for failed', (tester) async {
       const cases = [
-        (NavigationBadge.recalculated, 'Rota recalculada', RbColors.warning),
-        (NavigationBadge.recalcFailed, 'Falha ao recalcular', RbColors.danger),
+        (NavigationBadge.recalculated, 'Rota recalculada', Color(0xFF996206)),
+        (
+          NavigationBadge.recalcFailed,
+          'Falha ao recalcular',
+          Color(0xFFD01E23),
+        ),
         (
           NavigationBadge.recalcPending,
           'Recálculo pendente (sem conexão)',
-          RbColors.warning,
+          Color(0xFF996206),
         ),
       ];
       for (final (badge, text, color) in cases) {
@@ -326,7 +330,7 @@ void main() {
             )
             .first,
       );
-      expect(box.color, RbColors.danger);
+      expect(box.color, const Color(0xFFD01E23));
     });
 
     testWidgets('a stream error shows "Perdemos o sinal de GPS" in danger', (
@@ -343,7 +347,7 @@ void main() {
       );
 
       final text = tester.widget<Text>(find.text('Perdemos o sinal de GPS'));
-      expect(text.style!.color, RbColors.danger);
+      expect(text.style!.color, const Color(0xFFD01E23));
       expect(markerIds(mapsBuilt.last), contains('me'));
     });
 

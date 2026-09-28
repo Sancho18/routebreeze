@@ -118,7 +118,7 @@ void main() {
 
   void expectDangerBody(WidgetTester tester, String message) {
     final text = tester.widget<Text>(find.text(message));
-    expect(text.style!.color, RbColors.danger);
+    expect(text.style!.color, const Color(0xFFD01E23));
     expect(text.style!.fontSize, 15);
     expect(text.style!.fontWeight, FontWeight.w400);
   }

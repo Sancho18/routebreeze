@@ -54,7 +54,7 @@ void main() {
       expect(text.style!.fontWeight, FontWeight.w400);
     }
 
-    testWidgets('success: "Visitado" in success on success 12%', (
+    testWidgets('success: "Visitado" in #0D7F4A on success 12%', (
       tester,
     ) async {
       await expectChip(
@@ -62,11 +62,11 @@ void main() {
         label: 'Visitado',
         tone: RbTone.success,
         background: RbColors.success.withValues(alpha: 0.12),
-        foreground: RbColors.success,
+        foreground: const Color(0xFF0D7F4A),
       );
     });
 
-    testWidgets('warning: "Rota recalculada" in warning on warning 12%', (
+    testWidgets('warning: "Rota recalculada" in #996206 on warning 12%', (
       tester,
     ) async {
       await expectChip(
@@ -74,11 +74,11 @@ void main() {
         label: 'Rota recalculada',
         tone: RbTone.warning,
         background: RbColors.warning.withValues(alpha: 0.12),
-        foreground: RbColors.warning,
+        foreground: const Color(0xFF996206),
       );
     });
 
-    testWidgets('danger: "Falha ao recalcular" in danger on danger 12%', (
+    testWidgets('danger: "Falha ao recalcular" in #D01E23 on danger 12%', (
       tester,
     ) async {
       await expectChip(
@@ -86,7 +86,7 @@ void main() {
         label: 'Falha ao recalcular',
         tone: RbTone.danger,
         background: RbColors.danger.withValues(alpha: 0.12),
-        foreground: RbColors.danger,
+        foreground: const Color(0xFFD01E23),
       );
     });
 
@@ -129,17 +129,35 @@ void main() {
         );
       });
     });
+
+    testWidgets('is announced as a live region', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        wrap(
+          const RbStatusChip(label: 'Rota recalculada', tone: RbTone.warning),
+        ),
+      );
+
+      expect(
+        tester
+            .getSemantics(find.byType(RbStatusChip))
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+      semantics.dispose();
+    });
   });
 
   group('RbBanner', () {
-    testWidgets('danger: "Sem conexão" full-width, danger background, '
+    testWidgets('danger: "Sem conexão" full-width, #D01E23 background, '
         'white body-strong text, padding s2/s3', (tester) async {
       await tester.pumpWidget(
         wrap(const RbBanner(text: 'Sem conexão', tone: RbTone.danger)),
       );
 
       final container = containerOf<RbBanner>(tester);
-      expect(container.color, RbColors.danger);
+      expect(container.color, const Color(0xFFD01E23));
       expect(
         container.padding,
         const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -155,16 +173,29 @@ void main() {
       expect(text.style!.fontWeight, FontWeight.w600);
     });
 
-    testWidgets('warning: warning background with white text', (tester) async {
+    testWidgets('warning: #996206 background with white text', (tester) async {
       await tester.pumpWidget(
         wrap(const RbBanner(text: 'Aviso', tone: RbTone.warning)),
       );
 
-      expect(containerOf<RbBanner>(tester).color, RbColors.warning);
+      expect(containerOf<RbBanner>(tester).color, const Color(0xFF996206));
       expect(
         tester.widget<Text>(find.text('Aviso')).style!.color,
         Colors.white,
       );
+    });
+
+    testWidgets('is announced as a live region', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        wrap(const RbBanner(text: 'Sem conexão', tone: RbTone.danger)),
+      );
+
+      expect(
+        tester.getSemantics(find.byType(RbBanner)).flagsCollection.isLiveRegion,
+        isTrue,
+      );
+      semantics.dispose();
     });
 
     group('in dark mode', () {
@@ -231,7 +262,7 @@ void main() {
       final text = tester.widget<Text>(
         find.text('Não foi possível calcular a rota.'),
       );
-      expect(text.style!.color, RbColors.danger);
+      expect(text.style!.color, const Color(0xFFD01E23));
       expect(text.style!.fontSize, 15);
       expect(text.style!.fontWeight, FontWeight.w400);
 
@@ -247,6 +278,43 @@ void main() {
 
       expect(find.text('Perdemos o sinal de GPS'), findsOneWidget);
       expect(find.byType(TextButton), findsNothing);
+    });
+
+    testWidgets('is not a live region by default', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        wrap(const RbInlineError(text: 'Perdemos o sinal de GPS')),
+      );
+
+      expect(
+        tester
+            .getSemantics(find.byType(RbInlineError))
+            .flagsCollection
+            .isLiveRegion,
+        isFalse,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('liveRegion: true announces it', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        wrap(
+          const RbInlineError(
+            text: 'Perdemos o sinal de GPS',
+            liveRegion: true,
+          ),
+        ),
+      );
+
+      expect(
+        tester
+            .getSemantics(find.byType(RbInlineError))
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+      semantics.dispose();
     });
 
     testWidgets('dark mode: #EB7074 text and #7EA6F8 action', (tester) async {

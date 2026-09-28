@@ -139,7 +139,7 @@ void main() {
       final message = tester.widget<Text>(
         find.text('Não foi possível calcular a rota.'),
       );
-      expect(message.style!.color, RbColors.danger);
+      expect(message.style!.color, const Color(0xFFD01E23));
       expect(message.style!.fontSize, 15);
       expect(find.byType(RouteSheet), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);

@@ -118,7 +118,7 @@ void main() {
       final error = tester.widget<Text>(
         find.text('Não foi possível abrir o Waze.'),
       );
-      expect(error.style!.color, RbColors.danger);
+      expect(error.style!.color, const Color(0xFFD01E23));
 
       await tester.tap(find.text('Google Maps'));
       await tester.pumpAndSettle();
