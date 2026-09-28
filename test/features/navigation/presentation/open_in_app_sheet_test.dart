@@ -10,6 +10,8 @@ import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dar
 import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
 import 'package:routebreeze/features/navigation/presentation/open_in_app_sheet.dart';
 
+import '../../../helpers/themed_app.dart';
+
 class MockNavigationAppLauncher extends Mock implements NavigationAppLauncher {}
 
 void main() {
@@ -28,25 +30,22 @@ void main() {
 
   setUp(() => launcher = MockNavigationAppLauncher());
 
-  /// A screen whose button opens the sheet, as the navigation screen does.
-  Future<void> pumpAndOpen(WidgetTester tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: TextButton(
-                onPressed: () => OpenInAppSheet.show(
-                  context,
-                  stop: stop,
-                  launcher: launcher,
-                ),
-                child: const Text('open'),
-              ),
-            ),
+  /// A screen whose button opens the sheet, as the navigation screen does:
+  /// in a bare `MaterialApp`, or in the app themes when [mode] is given.
+  Future<void> pumpAndOpen(WidgetTester tester, {ThemeMode? mode}) async {
+    final home = Builder(
+      builder: (context) => Scaffold(
+        body: Center(
+          child: TextButton(
+            onPressed: () =>
+                OpenInAppSheet.show(context, stop: stop, launcher: launcher),
+            child: const Text('open'),
           ),
         ),
       ),
+    );
+    await tester.pumpWidget(
+      mode == null ? MaterialApp(home: home) : themedApp(home, mode: mode),
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -164,6 +163,52 @@ void main() {
 
       expect(find.text('open'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('OpenInAppSheet in dark mode', () {
+    testWidgets('#1A1D23 sheet with the title and apps in #F2F4F7, the '
+        'caption and chevrons in #A4ACB9 and a #2F343D divider', (
+      tester,
+    ) async {
+      await pumpAndOpen(tester, mode: ThemeMode.dark);
+
+      expect(
+        tester.widget<BottomSheet>(find.byType(BottomSheet)).backgroundColor,
+        const Color(0xFF1A1D23),
+      );
+      expect(
+        tester.widget<Text>(find.text('Abrir em outro app')).style!.color,
+        const Color(0xFFF2F4F7),
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.text(
+                'O acompanhamento continua quando você voltar ao RouteBreeze.',
+              ),
+            )
+            .style!
+            .color,
+        const Color(0xFFA4ACB9),
+      );
+      for (final label in ['Google Maps', 'Waze']) {
+        expect(
+          tester.widget<Text>(find.text(label)).style!.color,
+          const Color(0xFFF2F4F7),
+        );
+      }
+      final chevrons = tester.widgetList<Icon>(
+        find.byIcon(Icons.chevron_right),
+      );
+      expect(chevrons.map((icon) => icon.color), [
+        const Color(0xFFA4ACB9),
+        const Color(0xFFA4ACB9),
+      ]);
+      expect(
+        tester.widget<Divider>(find.byType(Divider)).color,
+        const Color(0xFF2F343D),
+      );
     });
   });
 }
