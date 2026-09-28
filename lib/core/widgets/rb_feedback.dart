@@ -37,7 +37,7 @@ class RbStatusChip extends StatelessWidget {
     final neutral = tone == RbTone.neutral;
     final color = tone.colorIn(rb);
     final background = neutral ? rb.border : color.withValues(alpha: 0.12);
-    final foreground = neutral ? rb.inkMuted : tone.strongColorIn(rb);
+    final foreground = tone.strongColorIn(rb);
 
     return Semantics(
       container: true,
