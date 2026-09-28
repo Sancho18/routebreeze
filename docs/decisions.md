@@ -85,7 +85,7 @@ Registro das decisões do RouteBreeze no formato Contexto / Decisão / Consequê
 
 **Decisão.** Tokens (9 cores, 6 estilos de texto, 4 espaçamentos, 3 raios) em `lib/core/theme/rb_tokens.dart`. Widgets base usam só tokens; `buildRbTheme` aplica ao Material. Fonte do sistema. Botão primário com a mesma altura e raio nos estados habilitado/desabilitado. Marcadores numerados desenhados em canvas com `dart:ui`, cacheados por número.
 
-**Consequências.** Nenhum valor solto nas telas. Testes de widget conferem cores e estilos. Sem tema escuro (o design system define só o claro).
+**Consequências.** Nenhum valor solto nas telas. Testes de widget conferem cores e estilos. Sem tema escuro (o design system define só o claro); superado depois da entrega por D-017.
 
 ## D-011: Generalização para N endereços
 
@@ -143,3 +143,11 @@ Registro das decisões do RouteBreeze no formato Contexto / Decisão / Consequê
 **Decisão.** A marca é a curva do loading da tela de mapa (`RouteLoaderPainter.route`) com um anel na partida e um ponto na chegada, em branco sobre `brand`. Um script de teste do Flutter (`tool/brand/render_brand_assets_test.dart`) desenha as imagens de origem com esse `Path`, e o `flutter_launcher_icons` e o `flutter_native_splash`, como dependências de desenvolvimento, geram os arquivos de cada plataforma, que ficam no repositório. No Android, o ícone é adaptativo, com camada monocromática e PNGs para o Android 7. A abertura usa a cor da tela de bloqueio (`surface-200`), clara ou escura, para não piscar na troca. O nome passa a ser "RouteBreeze" nas duas plataformas.
 
 **Consequências.** A marca e o loading não divergem: mudar a curva muda os dois. Os arquivos gerados passam por testes (tamanhos, alfa no iOS, cores e a zona segura do ícone adaptativo). Não há dependência nova em tempo de execução. O `flutter_launcher_icons` altera uma linha do `project.pbxproj` que não entra no repositório (o README traz o comando que a desfaz).
+
+## D-017: Tema escuro como extensão do DS Rota
+
+**Contexto.** Depois da entrega. O DS Rota define só o tema claro, e o app mostrava telas e mapa brancos com o aparelho no modo escuro. Os widgets liam as cores direto de `RbColors`, então não bastava ligar um `darkTheme`.
+
+**Decisão.** As cores passam a ser papéis de uma `ThemeExtension` (`RbPalette`) com duas instâncias: a clara com os valores do DS e a escura como extensão, com um papel novo, `onFill`, para texto e ícones sobre `brand`, `success` e `danger`. Os valores escuros foram escolhidos por contraste: todo par de texto e fundo do app passa de 4,5:1. No escuro, os botões usam um azul mais claro (#7EA6F8) com texto escuro, porque o azul do DS como texto sobre o fundo escuro fica em 3,7:1. O app segue o aparelho (`ThemeMode.system`), os widgets leem `context.rb`, e `RbColors` fica restrito a `lib/core/theme/`, com um teste que falha se outro arquivo usar cor fixa. O mapa usa no escuro um estilo JSON com as cores da paleta, e a linha da rota segue o `brand` do tema. Os marcadores ficam iguais nos dois temas, e as barras do sistema acompanham o brilho.
+
+**Consequências.** O modo claro não muda. O contraste do escuro é garantido por teste, e cores fixas novas quebram o build de testes. Menos widgets são `const`. A troca de tema anima por 200 ms, e durante a animação a linha da rota recebe algumas atualizações de cor antes de chegar à final.
