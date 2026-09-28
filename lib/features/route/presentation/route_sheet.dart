@@ -6,6 +6,7 @@ import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../domain/route_plan.dart';
 import 'route_format.dart';
+import 'stop_badge.dart';
 
 /// Bottom sheet with the optimized stop order, totals and the primary action.
 /// [onMarkVisited] adds the "Marcar como visitado" button above the primary
@@ -33,14 +34,14 @@ class RouteSheet extends StatelessWidget {
   static const String heading = 'Ordem otimizada';
 
   /// Semantics label of the check badge on a visited stop.
-  static const String visitedLabel = 'Visitado';
+  static const String visitedLabel = StopBadge.visitedLabel;
   static const String markVisitedLabel = 'Marcar como visitado';
 
   static const double rowGap = RbSpace.s2;
 
   /// The 1 px `border` divider sits inside [rowGap], starting under the
   /// address text (past the 24 px badge and its `s2` gap).
-  static const double dividerIndent = _StopRow.badgeSize + RbSpace.s2;
+  static const double dividerIndent = StopBadge.size + RbSpace.s2;
 
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');
 
@@ -117,35 +118,13 @@ class _StopRow extends StatelessWidget {
 
   final RouteStop stop;
 
-  static const double badgeSize = 24;
-  static const double checkSize = 16;
-
   @override
   Widget build(BuildContext context) {
     final visited = stop.visited;
     return Row(
       key: RouteSheet.stopKey(stop.stop.placeId),
       children: [
-        Container(
-          width: badgeSize,
-          height: badgeSize,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: visited ? RbColors.success : RbColors.brand,
-            shape: BoxShape.circle,
-          ),
-          child: visited
-              ? const Icon(
-                  Icons.check,
-                  size: checkSize,
-                  color: Colors.white,
-                  semanticLabel: RouteSheet.visitedLabel,
-                )
-              : Text(
-                  '${stop.order}',
-                  style: RbText.bodyStrong.copyWith(color: Colors.white),
-                ),
-        ),
+        StopBadge(order: stop.order, visited: visited),
         const SizedBox(width: RbSpace.s2),
         Expanded(
           child: Text(
