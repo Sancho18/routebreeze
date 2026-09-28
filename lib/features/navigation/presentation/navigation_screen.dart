@@ -283,6 +283,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         alignment: Alignment.bottomCenter,
                         child: SingleChildScrollView(
                           reverse: true,
+                          // Hits beside the button and the sheet reach the
+                          // map.
+                          hitTestBehavior: HitTestBehavior.deferToChild,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.end,

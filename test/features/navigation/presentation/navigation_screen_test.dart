@@ -440,6 +440,36 @@ void main() {
       );
     });
 
+    testWidgets('a touch beside "Recentralizar" reaches the map', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          following: false,
+        ),
+      );
+
+      final button = tester.getRect(find.byType(FloatingActionButton));
+      final beside = Offset(button.left - 40, button.center.dy);
+      // The detector above the map: the placeholder itself is not hittable.
+      final mapListener = tester.renderObject(
+        find
+            .ancestor(of: find.byKey(mapKey), matching: find.byType(Listener))
+            .first,
+      );
+      expect(
+        tester
+            .hitTestOnBinding(beside)
+            .path
+            .any((entry) => entry.target == mapListener),
+        isTrue,
+      );
+    });
+
     testWidgets('dragging the map while following reports onMapDragged; a '
         'tap or a tiny move does not', (tester) async {
       await pumpScreen(
