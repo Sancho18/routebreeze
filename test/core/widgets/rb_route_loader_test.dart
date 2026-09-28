@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 
+import '../../helpers/themed_app.dart';
+
 void main() {
   Widget wrap(Widget child) => MaterialApp(
     home: Scaffold(body: Center(child: child)),
@@ -26,6 +28,19 @@ void main() {
       expect(painter.track, RbColors.border);
       expect(find.bySemanticsLabel('Carregando'), findsOneWidget);
       semantics.dispose();
+    });
+
+    testWidgets('dark mode: #7EA6F8 stroke on a #2F343D track', (tester) async {
+      await tester.pumpWidget(
+        themedApp(
+          const Scaffold(body: Center(child: RbRouteLoader())),
+          mode: ThemeMode.dark,
+        ),
+      );
+
+      final painter = painterOf(tester);
+      expect(painter.track, const Color(0xFF2F343D));
+      expect(painter.stroke, const Color(0xFF7EA6F8));
     });
 
     testWidgets('width scales the height and semanticsLabel is applied', (
