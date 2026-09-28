@@ -24,6 +24,7 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Progresso até a próxima parada** (`feature/live-progress`). Durante a navegação, um card "Próxima parada" mostra o número e o endereço da parada e quanto falta até ela ("1,2 km · 4 min · chegada às 14:32"). O painel da rota troca os totais pelo que falta até o fim ("Faltam 8,4 km · 22 min · término às 15:10"). Tudo sai da resposta da Routes API que o app já pedia, sem chamada extra. Detalhes em "Progresso até a próxima parada", nas decisões técnicas. Na mesma branch, o mapa passou a respeitar o espaço do painel e do card (antes, a posição do entregador e o logo do Google ficavam atrás do painel), e o fluxo foi validado no simulador do iOS.
 - **Abrir a próxima parada no Google Maps ou no Waze** (`feature/open-in-maps`). Um botão no card da próxima parada abre "Abrir em outro app", com Google Maps e Waze. O RouteBreeze continua acompanhando a rota e, na volta, não pede o desbloqueio de novo (há uma navegação ativa). Detalhes em "Abrir em outro app", nas decisões técnicas.
 - **Ícone, nome e abertura** (`feature/app-icon`). O app ganhou ícone próprio (a rota do loading, com a partida e a chegada, em branco sobre o azul `brand`), o nome "RouteBreeze" embaixo dele e uma tela de abertura na cor da tela de bloqueio. Detalhes em "Ícone e abertura", nas decisões técnicas.
+- **Tema escuro** (`feature/dark-theme`). O app segue o tema do aparelho. A paleta escura estende o DS Rota sem mudar os valores do claro, todo par de texto e fundo passa de 4,5:1, e o mapa, as barras do sistema e a abertura acompanham o tema. Detalhes em "Tema escuro", nas decisões técnicas.
 
 ## Demonstração
 
@@ -122,7 +123,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 517 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 602 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -135,15 +136,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 339 | 338 | 99,7 % |
-| lib (raiz: `app.dart`, `main.dart`) | 80 | 78 | 97,5 % |
-| lib/features/addresses | 306 | 304 | 99,3 % |
-| lib/features/location | 191 | 191 | 100,0 % |
-| lib/features/lock | 71 | 71 | 100,0 % |
-| lib/features/navigation | 517 | 513 | 99,2 % |
-| lib/features/route | 457 | 455 | 99,6 % |
-| **Total (todos os arquivos)** | 1961 | 1950 | 99,4 % |
-| **Total (sem native-only)** | 1956 | 1947 | 99,5 % |
+| lib/core | 407 | 407 | 100,0 % |
+| lib (raiz: `app.dart`, `main.dart`) | 83 | 81 | 97,6 % |
+| lib/features/addresses | 313 | 311 | 99,4 % |
+| lib/features/location | 200 | 200 | 100,0 % |
+| lib/features/lock | 73 | 73 | 100,0 % |
+| lib/features/navigation | 533 | 529 | 99,2 % |
+| lib/features/route | 465 | 463 | 99,6 % |
+| **Total (todos os arquivos)** | 2074 | 2064 | 99,5 % |
+| **Total (sem native-only)** | 2069 | 2061 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -176,7 +177,8 @@ lib/
     geo/                         GeoPoint, GeoMath (haversine, ponto-segmento), PolylineCodec
     network/                     Dio (chave, timeouts, retry) e ConnectivityService
     session/session_state.dart   navegação ativa + hooks de pause/resume
-    theme/                       RbTokens (design system Rota) e RbTheme
+    theme/                       RbTokens (DS Rota), RbPalette (clara e escura), RbTheme,
+                                 estilo escuro do mapa e barras do sistema
     widgets/                     RbPrimaryButton, RbTextField, RbBanner, RbStatusChip, RbInlineError
   features/
     lock/         data: LocalAuthService (local_auth)
@@ -281,6 +283,28 @@ Os tokens ficam em um só arquivo (`RbColors`, `RbText`, `RbSpace`, `RbRadius`):
 
 Uma extensão que o DS não lista: o botão "Encerrar" da navegação usa `danger` como fundo, com texto branco, e fica abaixo de "Marcar como visitado" (em `brand`). O DS reserva `danger` para erros, falha de autenticação, permissão negada e sem internet; usei a mesma cor para a única ação destrutiva do app porque ela interrompe a navegação em andamento e a cor evita o toque por engano ao lado do botão que o motorista usa o tempo todo. É a mesma paleta, o mesmo `radius-lg` e a mesma altura do botão primário, então o componente é o `RbPrimaryButton` com a cor trocada. A rota é desenhada em `brand` com 5 px, os marcadores numerados são desenhados em canvas e o marcador de partida é um pino distinto. Testes de widget conferem esses valores.
 
+### Tema escuro
+
+O app segue o tema do aparelho (`ThemeMode.system`). As cores ficam em `RbPalette`, uma `ThemeExtension` com duas instâncias: a clara usa os valores do DS sem mudança, e a escura é uma extensão escolhida por contraste. Todo par de texto e fundo que o app desenha no escuro passa de 4,5:1, e um teste confere cada par. Os widgets leem a paleta ativa com `context.rb`; `RbColors` só aparece em `lib/core/theme/`, e um teste falha se outro arquivo de `lib/` usar `RbColors` ou uma constante de `Colors` (branco e transparente são as exceções, usadas nos marcadores).
+
+| Token | Claro (DS) | Escuro |
+| --- | --- | --- |
+| `brand` | #2A6DF4 | #7EA6F8 |
+| `onFill` (texto e ícones sobre `brand`, `success` e `danger`) | #FFFFFF | #0F1115 |
+| `success` | #12B76A | #12B76A |
+| `warning` | #F59E0B | #F59E0B |
+| `danger` | #E5484D | #EB7074 |
+| `surface-100` | #F7F8FA | #0F1115 |
+| `surface-200` | #FFFFFF | #1A1D23 |
+| `ink` | #12141A | #F2F4F7 |
+| `ink-muted` | #5B6472 | #A4ACB9 |
+| `border` | #E2E5EA | #2F343D |
+
+- **Botões no escuro.** Azul mais claro com texto escuro. O azul do DS como texto sobre o fundo escuro ficaria em 3,7:1; com `onFill`, cada tema tem um valor por papel.
+- **Mapa.** No escuro, um estilo JSON com as cores da paleta (terreno #1A1D23, ruas #2F343D, água #0F1115, rótulos #A4ACB9); no claro, o estilo padrão do Google. A linha da rota usa o `brand` do tema. Os marcadores numerados e o pino de partida são iguais nos dois temas, porque o anel branco os destaca nos dois mapas.
+- **Sistema.** Ícones escuros na barra de status e de navegação no tema claro e claros no escuro. A abertura nativa já usa #1A1D23 no escuro (veja "Ícone e abertura").
+- **Troca com o app aberto.** A tela atual repinta sem perder o estado, e o mapa troca de estilo sem recriar a câmera.
+
 ### Generalização para N endereços
 
 "Adicionar ponto" cria campos sem limite ("Ponto D", "Ponto E"...), cada um com controle de remoção. Todo campo presente precisa de uma sugestão selecionada; editar depois de escolher invalida o campo; dois campos com o mesmo `placeId` recebem "Endereço repetido". A rota usa todas as paradas em uma única requisição e os marcadores vão de 1 a N.
@@ -350,7 +374,6 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 - **Sem trânsito.** A rota não usa `TRAFFIC_AWARE_OPTIMAL`, que é incompatível com a otimização de waypoints e custa mais.
 - **Mapa offline.** Os tiles dependem do cache do Maps SDK; o app não controla isso.
 - **Detecção de conectividade.** `connectivity_plus` informa se há rede, não se a internet responde. Com rede sem internet, a requisição falha e é tratada como sem conexão.
-- **Modo escuro.** O design system define só o tema claro.
 - **Sem instruções passo a passo.** O app desenha a rota e mostra a posição; não há navegação por voz ou texto curva a curva. Para isso, o botão "Abrir em outro app" passa a próxima parada ao Google Maps ou ao Waze.
 - **Só pt-BR.** Um único idioma.
 - **Sem contas, backend ou histórico de rotas.** Não foi pedido.
