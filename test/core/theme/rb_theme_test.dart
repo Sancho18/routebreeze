@@ -89,6 +89,7 @@ void main() {
         theme,
         brightness: Brightness.light,
         brand: const Color(0xFF2A6DF4),
+        brandStrong: const Color(0xFF1B63F3),
         onFill: const Color(0xFFFFFFFF),
         danger: const Color(0xFFE5484D),
         surface100: const Color(0xFFF7F8FA),
@@ -107,6 +108,7 @@ void main() {
         theme,
         brightness: Brightness.dark,
         brand: const Color(0xFF7EA6F8),
+        brandStrong: const Color(0xFF7EA6F8),
         onFill: const Color(0xFF0F1115),
         danger: const Color(0xFFEB7074),
         surface100: const Color(0xFF0F1115),
@@ -178,6 +180,7 @@ void _expectThemeColors(
   ThemeData theme, {
   required Brightness brightness,
   required Color brand,
+  required Color brandStrong,
   required Color onFill,
   required Color danger,
   required Color surface100,
@@ -215,7 +218,10 @@ void _expectThemeColors(
   expect(filled.foregroundColor!.resolve({}), onFill);
   expect(filled.backgroundColor!.resolve(disabled), border);
   expect(filled.foregroundColor!.resolve(disabled), inkMuted);
-  expect(theme.textButtonTheme.style!.foregroundColor!.resolve({}), brand);
+  expect(
+    theme.textButtonTheme.style!.foregroundColor!.resolve({}),
+    brandStrong,
+  );
 
   for (final style in _slots(theme.textTheme)) {
     expect(style!.color, ink);

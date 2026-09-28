@@ -14,6 +14,7 @@ List<Color> _colors(RbPalette p) => [
   p.successStrong,
   p.warningStrong,
   p.dangerStrong,
+  p.brandStrong,
   p.surface100,
   p.surface200,
   p.ink,
@@ -37,6 +38,7 @@ void main() {
       expect(light.successStrong, const Color(0xFF0D7F4A));
       expect(light.warningStrong, const Color(0xFF996206));
       expect(light.dangerStrong, const Color(0xFFD01E23));
+      expect(light.brandStrong, const Color(0xFF1B63F3));
       expect(light.surface100, const Color(0xFFF7F8FA));
       expect(light.surface200, const Color(0xFFFFFFFF));
       expect(light.ink, const Color(0xFF12141A));
@@ -56,6 +58,7 @@ void main() {
       expect(dark.successStrong, const Color(0xFF12B76A));
       expect(dark.warningStrong, const Color(0xFFF59E0B));
       expect(dark.dangerStrong, const Color(0xFFEB7074));
+      expect(dark.brandStrong, const Color(0xFF7EA6F8));
       expect(dark.surface100, const Color(0xFF0F1115));
       expect(dark.surface200, const Color(0xFF1A1D23));
       expect(dark.ink, const Color(0xFFF2F4F7));
@@ -122,6 +125,8 @@ void main() {
         chipTint(dark.danger),
       ),
       'onFill on dangerStrong': (dark.onFill, dark.dangerStrong),
+      'brandStrong on surface-100': (dark.brandStrong, dark.surface100),
+      'brandStrong on surface-200': (dark.brandStrong, dark.surface200),
     };
     for (final MapEntry(key: name, value: (text, background))
         in pairs.entries) {
@@ -160,6 +165,8 @@ void main() {
         chipTint(light.danger),
       ),
       'onFill on dangerStrong': (light.onFill, light.dangerStrong),
+      'brandStrong on surface-100': (light.brandStrong, light.surface100),
+      'brandStrong on surface-200': (light.brandStrong, light.surface200),
     };
     for (final MapEntry(key: name, value: (text, background))
         in pairs.entries) {
@@ -234,6 +241,7 @@ void main() {
             successStrong: dark.successStrong,
             warningStrong: dark.warningStrong,
             dangerStrong: dark.dangerStrong,
+            brandStrong: dark.brandStrong,
             surface100: dark.surface100,
             surface200: dark.surface200,
             ink: dark.ink,

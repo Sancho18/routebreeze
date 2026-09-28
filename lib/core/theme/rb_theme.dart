@@ -50,7 +50,7 @@ ThemeData buildRbTheme([RbPalette palette = RbPalette.light]) {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: palette.brand,
+        foregroundColor: palette.brandStrong,
         textStyle: RbText.bodyStrong,
       ),
     ),
