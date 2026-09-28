@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 
+import '../../helpers/themed_app.dart';
+
 void main() {
   Widget wrap(Widget child) => MaterialApp(
     home: Scaffold(
@@ -11,6 +13,16 @@ void main() {
         children: [child],
       ),
     ),
+  );
+
+  Widget wrapDark(Widget child) => themedApp(
+    Scaffold(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [child],
+      ),
+    ),
+    mode: ThemeMode.dark,
   );
 
   Container containerOf<T extends Widget>(WidgetTester tester) =>
@@ -25,8 +37,10 @@ void main() {
       required RbTone tone,
       required Color background,
       required Color foreground,
+      bool dark = false,
     }) async {
-      await tester.pumpWidget(wrap(RbStatusChip(label: label, tone: tone)));
+      final chip = RbStatusChip(label: label, tone: tone);
+      await tester.pumpWidget(dark ? wrapDark(chip) : wrap(chip));
 
       final decoration =
           containerOf<RbStatusChip>(tester).decoration! as BoxDecoration;
@@ -85,6 +99,36 @@ void main() {
         foreground: RbColors.inkMuted,
       );
     });
+
+    group('in dark mode', () {
+      for (final (tone, color, hex) in const [
+        (RbTone.success, Color(0xFF12B76A), '#12B76A'),
+        (RbTone.warning, Color(0xFFF59E0B), '#F59E0B'),
+        (RbTone.danger, Color(0xFFEB7074), '#EB7074'),
+      ]) {
+        testWidgets('${tone.name}: $hex text on $hex 12%', (tester) async {
+          await expectChip(
+            tester,
+            label: 'Status',
+            tone: tone,
+            background: color.withValues(alpha: 0.12),
+            foreground: color,
+            dark: true,
+          );
+        });
+      }
+
+      testWidgets('neutral: #A4ACB9 text on #2F343D', (tester) async {
+        await expectChip(
+          tester,
+          label: 'Pendente',
+          tone: RbTone.neutral,
+          background: const Color(0xFF2F343D),
+          foreground: const Color(0xFFA4ACB9),
+          dark: true,
+        );
+      });
+    });
   });
 
   group('RbBanner', () {
@@ -122,6 +166,51 @@ void main() {
         Colors.white,
       );
     });
+
+    group('in dark mode', () {
+      Future<void> expectBanner(
+        WidgetTester tester,
+        RbTone tone, {
+        required Color fill,
+        required Color text,
+      }) async {
+        await tester.pumpWidget(
+          wrapDark(RbBanner(text: 'Sem conexão', tone: tone)),
+        );
+
+        expect(containerOf<RbBanner>(tester).color, fill);
+        expect(
+          tester.widget<Text>(find.text('Sem conexão')).style!.color,
+          text,
+        );
+      }
+
+      for (final (tone, fill, hex) in const [
+        (RbTone.success, Color(0xFF12B76A), '#12B76A'),
+        (RbTone.warning, Color(0xFFF59E0B), '#F59E0B'),
+        (RbTone.danger, Color(0xFFEB7074), '#EB7074'),
+      ]) {
+        testWidgets('${tone.name}: $hex fill with #0F1115 text', (
+          tester,
+        ) async {
+          await expectBanner(
+            tester,
+            tone,
+            fill: fill,
+            text: const Color(0xFF0F1115),
+          );
+        });
+      }
+
+      testWidgets('neutral: #2F343D fill with #F2F4F7 text', (tester) async {
+        await expectBanner(
+          tester,
+          RbTone.neutral,
+          fill: const Color(0xFF2F343D),
+          text: const Color(0xFFF2F4F7),
+        );
+      });
+    });
   });
 
   group('RbInlineError', () {
@@ -158,6 +247,33 @@ void main() {
 
       expect(find.text('Perdemos o sinal de GPS'), findsOneWidget);
       expect(find.byType(TextButton), findsNothing);
+    });
+
+    testWidgets('dark mode: #EB7074 text and #7EA6F8 action', (tester) async {
+      await tester.pumpWidget(
+        wrapDark(
+          RbInlineError(
+            text: 'Não foi possível calcular a rota.',
+            actionLabel: 'Tentar novamente',
+            onAction: () {},
+          ),
+        ),
+      );
+
+      expect(
+        tester
+            .widget<Text>(find.text('Não foi possível calcular a rota.'))
+            .style!
+            .color,
+        const Color(0xFFEB7074),
+      );
+      final action = tester.widget<RichText>(
+        find.descendant(
+          of: find.widgetWithText(TextButton, 'Tentar novamente'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(action.text.style!.color, const Color(0xFF7EA6F8));
     });
   });
 }
