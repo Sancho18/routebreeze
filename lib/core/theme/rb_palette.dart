@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'rb_tokens.dart';
 
-/// Color roles of one theme: the twelve Rota colors plus [onFill]. Widgets
-/// read the active palette with `context.rb`.
+/// Color roles of one theme: the Rota colors, their strong variants for text
+/// and [onFill]. Widgets read the active palette with `context.rb`.
 @immutable
 class RbPalette extends ThemeExtension<RbPalette> {
   const RbPalette({

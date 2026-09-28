@@ -4,7 +4,7 @@ import 'package:routebreeze/core/theme/rb_palette.dart';
 
 import '../../helpers/contrast.dart';
 
-/// The ten color roles of [p], in constructor order.
+/// The color roles of [p], in constructor order.
 List<Color> _colors(RbPalette p) => [
   p.brand,
   p.onFill,

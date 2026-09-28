@@ -33,7 +33,7 @@ ThemeData buildRbTheme([RbPalette palette = RbPalette.light]) {
       errorBorder: _outline(palette.danger),
       focusedErrorBorder: _outline(palette.danger),
       hintStyle: RbText.body.copyWith(color: palette.inkMuted),
-      errorStyle: RbText.caption.copyWith(color: palette.danger),
+      errorStyle: RbText.caption.copyWith(color: palette.dangerStrong),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
