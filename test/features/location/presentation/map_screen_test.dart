@@ -645,6 +645,7 @@ void main() {
         await pumpMap(tester, stateOf(status), mode: ThemeMode.light);
 
         expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
         // The status card is anchored at the bottom: too much content would
         // push its first line above the screen without an overflow error.
         expect(
@@ -662,6 +663,7 @@ void main() {
 
       expect(find.text(MapScreen.resumeBody), findsOneWidget);
       expect(tester.takeException(), isNull);
+      expectNoClippedText(tester);
     });
   });
 }

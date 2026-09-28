@@ -45,35 +45,44 @@ class _LockScreenState extends State<LockScreen> {
         return Scaffold(
           backgroundColor: rb.surface200,
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(RbSpace.s4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Spacer(),
-                  Text(
-                    'RouteBreeze',
-                    textAlign: TextAlign.center,
-                    style: RbText.display.copyWith(color: rb.ink),
-                  ),
-                  const Spacer(),
-                  if (message != null) ...[
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: RbText.body.copyWith(color: rb.dangerStrong),
+            // Fills the screen; with large text the content can outgrow it
+            // and then scrolls instead of overflowing.
+            child: CustomScrollView(
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(RbSpace.s4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Spacer(),
+                        Text(
+                          'RouteBreeze',
+                          textAlign: TextAlign.center,
+                          style: RbText.display.copyWith(color: rb.ink),
+                        ),
+                        const Spacer(),
+                        if (message != null) ...[
+                          Text(
+                            message,
+                            textAlign: TextAlign.center,
+                            style: RbText.body.copyWith(color: rb.dangerStrong),
+                          ),
+                          const SizedBox(height: RbSpace.s3),
+                        ],
+                        RbPrimaryButton(
+                          label: state.reason == AuthResult.noCredentials
+                              ? 'Tentar novamente'
+                              : 'Desbloquear',
+                          loading: state.status == LockStatus.authenticating,
+                          onPressed: _cubit.unlock,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: RbSpace.s3),
-                  ],
-                  RbPrimaryButton(
-                    label: state.reason == AuthResult.noCredentials
-                        ? 'Tentar novamente'
-                        : 'Desbloquear',
-                    loading: state.status == LockStatus.authenticating,
-                    onPressed: _cubit.unlock,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );

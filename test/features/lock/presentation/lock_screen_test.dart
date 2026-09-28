@@ -172,6 +172,7 @@ void main() {
         expect(MediaQuery.textScalerOf(context).scale(15), 30);
         expect(find.text(text), findsOneWidget);
         expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
       });
     }
   });

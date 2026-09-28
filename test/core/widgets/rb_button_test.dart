@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 
+import '../../helpers/accessibility.dart';
 import '../../helpers/themed_app.dart';
 
 void main() {
@@ -87,7 +89,7 @@ void main() {
       expect(taps, 0);
     });
 
-    testWidgets('loading: shows a 20 px spinner instead of the label and '
+    testWidgets('loading: shows a 20 px spinner over the hidden label and '
         'ignores taps', (tester) async {
       var taps = 0;
       await tester.pumpWidget(
@@ -99,7 +101,10 @@ void main() {
       final spinner = find.byType(CircularProgressIndicator);
       expect(spinner, findsOneWidget);
       expect(tester.getSize(spinner), const Size(20, 20));
-      expect(find.text(label), findsNothing);
+      expect(
+        tester.renderObject(find.byType(RbPrimaryButton)),
+        isNot(paints..paragraph()),
+      );
       expect(buttonMaterial(tester).color, RbColors.brand);
       expect(tester.getSize(find.byType(RbPrimaryButton)).height, 52);
 
@@ -142,6 +147,45 @@ void main() {
       expect(labelStyle(tester).color, RbColors.inkMuted);
       await tester.tap(find.byType(RbPrimaryButton));
       expect(taps, 1);
+    });
+  });
+
+  group('RbPrimaryButton at 200% text on a 360×800 phone', () {
+    testWidgets('a label that wraps shows whole: the button grows past 52', (
+      tester,
+    ) async {
+      await setLargeTextPhone(tester);
+      await tester.pumpWidget(
+        wrap(RbPrimaryButton(label: label, onPressed: () {})),
+      );
+
+      // At 200% the label takes two lines.
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(
+        paragraph.textSize.height,
+        closeTo(2 * paragraph.preferredLineHeight, 0.01),
+      );
+      expect(
+        tester.getSize(find.byType(RbPrimaryButton)).height,
+        greaterThan(52),
+      );
+      expectNoClippedText(tester);
+    });
+
+    testWidgets('loading keeps the height of the label button', (tester) async {
+      await setLargeTextPhone(tester);
+      await tester.pumpWidget(
+        wrap(RbPrimaryButton(label: label, onPressed: () {})),
+      );
+      final labelHeight = tester.getSize(find.byType(RbPrimaryButton)).height;
+
+      await tester.pumpWidget(
+        wrap(RbPrimaryButton(label: label, loading: true, onPressed: () {})),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(labelHeight, greaterThan(52));
+      expect(tester.getSize(find.byType(RbPrimaryButton)).height, labelHeight);
     });
   });
 
