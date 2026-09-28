@@ -98,6 +98,59 @@ void main() {
     });
   });
 
+  group('projectOntoSegment', () {
+    // Along the equator: 0.01° of longitude ≈ 1112 m.
+    const a = GeoPoint(0, 0);
+    const b = GeoPoint(0, 0.01);
+
+    test('the ends of the segment are fractions 0 and 1 at 0 m', () {
+      final atA = projectOntoSegment(a, a, b);
+      final atB = projectOntoSegment(b, a, b);
+
+      expect(atA.fraction, 0);
+      expect(atA.meters, closeTo(0, 1e-6));
+      expect(atB.fraction, closeTo(1, 1e-9));
+      expect(atB.meters, closeTo(0, 1e-6));
+    });
+
+    test('a point 0.001° beside the first quarter projects to fraction 0.25 '
+        'at ≈ 111.2 m', () {
+      final p = projectOntoSegment(const GeoPoint(0.001, 0.0025), a, b);
+
+      expect(p.fraction, closeTo(0.25, 1e-6));
+      expect(
+        p.meters,
+        closeTo(metersPerMilliDegree, metersPerMilliDegree * 0.01),
+      );
+    });
+
+    test('before the start and past the end the fraction is clamped and the '
+        'distance is to that end', () {
+      const beforeA = GeoPoint(0, -0.005);
+      const pastB = GeoPoint(0, 0.02);
+
+      final before = projectOntoSegment(beforeA, a, b);
+      final past = projectOntoSegment(pastB, a, b);
+
+      expect(before.fraction, 0);
+      final toA = haversineMeters(beforeA, a);
+      expect(before.meters, closeTo(toA, toA * 0.01));
+      expect(past.fraction, 1);
+      final toB = haversineMeters(pastB, b);
+      expect(past.meters, closeTo(toB, toB * 0.01));
+    });
+
+    test('a segment with no length is its start: fraction 0', () {
+      final p = projectOntoSegment(const GeoPoint(0.001, 0), a, a);
+
+      expect(p.fraction, 0);
+      expect(
+        p.meters,
+        closeTo(metersPerMilliDegree, metersPerMilliDegree * 0.01),
+      );
+    });
+  });
+
   group('farthestIndex', () {
     test('returns the index of the farthest point', () {
       const origin = GeoPoint(0, 0);
