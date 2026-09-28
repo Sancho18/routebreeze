@@ -1,0 +1,15 @@
+# Native launch screen from the brand sources in assets/brand/. The
+# background matches the lock screen (surface-200: #FFFFFF, dark #1A1D23).
+# Regenerate with:
+#   dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#FFFFFF"
+  color_dark: "#1A1D23"
+  image: assets/brand/splash.png
+
+  android_12:
+    image: assets/brand/splash_android12.png
+    icon_background_color: "#2A6DF4"
+    icon_background_color_dark: "#2A6DF4"
+    color: "#FFFFFF"
+    color_dark: "#1A1D23"
