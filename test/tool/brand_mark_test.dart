@@ -80,6 +80,26 @@ void main() {
       }
     });
 
+    test('the curve is 80 px wide', () {
+      // At the peak (half of the length) the curve runs horizontally, so the
+      // stroke's 40 px half-width lies straight above and below it.
+      final peak = along(0.5);
+      for (final dy in [-36.0, 36.0]) {
+        expect(
+          alphaAt(data, canvas.toInt(), peak + Offset(0, dy)),
+          255,
+          reason: 'dy=$dy',
+        );
+      }
+      for (final dy in [-44.0, 44.0]) {
+        expect(
+          alphaAt(data, canvas.toInt(), peak + Offset(0, dy)),
+          0,
+          reason: 'dy=$dy',
+        );
+      }
+    });
+
     test('a destination dot of radius 84 sits at the end of the curve', () {
       final end = along(1);
       expect(alphaAt(data, canvas.toInt(), end), 255);
