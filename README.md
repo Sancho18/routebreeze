@@ -124,7 +124,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 730 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 733 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -137,17 +137,17 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 428 | 427 | 99,8 % |
+| lib/core | 428 | 428 | 100,0 % |
 | lib (raiz: `app.dart`, `main.dart`) | 83 | 81 | 97,6 % |
 | lib/features/addresses | 313 | 311 | 99,4 % |
 | lib/features/location | 202 | 202 | 100,0 % |
 | lib/features/lock | 76 | 76 | 100,0 % |
 | lib/features/navigation | 551 | 547 | 99,3 % |
 | lib/features/route | 472 | 470 | 99,6 % |
-| **Total (todos os arquivos)** | 2125 | 2114 | 99,5 % |
-| **Total (sem native-only)** | 2120 | 2111 | 99,6 % |
+| **Total (todos os arquivos)** | 2125 | 2115 | 99,5 % |
+| **Total (sem native-only)** | 2120 | 2112 | 99,6 % |
 
-`test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes, o caso `RbTone.neutral` de `strongColorIn` (`rb_feedback.dart`), que o chip e o banner resolvem antes, e as duas linhas nativas de `main.dart`.
+`test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
 Teste de integração (precisa de um aparelho ou do simulador do iOS; usa fakes para biometria, GPS e Google APIs):
 
@@ -335,7 +335,7 @@ No claro, `successStrong` dá 5,1:1 sobre branco, `warningStrong` 4,7:1 sobre o 
 **Como os testes conferem.** O teste de cada tela (bloqueio, mapa, endereços, rota e navegação) tem um grupo de acessibilidade que usa `test/helpers/accessibility.dart`:
 
 - `expectAccessibleGuidelines` roda as diretrizes do Flutter (`textContrastGuideline`, `androidTapTargetGuideline`, `iOSTapTargetGuideline` e `labeledTapTargetGuideline`) nos dois temas, em cada estado com texto próprio: erros, chips, banner, o diálogo "Continuar rota?" e o sheet "Abrir em outro app";
-- `setLargeTextPhone` monta a tela em 360×800 dp com o texto em 200 %; ali o teste falha em qualquer erro de overflow e em `expectNoClippedText`, que acusa um parágrafo mais baixo que o próprio texto (o corte que um pai de altura fixa faz sem erro nenhum).
+- `setLargeTextPhone` monta a tela em 360×800 dp com o texto em 200 %; ali o teste falha em qualquer erro de overflow e em `expectNoClippedText`, que acusa um parágrafo menor que o próprio texto: mais baixo, no corte que um pai de altura fixa faz sem erro nenhum, ou mais estreito, numa linha que não quebra e passa da borda.
 
 Os testes da paleta conferem cada par de contraste das variantes fortes, e os de semântica leem o rótulo do card, os das paradas e as regiões ao vivo.
 
