@@ -118,6 +118,7 @@ class _RouteScreenState extends State<RouteScreen> {
         plan,
         numberedIcons: icons,
         startIcon: _markers.start(),
+        routeColor: RbColors.brand,
       );
     }();
   }

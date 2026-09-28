@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
@@ -43,7 +44,12 @@ void main() {
   late RouteMapObjects objects;
 
   setUp(() {
-    objects = buildMapObjects(plan, numberedIcons: icons, startIcon: startIcon);
+    objects = buildMapObjects(
+      plan,
+      numberedIcons: icons,
+      startIcon: startIcon,
+      routeColor: const Color(0xFF2A6DF4),
+    );
   });
 
   Marker marker(String id) =>
@@ -92,6 +98,25 @@ void main() {
     test('bounds cover origin, stops and the polyline', () {
       expect(objects.bounds.southwest, const LatLng(-23.70, -46.80));
       expect(objects.bounds.northeast, const LatLng(-23.5614, -46.60));
+    });
+
+    test('the polyline takes the given route color (#7EA6F8); markers, '
+        'bounds and the other polyline fields do not change', () {
+      final dark = buildMapObjects(
+        plan,
+        numberedIcons: icons,
+        startIcon: startIcon,
+        routeColor: const Color(0xFF7EA6F8),
+      );
+
+      expect(dark.polylines.single.color, const Color(0xFF7EA6F8));
+      expect(
+        dark.polylines.single,
+        objects.polylines.single.copyWith(colorParam: const Color(0xFF7EA6F8)),
+      );
+      expect(dark.markers, objects.markers);
+      expect(dark.bounds, objects.bounds);
+      expect(dark.origin, objects.origin);
     });
   });
 }

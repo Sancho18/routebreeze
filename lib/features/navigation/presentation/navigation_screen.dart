@@ -167,6 +167,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       ),
       numberedIcons: icons.numbered,
       startIcon: icons.start,
+      routeColor: RbColors.brand,
     );
     final fix = state.fix;
     final target = fix == null
