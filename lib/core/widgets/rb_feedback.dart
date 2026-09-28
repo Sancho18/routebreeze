@@ -120,7 +120,7 @@ class RbInlineError extends StatelessWidget {
             TextButton(
               onPressed: onAction,
               style: TextButton.styleFrom(
-                foregroundColor: rb.brand,
+                foregroundColor: rb.brandStrong,
                 textStyle: RbText.bodyStrong,
               ),
               child: Text(label),

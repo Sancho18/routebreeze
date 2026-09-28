@@ -245,9 +245,8 @@ void main() {
   });
 
   group('RbInlineError', () {
-    testWidgets('danger body text and action button calling onAction', (
-      tester,
-    ) async {
+    testWidgets('danger body text and a #1B63F3 action button calling '
+        'onAction', (tester) async {
       var actions = 0;
       await tester.pumpWidget(
         wrap(
@@ -265,6 +264,13 @@ void main() {
       expect(text.style!.color, const Color(0xFFD01E23));
       expect(text.style!.fontSize, 15);
       expect(text.style!.fontWeight, FontWeight.w400);
+      final action = tester.widget<RichText>(
+        find.descendant(
+          of: find.widgetWithText(TextButton, 'Tentar novamente'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(action.text.style!.color, const Color(0xFF1B63F3));
 
       await tester.tap(find.widgetWithText(TextButton, 'Tentar novamente'));
       await tester.pump();

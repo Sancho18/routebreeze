@@ -413,6 +413,32 @@ void main() {
       expect(mapsBuilt.last.following, isTrue);
     });
 
+    testWidgets('"Recentralizar" has its label in #1B63F3 and its icon in '
+        'brand #2A6DF4', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          following: false,
+        ),
+        mode: ThemeMode.light,
+      );
+
+      RichText rendered(Finder finder) => tester.widget<RichText>(
+        find.descendant(of: finder, matching: find.byType(RichText)),
+      );
+      expect(
+        rendered(find.text('Recentralizar')).text.style!.color,
+        const Color(0xFF1B63F3),
+      );
+      expect(
+        rendered(find.byIcon(Icons.my_location)).text.style!.color,
+        const Color(0xFF2A6DF4),
+      );
+    });
+
     testWidgets('dragging the map while following reports onMapDragged; a '
         'tap or a tiny move does not', (tester) async {
       await pumpScreen(

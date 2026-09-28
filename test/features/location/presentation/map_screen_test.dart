@@ -552,6 +552,22 @@ void main() {
         expect(find.byType(AlertDialog), findsNothing);
       });
 
+      testWidgets('light mode: "Nova rota" and "Continuar" in #1B63F3', (
+        tester,
+      ) async {
+        await pumpOffer(tester, mode: ThemeMode.light);
+
+        for (final action in ['Nova rota', 'Continuar']) {
+          final label = tester.widget<RichText>(
+            find.descendant(
+              of: find.widgetWithText(TextButton, action),
+              matching: find.byType(RichText),
+            ),
+          );
+          expect(label.text.style!.color, const Color(0xFF1B63F3));
+        }
+      });
+
       testWidgets('dark mode: #1A1D23 dialog with a #F2F4F7 title, #A4ACB9 '
           'body and #7EA6F8 actions', (tester) async {
         await pumpOffer(tester, mode: ThemeMode.dark);

@@ -116,7 +116,7 @@ void main() {
       final link = tester.widget<TextButton>(
         find.widgetWithText(TextButton, 'Adicionar ponto'),
       );
-      expect(link.style!.foregroundColor!.resolve({}), RbColors.brand);
+      expect(link.style!.foregroundColor!.resolve({}), const Color(0xFF1B63F3));
       expect(link.style!.textStyle!.resolve({})!.fontWeight, FontWeight.w600);
       expect(link.style!.textStyle!.resolve({})!.fontSize, 15);
       expect(

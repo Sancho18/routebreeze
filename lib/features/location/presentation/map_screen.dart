@@ -260,7 +260,7 @@ class _ResumeDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final rb = context.rb;
     final action = TextButton.styleFrom(
-      foregroundColor: rb.brand,
+      foregroundColor: rb.brandStrong,
       textStyle: RbText.bodyStrong,
     );
     return AlertDialog(

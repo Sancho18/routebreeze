@@ -293,8 +293,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         child: FloatingActionButton.extended(
                           onPressed: _cubit.recenter,
                           backgroundColor: rb.surface200,
-                          foregroundColor: rb.brand,
-                          icon: const Icon(Icons.my_location),
+                          foregroundColor: rb.brandStrong,
+                          icon: Icon(Icons.my_location, color: rb.brand),
                           label: const Text(NavigationScreen.recenterLabel),
                         ),
                       ),
