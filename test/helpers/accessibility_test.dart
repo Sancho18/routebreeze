@@ -33,6 +33,12 @@ void main() {
       expect(() => expectNoClippedText(tester), throwsA(isA<TestFailure>()));
     });
 
+    testWidgets('fails on a paragraph cut sideways', (tester) async {
+      await pumpText(tester, const Text(text, softWrap: false));
+
+      expect(() => expectNoClippedText(tester), throwsA(isA<TestFailure>()));
+    });
+
     testWidgets('passes on a two-line paragraph that ends in an ellipsis', (
       tester,
     ) async {

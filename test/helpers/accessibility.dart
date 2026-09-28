@@ -23,16 +23,18 @@ Future<void> setLargeTextPhone(WidgetTester tester) async {
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 }
 
-/// Fails when a laid-out paragraph is shorter than its text at its width:
-/// cut by a fixed-height parent, which raises no overflow error, or by a line
-/// limit without an ellipsis. A paragraph with a line limit and an ellipsis
-/// counts as its visible lines.
+/// Fails when a laid-out paragraph is smaller than its text: shorter, when a
+/// fixed-height parent cuts it, which raises no overflow error; narrower,
+/// when a line that does not wrap runs past it; or cut by a line limit
+/// without an ellipsis. A paragraph with a line limit and an ellipsis counts
+/// as its visible lines.
 void expectNoClippedText(WidgetTester tester) {
   final clipped = [
     for (final paragraph in tester.renderObjectList<RenderParagraph>(
       find.byType(RichText),
     ))
       if (paragraph.size.height < paragraph.textSize.height - _clipTolerance ||
+          paragraph.size.width < paragraph.textSize.width - _clipTolerance ||
           (paragraph.didExceedMaxLines &&
               paragraph.overflow != TextOverflow.ellipsis))
         '"${paragraph.text.toPlainText()}" in ${paragraph.size}',
@@ -40,5 +42,5 @@ void expectNoClippedText(WidgetTester tester) {
   expect(clipped, isEmpty, reason: 'clipped text');
 }
 
-/// Height, in logical pixels, a paragraph may lose to rounding.
+/// Size, in logical pixels, a paragraph may lose to rounding.
 const double _clipTolerance = 0.5;
