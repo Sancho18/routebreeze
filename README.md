@@ -145,7 +145,7 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
-Teste de integração (precisa de um aparelho conectado; usa fakes para biometria, GPS e Google APIs):
+Teste de integração (precisa de um aparelho ou do simulador do iOS; usa fakes para biometria, GPS e Google APIs):
 
 ```bash
 flutter test integration_test -d <deviceId> --dart-define-from-file=env.json
