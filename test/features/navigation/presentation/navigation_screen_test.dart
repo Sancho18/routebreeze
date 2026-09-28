@@ -882,32 +882,43 @@ void main() {
       error: error,
     );
 
-    // Each state with a text that proves it is on screen.
-    final states = <String, (NavigationState, String)>{
+    // Each state with a text that proves it is on screen and the panel's
+    // last action.
+    final states = <String, (NavigationState, String, String)>{
       'waiting for GPS': (
         NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
         NavigationScreen.waitingGpsCaption,
+        NavigationScreen.startLabel,
       ),
       'navigating with the next stop card': (
         navigating(),
         '1,2 km · 4 min · chegada às 14:32',
+        NavigationScreen.stopLabel,
       ),
       'with "Rota recalculada"': (
         navigating(badge: NavigationBadge.recalculated),
         'Rota recalculada',
+        NavigationScreen.stopLabel,
       ),
       'with "Falha ao recalcular"': (
         navigating(badge: NavigationBadge.recalcFailed),
         'Falha ao recalcular',
+        NavigationScreen.stopLabel,
       ),
       'with "Recálculo pendente (sem conexão)"': (
         navigating(badge: NavigationBadge.recalcPending, online: false),
         'Recálculo pendente (sem conexão)',
+        NavigationScreen.stopLabel,
       ),
-      'offline': (navigating(online: false), NavigationScreen.offlineBanner),
+      'offline': (
+        navigating(online: false),
+        NavigationScreen.offlineBanner,
+        NavigationScreen.stopLabel,
+      ),
       'with the GPS error': (
         navigating(error: 'Perdemos o sinal de GPS'),
         'Perdemos o sinal de GPS',
+        NavigationScreen.stopLabel,
       ),
       'completed': (
         NavigationState(
@@ -917,6 +928,7 @@ void main() {
           following: false,
         ),
         NavigationScreen.completedTitle,
+        NavigationScreen.newRouteLabel,
       ),
     };
 
@@ -938,7 +950,8 @@ void main() {
     }
 
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
-      for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+      for (final MapEntry(key: name, value: (state, text, _))
+          in states.entries) {
         testWidgets('$name meets the contrast, tap target and label '
             'guidelines in ${mode.name} mode', (tester) async {
           await pumpScreen(tester, state, mode: mode);
@@ -956,7 +969,8 @@ void main() {
       });
     }
 
-    for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+    for (final MapEntry(key: name, value: (state, text, action))
+        in states.entries) {
       testWidgets('$name lays out at 200% text on a 360×800 phone', (
         tester,
       ) async {
@@ -967,8 +981,9 @@ void main() {
         expect(tester.takeException(), isNull);
         expectNoClippedText(tester);
         // The sheet grows upward, toward the top overlay: nothing may cover
-        // the state's text.
+        // the state's text, and the panel opens at its actions.
         expect(uncovered(tester, find.text(text)), isTrue);
+        expect(uncovered(tester, find.text(action)), isTrue);
       });
     }
 
