@@ -9,6 +9,8 @@ import 'package:routebreeze/app.dart';
 import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/session/session_state.dart';
+import 'package:routebreeze/core/theme/rb_palette.dart';
+import 'package:routebreeze/core/theme/system_bars.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/presentation/addresses_screen.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
@@ -266,6 +268,88 @@ void main() {
 
       expect(events, ['pause', 'resume']);
       expect(find.byType(MapScreen), findsOneWidget);
+    });
+
+    group('device theme', () {
+      setUp(() {
+        // The prompt is canceled: the Lock screen stays, showing its message.
+        when(() => auth.authenticate())
+            .thenAnswer((_) async => AuthResult.canceled);
+      });
+
+      void setPlatformBrightness(WidgetTester tester, Brightness brightness) {
+        tester.binding.platformDispatcher.platformBrightnessTestValue =
+            brightness;
+      }
+
+      testWidgets('dark mode renders the dark palette; switching to light '
+          'repaints the same screen without a new route', (tester) async {
+        setPlatformBrightness(tester, Brightness.dark);
+        addTearDown(
+          tester.binding.platformDispatcher.clearPlatformBrightnessTestValue,
+        );
+        final observer = _RecordingObserver();
+        await tester.pumpWidget(
+          RouteBreezeApp(now: () => clock, navigatorObservers: [observer]),
+        );
+        await tester.pumpAndSettle();
+
+        final lock = find.byType(LockScreen);
+        final lockState = tester.state(lock);
+        expect(RbPalette.of(tester.element(lock)), same(RbPalette.dark));
+        expect(find.text('Autenticação cancelada'), findsOneWidget);
+
+        setPlatformBrightness(tester, Brightness.light);
+        await tester.pumpAndSettle();
+
+        expect(RbPalette.of(tester.element(lock)), same(RbPalette.light));
+        expect(tester.state(lock), same(lockState));
+        expect(find.text('Autenticação cancelada'), findsOneWidget);
+        expect(observer.pushed, ['/lock']);
+        verify(() => auth.authenticate()).called(1);
+      });
+
+      testWidgets('the system bars follow the active brightness', (
+        tester,
+      ) async {
+        setPlatformBrightness(tester, Brightness.dark);
+        addTearDown(
+          tester.binding.platformDispatcher.clearPlatformBrightnessTestValue,
+        );
+        SystemUiOverlayStyle appRegion() => tester
+            .widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+              find.ancestor(
+                of: find.byType(AppLifecycleGate),
+                matching: find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+              ),
+            )
+            .value;
+        await tester.pumpWidget(RouteBreezeApp(now: () => clock));
+        await tester.pumpAndSettle();
+
+        expect(appRegion(), rbSystemBarsFor(Brightness.dark));
+        expect(
+          SystemChrome.latestStyle?.statusBarIconBrightness,
+          Brightness.light,
+        );
+        expect(
+          SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+          Brightness.light,
+        );
+
+        setPlatformBrightness(tester, Brightness.light);
+        await tester.pumpAndSettle();
+
+        expect(appRegion(), rbSystemBarsFor(Brightness.light));
+        expect(
+          SystemChrome.latestStyle?.statusBarIconBrightness,
+          Brightness.dark,
+        );
+        expect(
+          SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+          Brightness.dark,
+        );
+      });
     });
   });
 }
