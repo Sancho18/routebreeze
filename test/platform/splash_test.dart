@@ -13,15 +13,25 @@ const darkSurface = [0x1A, 0x1D, 0x23, 0xFF];
 
 void main() {
   group('Android before 12', () {
+    // At minSdk 24 the APK packages the -v21 folders; the plain folders are
+    // what the generator writes next to them. Both are checked.
+    const fill =
+        '<bitmap android:gravity="fill" android:src="@drawable/background"/>';
+    const center =
+        '<bitmap android:gravity="center" android:src="@drawable/splash"/>';
+
     test('light: the icon circle centered on #FFFFFF', () async {
       for (final folder in ['drawable', 'drawable-v21']) {
         final xml = File('$res/$folder/launch_background.xml')
             .readAsStringSync();
-        expect(xml, contains('@drawable/background'), reason: folder);
-        expect(xml, contains('@drawable/splash'), reason: folder);
-        expect(xml, contains('android:gravity="center"'), reason: folder);
+        expect(xml, contains(fill), reason: folder);
+        expect(xml, contains(center), reason: folder);
+        expect(
+          await pngPixel('$res/$folder/background.png', 0, 0),
+          white,
+          reason: folder,
+        );
       }
-      expect(await pngPixel('$res/drawable/background.png', 0, 0), white);
       expect(
         pngHeader('$res/drawable-xxxhdpi/splash.png').width,
         640,
@@ -29,17 +39,18 @@ void main() {
       );
     });
 
-    test('dark: the same icon circle on #1A1D23', () async {
+    test('dark: the same icon circle centered on #1A1D23', () async {
       for (final folder in ['drawable-night', 'drawable-night-v21']) {
         final xml = File('$res/$folder/launch_background.xml')
             .readAsStringSync();
-        expect(xml, contains('@drawable/background'), reason: folder);
-        expect(xml, contains('@drawable/splash'), reason: folder);
+        expect(xml, contains(fill), reason: folder);
+        expect(xml, contains(center), reason: folder);
+        expect(
+          await pngPixel('$res/$folder/background.png', 0, 0),
+          darkSurface,
+          reason: folder,
+        );
       }
-      expect(
-        await pngPixel('$res/drawable-night/background.png', 0, 0),
-        darkSurface,
-      );
     });
   });
 
@@ -72,6 +83,7 @@ void main() {
 
     test('dark: same icon over #1A1D23', () {
       final xml = style('values-night-v31');
+      expect(xml, contains('@drawable/android12splash'));
       expect(
         xml,
         matches(
