@@ -12,10 +12,16 @@ O RouteBreeze ajuda um entregador a visitar vários endereços na melhor ordem. 
 2. **Mapa.** Enquanto a posição e o mapa carregam, um loading com a marca e uma rota animada cobre a tela. Depois o mapa centraliza na posição atual (zoom 16) com o marcador "Partida". Esse é o ponto de origem da rota.
 3. **Endereços.** O entregador digita três ou mais endereços e escolhe cada um na lista de sugestões do Google Places.
 4. **Rota otimizada.** Uma única chamada à Routes API devolve a melhor ordem de visita. O app desenha a rota no mapa e numera as paradas de 1 a N.
-5. **Navegação.** Ao tocar em "Iniciar", a posição é acompanhada em tempo real. A câmera segue o usuário e cada parada é marcada como visitada ao chegar.
+5. **Navegação.** Ao tocar em "Iniciar", a posição é acompanhada em tempo real. A câmera segue o usuário, um card no topo mostra a próxima parada com distância, tempo e horário de chegada, e cada parada é marcada como visitada ao chegar.
 6. **Recálculo.** Se o entregador sai da rota, o app pede uma nova rota pelas paradas que faltam e mostra o aviso "Rota recalculada".
 
 Feito com Flutter 3.47.5 e o design system **Rota** (tokens em `lib/core/theme/rb_tokens.dart`). Interface em português do Brasil. O projeto foi desenvolvido para a etapa técnica de um processo seletivo de desenvolvedor(a) Flutter, a partir de um enunciado e de um design system fornecidos.
+
+## Depois da entrega
+
+A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/Sancho18/routebreeze/releases/tag/v0.1.0). O que veio depois é evolução do projeto, uma branch `feature/*` por funcionalidade, com pull request para `develop`:
+
+- **Progresso até a próxima parada** (`feature/live-progress`). Durante a navegação, um card "Próxima parada" mostra o número e o endereço da parada e quanto falta até ela ("1,2 km · 4 min · chegada às 14:32"). O painel da rota troca os totais pelo que falta até o fim ("Faltam 8,4 km · 22 min · término às 15:10"). Tudo sai da resposta da Routes API que o app já pedia, sem chamada extra. Detalhes em "Progresso até a próxima parada", nas decisões técnicas. Na mesma branch, o mapa passou a respeitar o espaço do painel e do card (antes, a posição do entregador e o logo do Google ficavam atrás do painel), e o fluxo foi validado no simulador do iOS.
 
 ## Demonstração
 
@@ -95,7 +101,16 @@ Instalação no aparelho: `adb install build/app/outputs/flutter-apk/app-release
 
 O build de release usa a assinatura de debug (`signingConfig = debug` em `android/app/build.gradle.kts`). Isso basta para instalar e testar. Para publicar na loja seria preciso um keystore próprio.
 
-iOS: `flutter build ios --no-codesign` compila com as permissões e a chave configuradas. Não validei em aparelho iOS.
+iOS: `flutter build ios --no-codesign` compila com as permissões e a chave configuradas. Depois da entrega rodei o fluxo completo no simulador (iPhone 17 Pro, iOS 26.5), com as APIs do Google de verdade. No simulador, o Face ID e o GPS podem ser simulados pela linha de comando:
+
+```bash
+xcrun simctl spawn booted notifyutil -s com.apple.BiometricKit.enrollmentChanged '1'
+xcrun simctl spawn booted notifyutil -p com.apple.BiometricKit.enrollmentChanged
+xcrun simctl spawn booted notifyutil -p com.apple.BiometricKit_Sim.pearl.match
+xcrun simctl location booted set -23.5645,-46.6527
+```
+
+As duas primeiras linhas cadastram um rosto, a terceira reconhece o rosto quando o app pede o Face ID e a última fixa a posição na Av. Paulista. `xcrun simctl location booted start --speed=25 -` lê pontos `lat,lng` da entrada padrão e percorre o caminho, o que serve para ver a navegação andando. Não testei num iPhone físico.
 
 ## Testes e qualidade
 
@@ -105,7 +120,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 418 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 474 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -118,15 +133,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 322 | 320 | 99,4 % |
+| lib/core | 338 | 337 | 99,7 % |
 | lib (raiz: `app.dart`, `main.dart`) | 80 | 78 | 97,5 % |
 | lib/features/addresses | 306 | 304 | 99,3 % |
 | lib/features/location | 191 | 191 | 100,0 % |
 | lib/features/lock | 71 | 71 | 100,0 % |
-| lib/features/navigation | 339 | 336 | 99,1 % |
-| lib/features/route | 425 | 422 | 99,3 % |
-| **Total (todos os arquivos)** | 1734 | 1722 | 99,3 % |
-| **Total (sem native-only)** | 1729 | 1719 | 99,4 % |
+| lib/features/navigation | 455 | 451 | 99,1 % |
+| lib/features/route | 457 | 455 | 99,6 % |
+| **Total (todos os arquivos)** | 1898 | 1887 | 99,4 % |
+| **Total (sem native-only)** | 1893 | 1884 | 99,5 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -173,9 +188,9 @@ lib/
                   presentation: AddressFormCubit, AddressesScreen, AddressFieldWidget
     route/        data: RoutesApi, RouteStorage (shared_preferences)
                   domain: RoutePlan, RoutePlanner, RouteRepository
-                  presentation: RouteCubit, RouteScreen, RouteSheet, MapMarkers
-    navigation/   domain: DeviationDetector, ArrivalDetector, RecalcPolicy
-                  presentation: NavigationCubit, NavigationScreen
+                  presentation: RouteCubit, RouteScreen, RouteSheet, StopBadge, MapMarkers
+    navigation/   domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator
+                  presentation: NavigationCubit, NavigationScreen, NextStopCard
 test/            espelha lib/ (unidade, bloc_test, widget)
 integration_test/ fluxo principal com fakes, roda no aparelho
 tool/            set_api_key.sh
@@ -189,6 +204,7 @@ Onde ficam as regras puras (todas com teste de unidade):
 - `AddressFormValidator`: campo obrigatório, sugestão selecionada, endereço repetido.
 - `RoutePlanner`: escolhe o destino (ponto mais distante) e monta a ordem final a partir de `optimizedIntermediateWaypointIndex`.
 - `DeviationDetector`: saída da rota (50 m, 3 fixes, precisão ≤ 30 m).
+- `ProgressEstimator`: distância, tempo e chegada até a próxima parada e até o fim.
 - `ArrivalDetector`: chegada (40 m).
 - `RecalcPolicy`: intervalo mínimo, uma requisição por vez, adiamento offline.
 - `RelockPolicy`: rebloqueio após 30 s em segundo plano.
@@ -200,7 +216,7 @@ Resumo abaixo. Cada decisão está detalhada em formato ADR em [`docs/decisions.
 
 ### Routes API em vez de Directions API
 
-A Directions API é legada. A Routes API (`computeRoutes`) aceita `optimizeWaypointOrder`, devolve `optimizedIntermediateWaypointIndex` e usa field mask, o que limita o que é cobrado. O app pede só `duration`, `distanceMeters`, `polyline.encodedPolyline`, `legs.distanceMeters`, `legs.duration` e o índice otimizado. É uma requisição por cálculo, com `travelMode: DRIVE`.
+A Directions API é legada. A Routes API (`computeRoutes`) aceita `optimizeWaypointOrder`, devolve `optimizedIntermediateWaypointIndex` e usa field mask, o que limita o que é cobrado. O app pede só `duration`, `distanceMeters`, `legs.polyline.encodedPolyline`, `legs.distanceMeters`, `legs.duration` e o índice otimizado. A linha da rota é a junção das polylines dos trechos (a documentação diz que a polyline da rota é essa combinação, e numa resposta real as duas têm os mesmos 115 pontos), o que também diz onde cada trecho termina. É uma requisição por cálculo, com `travelMode: DRIVE`. Com `optimizeWaypointOrder`, a chamada é cobrada na SKU Compute Routes Pro.
 
 ### Destino = ponto mais distante da origem
 
@@ -218,6 +234,15 @@ Autocomplete: mínimo de 3 caracteres, debounce de 300 ms, no máximo 5 sugestõ
 - **Recálculo:** no mínimo 20 s entre dois recálculos e um por vez. Só as paradas não visitadas entram, com a mesma regra de destino. Ao chegar, a polyline é trocada, as paradas renumeradas e o aviso "Rota recalculada" fica 4 s na tela.
 - **Chegada:** a 40 m da próxima parada ela é marcada como visitada. Há também o botão "Marcar como visitado", útil para demonstrar sem ir até o local.
 - **Qualidade do GPS:** "Iniciar" só habilita quando o último fix tem precisão ≤ 50 m; antes disso aparece "Aguardando sinal de GPS". No mapa inicial, a partida precisa de um fix com precisão ≤ 50 m em até 15 s.
+
+### Progresso até a próxima parada
+
+- **Onde o entregador está.** A posição é projetada no segmento mais próximo do trecho (leg) que chega à próxima parada. Cada trecho sabe em que vértice da linha termina (`RouteLeg.endIndex`), então a projeção nunca cai num trecho que já passou ou que ainda não começou.
+- **Quanto falta.** A distância e a duração que o Google deu para esse trecho são multiplicadas pela fração da linha que ainda falta nele. Os trechos seguintes entram inteiros, até a última parada não visitada. Horário de chegada = relógio do aparelho + tempo que falta.
+- **Quando mede.** A cada fix com precisão ≤ 50 m (o mesmo corte do "Iniciar"), ao chegar numa parada, em "Marcar como visitado" e depois de um recálculo. Um fix pior move o marcador, mas mantém a última medida.
+- **Custo.** Nenhuma chamada a mais: pedir a polyline de cada trecho no lugar da polyline da rota não muda a SKU.
+
+A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas sobre o Equador, onde as distâncias são exatas).
 
 ### Offline: rota persistida e recálculo adiado
 
@@ -253,6 +278,8 @@ Uma extensão que o DS não lista: o botão "Encerrar" da navegação usa `dange
 
 Zoom 16 na partida. Na tela de rota a câmera enquadra a rota inteira. Na navegação ela segue o usuário; arrastar o mapa solta a câmera e mostra "Recentralizar", que volta a seguir.
 
+O painel da rota e o card da próxima parada ficam por cima do mapa. As alturas deles são medidas depois do layout e passadas ao `GoogleMap` como `padding`, então a rota enquadrada e a posição seguida ficam na parte visível, e o logo do Google não some atrás do painel. Chips temporários ("Rota recalculada") e o "Recentralizar" ficam de fora da medida para não deslocar o mapa quando aparecem.
+
 ## Tratamento de erros e casos extremos
 
 | Cenário | Comportamento |
@@ -280,11 +307,13 @@ Zoom 16 na partida. Na tela de rota a câmera enquadra a rota inteira. Na navega
 | Texto sem sugestão escolhida | "Selecione um endereço da lista" |
 | Mesmo endereço em dois campos | "Endereço repetido" no segundo campo; some ao remover a duplicata |
 | Partida a mais de 50 km das paradas | A rota é calculada normalmente (o bias é só uma dica) |
+| Fix pior que 50 m durante a navegação | O marcador se move, mas a distância e o horário de chegada ficam na última medida boa |
+| Rota salva pela versão 0.1.0 (sem o fim de cada trecho) | A navegação segue normal; o card mostra a próxima parada sem distância e tempo, e o painel mostra os totais |
 
 ## Limitações conhecidas
 
 - **Navegação em segundo plano.** Sem permissão "sempre" nem foreground service. O acompanhamento pausa quando o app sai da tela e retoma na volta.
-- **iOS validado só por compilação.** O projeto compila com permissões e chave configuradas, mas não testei em aparelho iOS. A entrega é Android.
+- **iOS só no simulador.** O fluxo completo roda no simulador do iOS (veja "Build"), mas não testei num iPhone físico. A entrega é Android.
 - **Ordem ótima.** Com destino fixo no ponto mais distante, a ordem pode não ser a melhor possível em todos os casos (veja a decisão acima).
 - **Sem trânsito.** A rota não usa `TRAFFIC_AWARE_OPTIMAL`, que é incompatível com a otimização de waypoints e custa mais.
 - **Mapa offline.** Os tiles dependem do cache do Maps SDK; o app não controla isso.
@@ -293,6 +322,7 @@ Zoom 16 na partida. Na tela de rota a câmera enquadra a rota inteira. Na navega
 - **Sem instruções passo a passo.** O app desenha a rota e mostra a posição; não há navegação por voz ou texto curva a curva.
 - **Só pt-BR.** Um único idioma.
 - **Sem contas, backend ou histórico de rotas.** Não foi pedido.
+- **Estimativa de chegada simples.** O tempo que falta num trecho é proporcional à distância que falta nele, sem trânsito e sem contar o tempo parado nas entregas (o horário se ajusta a cada fix, porque parte do relógio atual). Numa rua de ida e volta dentro do mesmo trecho, a projeção pode pegar o lado errado por alguns instantes.
 - **Rota salva sem criptografia.** A rota em andamento (origem, endereços, polyline) fica em texto puro nas preferências do app, fora do backup automático; não expira sozinha.
 
 ## Estrutura de commits

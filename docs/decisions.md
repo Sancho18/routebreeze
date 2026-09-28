@@ -107,3 +107,23 @@ Registro das decisões do RouteBreeze no formato Contexto / Decisão / Consequê
 - Cubit em vez de Bloc: não há eventos externos além dos streams que o próprio Cubit possui.
 
 **Consequências.** Poucas dependências, todas comuns no ecossistema. Código legível para quem avalia.
+
+## D-013: Progresso até a próxima parada
+
+**Contexto.** Depois da entrega (v0.1.0). Na navegação, o painel mostrava só os totais calculados no início, que não mudavam enquanto o entregador andava. Quem dirige quer saber quanto falta até a próxima entrega e a que horas chega.
+
+**Decisão.**
+- A Routes API devolve a polyline de cada trecho (`routes.legs.polyline.encodedPolyline`) no lugar da polyline da rota. A documentação diz que a polyline da rota é a combinação das dos trechos; numa resposta real, juntá-las com o vértice compartilhado uma vez só deu os mesmos 115 pontos. Cada trecho guarda o índice do vértice em que termina (`RouteLeg.endIndex`), e um trecho de distância zero (duas paradas no mesmo lugar) vem com um ponto só.
+- `ProgressEstimator` (Dart puro) projeta a posição no segmento mais próximo do trecho que chega à próxima parada e escala a distância e a duração que o Google deu para esse trecho pela fração da linha que falta. Os trechos seguintes entram inteiros, até a última parada não visitada. Os trechos pertencem às últimas `legs.length` paradas: um recálculo mantém as visitadas na frente, sem trecho.
+- O `NavigationCubit` mede o progresso a cada fix com precisão ≤ 50 m (o corte do "Iniciar"), ao chegar numa parada, em "Marcar como visitado" e depois de um recálculo. Um fix pior move o marcador e mantém a última medida. O horário de chegada é o relógio do aparelho mais o tempo que falta.
+- Um card "Próxima parada" no topo do mapa (tokens do DS para card de endereço: `surface-200`, borda `border`, `radius-md`, legenda e distância em `caption`) e a linha de totais do painel trocada por "Faltam … · término às …".
+
+**Consequências.** Nenhuma chamada a mais: sai da resposta que o app já pedia, e pedir as polylines dos trechos não muda a SKU (com `optimizeWaypointOrder` a chamada já é Compute Routes Pro). A estimativa herda os limites da rota: sem trânsito, e o tempo de um trecho é proporcional à distância que falta nele. Numa rua de ida e volta dentro do mesmo trecho, a projeção pode pegar o lado errado por alguns instantes. Rotas salvas pela 0.1.0 não têm o fim de cada trecho: a navegação segue normal, sem o progresso.
+
+## D-014: Mapa com padding das sobreposições
+
+**Contexto.** O painel da rota (e agora o card da próxima parada) fica por cima do `GoogleMap`, que ocupa a tela inteira. A câmera centralizava a posição no mapa inteiro, então o marcador do entregador e o logo do Google ficavam atrás do painel; na tela de rota, parte da rota enquadrada também.
+
+**Decisão.** Medir depois do layout a altura das sobreposições fixas (`MeasureSize`, um `RenderProxyBox` que avisa quando o tamanho do filho muda) e passar ao `GoogleMap` como `padding`. Na navegação entram o banner offline e o card (em cima) e o painel (embaixo); ficam de fora os chips temporários e o "Recentralizar", para o mapa não pular quando eles aparecem. Na tela de rota entra o painel.
+
+**Consequências.** A câmera segue e enquadra dentro da área visível, e o logo do Google fica visível, como os termos do Maps pedem. A medida chega um frame depois do layout; até lá o padding é zero, o que não aparece porque o mapa ainda está sendo criado.
