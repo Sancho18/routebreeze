@@ -39,8 +39,6 @@ class RouteSheet extends StatelessWidget {
 
   static const String heading = 'Ordem otimizada';
 
-  /// Semantics label of the check badge on a visited stop.
-  static const String visitedLabel = StopBadge.visitedLabel;
   static const String markVisitedLabel = 'Marcar como visitado';
 
   static const double rowGap = RbSpace.s2;

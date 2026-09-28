@@ -6,6 +6,7 @@ import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
+import 'package:routebreeze/features/route/presentation/stop_badge.dart';
 
 import '../../../helpers/themed_app.dart';
 
@@ -215,10 +216,10 @@ void main() {
       expect(totals.style!.color, RbColors.inkMuted);
     });
 
-    testWidgets('visited stop: success badge with a white check (semantics '
-        '"Visitado") instead of the number, address in ink-muted, no chip', (
-      tester,
-    ) async {
+    testWidgets('visited stop: successStrong badge with a white check '
+        '(semantics "Parada 1, visitada") instead of the number, address in '
+        'ink-muted, no chip', (tester) async {
+      final semantics = tester.ensureSemantics();
       await pumpSheet(tester, plan: plan(firstVisited: true));
 
       final check = find.byIcon(Icons.check);
@@ -227,7 +228,14 @@ void main() {
       final icon = tester.widget<Icon>(check);
       expect(icon.color, Colors.white);
       expect(icon.size, 16);
-      expect(icon.semanticLabel, 'Visitado');
+      expect(
+        tester
+            .getSemantics(
+              find.descendant(of: row('pb'), matching: find.byType(StopBadge)),
+            )
+            .label,
+        'Parada 1, visitada',
+      );
       expect(find.text('Visitado'), findsNothing);
       expect(
         find.descendant(of: row('pb'), matching: find.text('1')),
@@ -236,7 +244,7 @@ void main() {
 
       final badge = badgeIn(tester, row('pb'), check);
       final decoration = badge.decoration! as BoxDecoration;
-      expect(decoration.color, RbColors.success);
+      expect(decoration.color, const Color(0xFF0D7F4A));
       expect(decoration.shape, BoxShape.circle);
       expect(tester.getSize(find.byWidget(badge)), const Size(24, 24));
 
@@ -247,6 +255,7 @@ void main() {
       expect(textIn(tester, row('pa'), 'Rua A, 1').style!.color, RbColors.ink);
       final unvisited = badgeIn(tester, row('pa'), find.text('2'));
       expect((unvisited.decoration! as BoxDecoration).color, RbColors.brand);
+      semantics.dispose();
     });
 
     testWidgets('"Iniciar" enabled in brand calls onStart', (tester) async {
