@@ -36,6 +36,16 @@ class FakeMapInstance {
         options['style'],
   ];
 
+  /// The `color` (ARGB) of every polyline a `polylines#update` call changed,
+  /// in order.
+  List<Object?> get polylineColorUpdates => [
+    for (final call in callsOf('polylines#update'))
+      if ((call.arguments as Map<Object?, Object?>)['polylinesToChange']
+          case final List<Object?> changed)
+        for (final polyline in changed)
+          (polyline as Map<Object?, Object?>)['color'],
+  ];
+
   List<MethodCall> callsOf(String method) =>
       calls.where((call) => call.method == method).toList();
 

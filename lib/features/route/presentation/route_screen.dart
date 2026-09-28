@@ -7,6 +7,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/di/injector.dart';
 import '../../../core/network/connectivity_service.dart';
+import '../../../core/theme/map_style.dart';
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/measure_size.dart';
 import '../../../core/widgets/rb_feedback.dart';
@@ -82,7 +84,7 @@ class _RouteScreenState extends State<RouteScreen> {
   StreamSubscription<bool>? _online;
   bool _isOnline = true;
 
-  RoutePlan? _objectsPlan;
+  (RoutePlan, Color)? _objectsKey;
   Future<RouteMapObjects>? _objects;
 
   @override
@@ -105,10 +107,12 @@ class _RouteScreenState extends State<RouteScreen> {
     setState(() => _isOnline = online);
   }
 
-  /// Marker icons are drawn once per plan.
-  Future<RouteMapObjects> _objectsFor(RoutePlan plan) {
-    if (_objectsPlan == plan && _objects != null) return _objects!;
-    _objectsPlan = plan;
+  /// Cached per plan and route color: a theme change repaints the route line
+  /// with the icons already drawn.
+  Future<RouteMapObjects> _objectsFor(RoutePlan plan, Color routeColor) {
+    final key = (plan, routeColor);
+    if (_objectsKey == key && _objects != null) return _objects!;
+    _objectsKey = key;
     return _objects = () async {
       final icons = <int, BitmapDescriptor>{
         for (final stop in plan.stops)
@@ -118,7 +122,7 @@ class _RouteScreenState extends State<RouteScreen> {
         plan,
         numberedIcons: icons,
         startIcon: _markers.start(),
-        routeColor: RbColors.brand,
+        routeColor: routeColor,
       );
     }();
   }
@@ -142,7 +146,7 @@ class _RouteScreenState extends State<RouteScreen> {
                 RouteStatus.failure => _Failure(onRetry: _cubit.retry),
                 RouteStatus.ready => _Ready(
                   plan: state.plan!,
-                  objects: _objectsFor(state.plan!),
+                  objects: _objectsFor(state.plan!, context.rb.brand),
                   mapBuilder: widget.mapBuilder ?? _googleMap,
                   onStart: () => widget.onStart(state.plan!),
                 ),
@@ -200,6 +204,7 @@ class _RouteMapState extends State<_RouteMap> {
       onMapCreated: _fit,
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,
+      style: mapStyleFor(Theme.of(context).brightness),
     );
   }
 }
@@ -217,7 +222,7 @@ class _Loading extends StatelessWidget {
           const SizedBox(height: RbSpace.s3),
           Text(
             RouteScreen.loadingMessage,
-            style: RbText.caption.copyWith(color: RbColors.inkMuted),
+            style: RbText.caption.copyWith(color: context.rb.inkMuted),
           ),
         ],
       ),
@@ -281,7 +286,7 @@ class _ReadyState extends State<_Ready> {
             builder: (context, snapshot) {
               final objects = snapshot.data;
               return objects == null
-                  ? const ColoredBox(color: RbColors.surface100)
+                  ? ColoredBox(color: context.rb.surface100)
                   : widget.mapBuilder(
                       context,
                       objects,
