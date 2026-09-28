@@ -256,6 +256,9 @@ void main() {
     await pumpUntilGone(tester, find.byType(RbRouteLoader));
     await tester.tap(primaryButton(MapScreen.continueLabel));
     await pumpUntil(tester, find.byType(AddressesScreen));
+    // The iOS page transition keeps the Map screen (and its "Para onde
+    // vamos?" button) on stage until the new page covers it.
+    await pumpUntilGone(tester, find.byType(MapScreen));
     expect(find.text(AddressesScreen.title), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(3));
 
