@@ -16,6 +16,7 @@ import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_cubit.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
+import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 import '../../../helpers/fake_google_map.dart';
 
@@ -108,6 +109,25 @@ void main() {
       expect(markerIds, {'start', 'stop-pb', 'stop-pa'});
       expect(map.polylinesToAdd, hasLength(1));
       await tester.pump(RouteScreen.cameraFitDelay);
+    });
+
+    testWidgets('the map is padded at the bottom by the sheet before the '
+        'route is fitted', (tester) async {
+      await pumpReady(tester);
+      final map = platform.maps.single;
+
+      final sheet = tester.getSize(find.byType(RouteSheet)).height;
+      final paddings = [
+        (map.creationParams['options']! as Map<Object?, Object?>)['padding'],
+        for (final call in map.callsOf('map#update'))
+          ((call.arguments as Map<Object?, Object?>)['options']
+              as Map<Object?, Object?>)['padding'],
+      ].nonNulls;
+      expect(paddings.last, [0.0, 0.0, sheet, 0.0]);
+      expect(map.cameraAnimations, isEmpty);
+
+      await tester.pump(RouteScreen.cameraFitDelay);
+      expect(map.cameraAnimations, hasLength(1));
     });
 
     testWidgets('fits the camera to the route bounds 300 ms after the map '

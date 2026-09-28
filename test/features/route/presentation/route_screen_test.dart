@@ -55,6 +55,7 @@ void main() {
   late MockConnectivityService connectivity;
   late StreamController<bool> online;
   late List<RouteMapObjects> mapsBuilt;
+  late List<EdgeInsets> paddings;
   late List<RoutePlan> started;
 
   setUp(() {
@@ -62,6 +63,7 @@ void main() {
     connectivity = MockConnectivityService();
     online = StreamController<bool>();
     mapsBuilt = [];
+    paddings = [];
     started = [];
     when(() => cubit.compute(any(), any())).thenAnswer((_) async {});
     when(() => cubit.retry()).thenAnswer((_) async {});
@@ -86,8 +88,9 @@ void main() {
           cubit: cubit,
           connectivity: connectivity,
           markers: FakeMapMarkers(),
-          mapBuilder: (_, objects) {
+          mapBuilder: (_, objects, padding) {
             mapsBuilt.add(objects);
+            paddings.add(padding);
             return const SizedBox.expand(key: mapKey);
           },
           onStart: started.add,
@@ -179,6 +182,20 @@ void main() {
 
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
       expect(started, [plan]);
+    });
+
+    testWidgets('the map is padded at the bottom by the sheet, so the route '
+        'is fitted in the part left visible', (tester) async {
+      await pumpScreen(
+        tester,
+        RouteState(status: RouteStatus.ready, plan: plan),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        paddings.last,
+        EdgeInsets.only(bottom: tester.getSize(find.byType(RouteSheet)).height),
+      );
     });
 
     testWidgets('offline shows the "Sem conexão" danger banner on top and '

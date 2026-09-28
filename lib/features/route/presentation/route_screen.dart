@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/di/injector.dart';
 import '../../../core/network/connectivity_service.dart';
 import '../../../core/theme/rb_tokens.dart';
+import '../../../core/widgets/measure_size.dart';
 import '../../../core/widgets/rb_feedback.dart';
 import '../../addresses/domain/stop.dart';
 import '../../location/domain/fix.dart';
@@ -17,11 +18,13 @@ import 'route_cubit.dart';
 import 'route_map_objects.dart';
 import 'route_sheet.dart';
 
-/// Builds the map for a ready route; tests inject a placeholder because the
-/// real `GoogleMap` cannot render in widget tests.
+/// Builds the map for a ready route; [padding] is the map edge covered by the
+/// sheet. Tests inject a placeholder because the real `GoogleMap` cannot
+/// render in widget tests.
 typedef RouteMapBuilder = Widget Function(
   BuildContext context,
   RouteMapObjects objects,
+  EdgeInsets padding,
 );
 
 /// Route screen: computes the optimized route on open and, once ready, draws
@@ -151,14 +154,19 @@ class _RouteScreenState extends State<RouteScreen> {
   }
 }
 
-Widget _googleMap(BuildContext context, RouteMapObjects objects) =>
-    _RouteMap(objects: objects);
+Widget _googleMap(
+  BuildContext context,
+  RouteMapObjects objects,
+  EdgeInsets padding,
+) => _RouteMap(objects: objects, padding: padding);
 
-/// `GoogleMap` fitted to the route once the platform view has laid out.
+/// `GoogleMap` fitted to the route, inside the area the sheet leaves
+/// visible, once the platform view has laid out.
 class _RouteMap extends StatefulWidget {
-  const _RouteMap({required this.objects});
+  const _RouteMap({required this.objects, required this.padding});
 
   final RouteMapObjects objects;
+  final EdgeInsets padding;
 
   @override
   State<_RouteMap> createState() => _RouteMapState();
@@ -187,6 +195,7 @@ class _RouteMapState extends State<_RouteMap> {
       initialCameraPosition: CameraPosition(target: objects.origin, zoom: 14),
       markers: objects.markers,
       polylines: objects.polylines,
+      padding: widget.padding,
       onMapCreated: _fit,
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,
@@ -233,8 +242,9 @@ class _Failure extends StatelessWidget {
   }
 }
 
-/// Map (once the marker icons exist) under the route sheet.
-class _Ready extends StatelessWidget {
+/// Map (once the marker icons exist) under the route sheet, padded by the
+/// sheet's height.
+class _Ready extends StatefulWidget {
   const _Ready({
     required this.plan,
     required this.objects,
@@ -248,17 +258,34 @@ class _Ready extends StatelessWidget {
   final VoidCallback onStart;
 
   @override
+  State<_Ready> createState() => _ReadyState();
+}
+
+class _ReadyState extends State<_Ready> {
+  double _sheetHeight = 0;
+
+  void _onSheetMeasured(Size size) {
+    if (mounted && size.height != _sheetHeight) {
+      setState(() => _sheetHeight = size.height);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         Positioned.fill(
           child: FutureBuilder<RouteMapObjects>(
-            future: objects,
+            future: widget.objects,
             builder: (context, snapshot) {
               final objects = snapshot.data;
               return objects == null
                   ? const ColoredBox(color: RbColors.surface100)
-                  : mapBuilder(context, objects);
+                  : widget.mapBuilder(
+                      context,
+                      objects,
+                      EdgeInsets.only(bottom: _sheetHeight),
+                    );
             },
           ),
         ),
@@ -266,7 +293,14 @@ class _Ready extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          child: RouteSheet(plan: plan, startEnabled: true, onStart: onStart),
+          child: MeasureSize(
+            onChange: _onSheetMeasured,
+            child: RouteSheet(
+              plan: widget.plan,
+              startEnabled: true,
+              onStart: widget.onStart,
+            ),
+          ),
         ),
       ],
     );
