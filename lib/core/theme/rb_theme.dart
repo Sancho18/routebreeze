@@ -1,43 +1,46 @@
 import 'package:flutter/material.dart';
 
+import 'rb_palette.dart';
 import 'rb_tokens.dart';
 
-/// Material 3 theme built from the Rota tokens.
-ThemeData buildRbTheme() {
-  const scheme = ColorScheme.light(
-    primary: RbColors.brand,
-    onPrimary: Colors.white,
-    secondary: RbColors.brand,
-    onSecondary: Colors.white,
-    error: RbColors.danger,
-    onError: Colors.white,
-    surface: RbColors.surface200,
-    onSurface: RbColors.ink,
-    outline: RbColors.border,
+/// Material 3 theme built from one Rota palette, attached to it as a theme
+/// extension.
+ThemeData buildRbTheme([RbPalette palette = RbPalette.light]) {
+  final scheme = ColorScheme(
+    brightness: palette.brightness,
+    primary: palette.brand,
+    onPrimary: palette.onFill,
+    secondary: palette.brand,
+    onSecondary: palette.onFill,
+    error: palette.danger,
+    onError: palette.onFill,
+    surface: palette.surface200,
+    onSurface: palette.ink,
+    outline: palette.border,
   );
 
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: RbColors.surface100,
+    scaffoldBackgroundColor: palette.surface100,
     inputDecorationTheme: InputDecorationThemeData(
       filled: true,
-      fillColor: RbColors.surface200,
+      fillColor: palette.surface200,
       contentPadding: const EdgeInsets.all(RbSpace.s3),
-      border: _outline(RbColors.border),
-      enabledBorder: _outline(RbColors.border),
-      focusedBorder: _outline(RbColors.brand),
-      errorBorder: _outline(RbColors.danger),
-      focusedErrorBorder: _outline(RbColors.danger),
-      hintStyle: RbText.body.copyWith(color: RbColors.inkMuted),
-      errorStyle: RbText.caption.copyWith(color: RbColors.danger),
+      border: _outline(palette.border),
+      enabledBorder: _outline(palette.border),
+      focusedBorder: _outline(palette.brand),
+      errorBorder: _outline(palette.danger),
+      focusedErrorBorder: _outline(palette.danger),
+      hintStyle: RbText.body.copyWith(color: palette.inkMuted),
+      errorStyle: RbText.caption.copyWith(color: palette.danger),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: RbColors.brand,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: RbColors.border,
-        disabledForegroundColor: RbColors.inkMuted,
+        backgroundColor: palette.brand,
+        foregroundColor: palette.onFill,
+        disabledBackgroundColor: palette.border,
+        disabledForegroundColor: palette.inkMuted,
         minimumSize: const Size.fromHeight(52),
         textStyle: RbText.bodyStrong,
         shape: RoundedRectangleBorder(
@@ -47,15 +50,22 @@ ThemeData buildRbTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: RbColors.brand,
+        foregroundColor: palette.brand,
         textStyle: RbText.bodyStrong,
       ),
     ),
+    extensions: [palette],
   );
 
   // Replace (not merge) the text theme: `ThemeData()` merges over
-  // `Typography.black`, which would leak a platform `fontFamily`.
-  return base.copyWith(textTheme: _textTheme);
+  // `Typography.black` (`.white` in dark), which would leak a platform
+  // `fontFamily`.
+  return base.copyWith(
+    textTheme: _textTheme.apply(
+      bodyColor: palette.ink,
+      displayColor: palette.ink,
+    ),
+  );
 }
 
 OutlineInputBorder _outline(Color color) => OutlineInputBorder(
@@ -66,7 +76,7 @@ OutlineInputBorder _outline(Color color) => OutlineInputBorder(
 /// Rota styles mapped onto the Material slots. Primary mapping:
 /// display → displaySmall, title → titleLarge, heading → titleMedium,
 /// bodyStrong → bodyLarge, body → bodyMedium, caption → bodySmall.
-final TextTheme _textTheme = const TextTheme(
+const TextTheme _textTheme = TextTheme(
   displayLarge: RbText.display,
   displayMedium: RbText.display,
   displaySmall: RbText.display,
@@ -82,4 +92,4 @@ final TextTheme _textTheme = const TextTheme(
   labelLarge: RbText.bodyStrong,
   labelMedium: RbText.caption,
   labelSmall: RbText.caption,
-).apply(bodyColor: RbColors.ink, displayColor: RbColors.ink);
+);
