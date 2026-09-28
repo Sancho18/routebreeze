@@ -8,6 +8,7 @@ import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockLockCubit extends MockCubit<LockState> implements LockCubit {}
@@ -135,5 +136,43 @@ void main() {
         const Color(0xFFEB7074),
       );
     });
+  });
+
+  group('LockScreen accessibility', () {
+    // noCredentials: the longest failure copy; it also swaps the button label.
+    const states = <String, (LockState, String)>{
+      'without an error': (LockState(), 'Desbloquear'),
+      'with an error': (
+        LockState(status: LockStatus.failed, reason: AuthResult.noCredentials),
+        'Configure um bloqueio de tela no aparelho para usar o app',
+      ),
+    };
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+        testWidgets('$name meets the contrast, tap target and label '
+            'guidelines in ${mode.name} mode', (tester) async {
+          await pumpLock(tester, initial: state, mode: mode);
+          expect(find.text(text), findsOneWidget);
+
+          await expectAccessibleGuidelines(tester);
+        });
+      }
+    }
+
+    for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+      testWidgets('$name lays out at 200% text on a 360×800 phone', (
+        tester,
+      ) async {
+        await setLargeTextPhone(tester);
+        await pumpLock(tester, initial: state, mode: ThemeMode.light);
+
+        final context = tester.element(find.byType(Scaffold));
+        expect(MediaQuery.sizeOf(context), const Size(360, 800));
+        expect(MediaQuery.textScalerOf(context).scale(15), 30);
+        expect(find.text(text), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 }
