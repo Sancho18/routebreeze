@@ -11,6 +11,7 @@ import '../../location/domain/location_service.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/domain/route_repository.dart';
 import '../domain/deviation_detector.dart';
+import '../domain/progress_estimator.dart';
 import '../domain/recalc_policy.dart';
 
 enum NavigationPhase { idle, waitingGps, navigating, completed }
@@ -53,6 +54,7 @@ class NavigationState extends Equatable {
     this.recalcInFlight = false,
     this.error,
     this.lastRecalcAt,
+    this.progress,
   });
 
   final NavigationPhase phase;
@@ -73,6 +75,11 @@ class NavigationState extends Equatable {
   final String? error;
   final DateTime? lastRecalcAt;
 
+  /// Distance, time and arrival to the next stop and to the end; only while
+  /// navigating, measured from the last fix of
+  /// [NavigationCubit.maxStartAccuracyMeters] or better.
+  final RouteProgress? progress;
+
   /// "Iniciar" is enabled only on a fix of 50 m or better.
   bool get canStart =>
       phase == NavigationPhase.waitingGps &&
@@ -92,6 +99,8 @@ class NavigationState extends Equatable {
     String? error,
     bool clearError = false,
     DateTime? lastRecalcAt,
+    RouteProgress? progress,
+    bool clearProgress = false,
   }) => NavigationState(
     phase: phase ?? this.phase,
     plan: plan ?? this.plan,
@@ -103,6 +112,7 @@ class NavigationState extends Equatable {
     recalcInFlight: recalcInFlight ?? this.recalcInFlight,
     error: clearError ? null : error ?? this.error,
     lastRecalcAt: lastRecalcAt ?? this.lastRecalcAt,
+    progress: clearProgress ? null : progress ?? this.progress,
   );
 
   @override
@@ -117,6 +127,7 @@ class NavigationState extends Equatable {
     recalcInFlight,
     error,
     lastRecalcAt,
+    progress,
   ];
 
   @override
@@ -124,7 +135,7 @@ class NavigationState extends Equatable {
 }
 
 /// Live navigation over one [RoutePlan]: position stream, arrival,
-/// off-route recalculation and offline deferral.
+/// off-route recalculation, offline deferral and progress to the next stop.
 class NavigationCubit extends Cubit<NavigationState> {
   NavigationCubit({
     required RoutePlan plan,
@@ -135,6 +146,7 @@ class NavigationCubit extends Cubit<NavigationState> {
     DeviationDetector? deviation,
     ArrivalDetector? arrival,
     RecalcPolicy? policy,
+    this._estimator = const ProgressEstimator(),
     DateTime Function()? now,
   }) : _deviation = deviation ?? DeviationDetector(),
        _arrival = arrival ?? ArrivalDetector(),
@@ -149,6 +161,7 @@ class NavigationCubit extends Cubit<NavigationState> {
   final DeviationDetector _deviation;
   final ArrivalDetector _arrival;
   final RecalcPolicy _policy;
+  final ProgressEstimator _estimator;
   final DateTime Function() _now;
 
   static const double maxStartAccuracyMeters = 50;
@@ -171,6 +184,10 @@ class NavigationCubit extends Cubit<NavigationState> {
   /// recalculation deferred while offline.
   Fix? _lastAccepted;
 
+  /// Last fix of [maxStartAccuracyMeters] or better; progress is measured
+  /// from it.
+  Fix? _lastPrecise;
+
   void prepare() {
     emit(state.copyWith(phase: NavigationPhase.waitingGps));
     _session
@@ -186,13 +203,17 @@ class NavigationCubit extends Cubit<NavigationState> {
   void start() {
     if (!state.canStart) return;
     _session.isNavigationActive = true;
-    emit(state.copyWith(phase: NavigationPhase.navigating, following: true));
+    emit(
+      _measured(
+        state.copyWith(phase: NavigationPhase.navigating, following: true),
+      ),
+    );
   }
 
   /// Stops the streams and leaves the route intact.
   void stop() {
     _cancelAll();
-    emit(state.copyWith(phase: NavigationPhase.idle));
+    emit(_measured(state.copyWith(phase: NavigationPhase.idle)));
   }
 
   Future<void> markNextVisited() async {
@@ -269,9 +290,24 @@ class NavigationCubit extends Cubit<NavigationState> {
     _resubscribeTimer = null;
   }
 
+  /// A fix worse than [maxStartAccuracyMeters] moves the marker but keeps
+  /// the progress measured from the last precise one.
   void _onFix(Fix fix) {
-    emit(state.copyWith(fix: fix, clearError: true));
+    final precise = fix.accuracyMeters <= maxStartAccuracyMeters;
+    if (precise) _lastPrecise = fix;
+    final next = state.copyWith(fix: fix, clearError: true);
+    emit(precise ? _measured(next) : next);
     if (state.phase == NavigationPhase.navigating) unawaited(_navigate(fix));
+  }
+
+  /// [next] with its progress measured on its plan from the last precise
+  /// fix; none unless navigating.
+  NavigationState _measured(NavigationState next) {
+    final fix = _lastPrecise;
+    final progress = next.phase == NavigationPhase.navigating && fix != null
+        ? _estimator.estimate(next.plan, fix.point, _now())
+        : null;
+    return next.copyWith(progress: progress, clearProgress: progress == null);
   }
 
   void _onStreamError(Object error) => _onStreamEnded();
@@ -329,16 +365,18 @@ class NavigationCubit extends Cubit<NavigationState> {
       _badgeTimer?.cancel();
       _session.isNavigationActive = false;
       emit(
-        state.copyWith(
-          plan: plan,
-          phase: NavigationPhase.completed,
-          recalcPending: false,
-          clearBadge: true,
+        _measured(
+          state.copyWith(
+            plan: plan,
+            phase: NavigationPhase.completed,
+            recalcPending: false,
+            clearBadge: true,
+          ),
         ),
       );
       await _routes.clear();
     } else {
-      emit(state.copyWith(plan: plan));
+      emit(_measured(state.copyWith(plan: plan)));
       await _routes.save(plan);
     }
   }
@@ -386,11 +424,13 @@ class NavigationCubit extends Cubit<NavigationState> {
       }
     }
     emit(
-      state.copyWith(
-        plan: replaced,
-        recalcInFlight: false,
-        lastRecalcAt: _now(),
-        badge: badge,
+      _measured(
+        state.copyWith(
+          plan: replaced,
+          recalcInFlight: false,
+          lastRecalcAt: _now(),
+          badge: badge,
+        ),
       ),
     );
     _badgeTimer?.cancel();

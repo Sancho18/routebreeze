@@ -10,7 +10,8 @@ import 'stop_badge.dart';
 
 /// Bottom sheet with the optimized stop order, totals and the primary action.
 /// [onMarkVisited] adds the "Marcar como visitado" button above the primary
-/// action for the next stop; [footer] is rendered below the actions.
+/// action for the next stop; [totals] replaces the plan's distance and
+/// duration line; [footer] is rendered below the actions.
 class RouteSheet extends StatelessWidget {
   const RouteSheet({
     super.key,
@@ -20,6 +21,7 @@ class RouteSheet extends StatelessWidget {
     this.onMarkVisited,
     this.startLabel = 'Iniciar',
     this.startColor = RbColors.brand,
+    this.totals,
     this.footer,
   });
 
@@ -29,6 +31,7 @@ class RouteSheet extends StatelessWidget {
   final VoidCallback? onMarkVisited;
   final String startLabel;
   final Color startColor;
+  final String? totals;
   final Widget? footer;
 
   static const String heading = 'Ordem otimizada';
@@ -86,8 +89,9 @@ class RouteSheet extends StatelessWidget {
             ),
             const SizedBox(height: RbSpace.s2),
             Text(
-              '${formatDistance(plan.distanceMeters)} · '
-              '${formatDuration(plan.durationSeconds)}',
+              totals ??
+                  '${formatDistance(plan.distanceMeters)} · '
+                      '${formatDuration(plan.durationSeconds)}',
               style: RbText.caption.copyWith(color: RbColors.inkMuted),
             ),
             const SizedBox(height: RbSpace.s3),

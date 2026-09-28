@@ -8,9 +8,12 @@ import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/presentation/map_markers.dart';
+import '../../route/presentation/route_format.dart';
 import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
+import '../domain/progress_estimator.dart';
 import 'navigation_cubit.dart';
+import 'next_stop_card.dart';
 
 /// What the navigation map draws and where its camera goes.
 class NavigationMapModel {
@@ -36,8 +39,8 @@ typedef NavigationMapBuilder = Widget Function(
   NavigationMapModel model,
 );
 
-/// Live navigation: map following the position, status overlays and the
-/// [RouteSheet] in navigation mode.
+/// Live navigation: map following the position, the [NextStopCard] and status
+/// overlays, and the [RouteSheet] in navigation mode with what is left.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -71,6 +74,13 @@ class NavigationScreen extends StatefulWidget {
   static const String offlineBanner = 'Sem conexão';
   static const String completedTitle = 'Rota concluída';
   static const String newRouteLabel = 'Nova rota';
+
+  /// Sheet totals while navigating:
+  /// `"Faltam 8,4 km · 22 min · término às 15:10"`.
+  static String remaining(RouteProgress progress) =>
+      'Faltam ${formatDistance(progress.remainingMeters)} · '
+      '${formatDuration(progress.remainingSeconds)} · '
+      'término às ${formatClock(progress.finalArrival)}';
 
   /// Camera zoom while following.
   static const double zoom = 16;
@@ -189,6 +199,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       builder: (context, state) {
         final navigating = state.phase == NavigationPhase.navigating;
         final completed = state.phase == NavigationPhase.completed;
+        final progress = navigating ? state.progress : null;
         return Scaffold(
           appBar: AppBar(title: const Text(NavigationScreen.title)),
           body: Stack(
@@ -253,6 +264,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         onMarkVisited: navigating
                             ? _cubit.markNextVisited
                             : null,
+                        totals: progress == null
+                            ? null
+                            : NavigationScreen.remaining(progress),
                         footer: navigating || state.canStart
                             ? null
                             : const _WaitingGps(),
@@ -312,7 +326,8 @@ class _NavigationMapState extends State<_NavigationMap> {
   }
 }
 
-/// Offline banner, recalculation badge and GPS error at the top of the map.
+/// Offline banner, then the next stop (while navigating), the recalculation
+/// badge and the GPS error at the top of the map.
 class _TopOverlay extends StatelessWidget {
   const _TopOverlay({required this.state});
 
@@ -320,8 +335,33 @@ class _TopOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final next = state.phase == NavigationPhase.navigating
+        ? state.plan.nextStop
+        : null;
     final badge = state.badge;
     final error = state.error;
+    final cards = [
+      if (next != null) NextStopCard(stop: next, progress: state.progress),
+      if (badge != null)
+        _Card(
+          child: RbStatusChip(
+            label: badge.text,
+            tone: badge.kind == BadgeKind.recalcFailed
+                ? RbTone.danger
+                : RbTone.warning,
+          ),
+        ),
+      if (error != null)
+        _Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: RbSpace.s2,
+              vertical: RbSpace.s1,
+            ),
+            child: RbInlineError(text: error),
+          ),
+        ),
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -331,34 +371,17 @@ class _TopOverlay extends StatelessWidget {
             text: NavigationScreen.offlineBanner,
             tone: RbTone.danger,
           ),
-        if (badge != null || error != null)
+        if (cards.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(RbSpace.s3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (badge != null)
-                  _Card(
-                    child: RbStatusChip(
-                      label: badge.text,
-                      tone: badge.kind == BadgeKind.recalcFailed
-                          ? RbTone.danger
-                          : RbTone.warning,
-                    ),
-                  ),
-                if (badge != null && error != null)
-                  const SizedBox(height: RbSpace.s2),
-                if (error != null)
-                  _Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: RbSpace.s2,
-                        vertical: RbSpace.s1,
-                      ),
-                      child: RbInlineError(text: error),
-                    ),
-                  ),
+                for (final (i, card) in cards.indexed) ...[
+                  if (i > 0) const SizedBox(height: RbSpace.s2),
+                  card,
+                ],
               ],
             ),
           ),

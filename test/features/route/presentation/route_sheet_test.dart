@@ -42,6 +42,7 @@ void main() {
     VoidCallback? onMarkVisited,
     String startLabel = 'Iniciar',
     Color startColor = RbColors.brand,
+    String? totals,
     Widget? footer,
   }) async {
     await tester.pumpWidget(
@@ -56,6 +57,7 @@ void main() {
               onMarkVisited: onMarkVisited,
               startLabel: startLabel,
               startColor: startColor,
+              totals: totals,
               footer: footer,
             ),
           ),
@@ -189,6 +191,22 @@ void main() {
       await pumpSheet(tester, plan: plan());
 
       final totals = tester.widget<Text>(find.text('12,3 km · 10 min'));
+      expect(totals.style!.fontSize, 13);
+      expect(totals.style!.color, RbColors.inkMuted);
+    });
+
+    testWidgets('totals replaces the distance and duration line, same '
+        'caption/ink-muted style', (tester) async {
+      await pumpSheet(
+        tester,
+        plan: plan(),
+        totals: 'Faltam 8,4 km · 22 min · término às 15:10',
+      );
+
+      expect(find.text('12,3 km · 10 min'), findsNothing);
+      final totals = tester.widget<Text>(
+        find.text('Faltam 8,4 km · 22 min · término às 15:10'),
+      );
       expect(totals.style!.fontSize, 13);
       expect(totals.style!.color, RbColors.inkMuted);
     });
