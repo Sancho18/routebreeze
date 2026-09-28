@@ -11,6 +11,9 @@ List<Color> _colors(RbPalette p) => [
   p.success,
   p.warning,
   p.danger,
+  p.successStrong,
+  p.warningStrong,
+  p.dangerStrong,
   p.surface100,
   p.surface200,
   p.ink,
@@ -31,6 +34,9 @@ void main() {
       expect(light.success, const Color(0xFF12B76A));
       expect(light.warning, const Color(0xFFF59E0B));
       expect(light.danger, const Color(0xFFE5484D));
+      expect(light.successStrong, const Color(0xFF0D7F4A));
+      expect(light.warningStrong, const Color(0xFF996206));
+      expect(light.dangerStrong, const Color(0xFFD01E23));
       expect(light.surface100, const Color(0xFFF7F8FA));
       expect(light.surface200, const Color(0xFFFFFFFF));
       expect(light.ink, const Color(0xFF12141A));
@@ -47,6 +53,9 @@ void main() {
       expect(dark.success, const Color(0xFF12B76A));
       expect(dark.warning, const Color(0xFFF59E0B));
       expect(dark.danger, const Color(0xFFEB7074));
+      expect(dark.successStrong, const Color(0xFF12B76A));
+      expect(dark.warningStrong, const Color(0xFFF59E0B));
+      expect(dark.dangerStrong, const Color(0xFFEB7074));
       expect(dark.surface100, const Color(0xFF0F1115));
       expect(dark.surface200, const Color(0xFF1A1D23));
       expect(dark.ink, const Color(0xFFF2F4F7));
@@ -92,6 +101,65 @@ void main() {
       'warning on its chip tint': (dark.warning, chipTint(dark.warning)),
       'danger on its chip tint': (dark.danger, chipTint(dark.danger)),
       'ink-muted on border (disabled button)': (dark.inkMuted, dark.border),
+      'successStrong on surface-100': (dark.successStrong, dark.surface100),
+      'successStrong on surface-200': (dark.successStrong, dark.surface200),
+      'successStrong on its chip tint': (
+        dark.successStrong,
+        chipTint(dark.success),
+      ),
+      'onFill on successStrong': (dark.onFill, dark.successStrong),
+      'warningStrong on surface-100': (dark.warningStrong, dark.surface100),
+      'warningStrong on surface-200': (dark.warningStrong, dark.surface200),
+      'warningStrong on its chip tint': (
+        dark.warningStrong,
+        chipTint(dark.warning),
+      ),
+      'onFill on warningStrong': (dark.onFill, dark.warningStrong),
+      'dangerStrong on surface-100': (dark.dangerStrong, dark.surface100),
+      'dangerStrong on surface-200': (dark.dangerStrong, dark.surface200),
+      'dangerStrong on its chip tint': (
+        dark.dangerStrong,
+        chipTint(dark.danger),
+      ),
+      'onFill on dangerStrong': (dark.onFill, dark.dangerStrong),
+    };
+    for (final MapEntry(key: name, value: (text, background))
+        in pairs.entries) {
+      test(name, () {
+        expect(contrastRatio(text, background), greaterThanOrEqualTo(4.5));
+      });
+    }
+  });
+
+  group('light palette contrast of the strong roles is at least 4.5:1', () {
+    const light = RbPalette.light;
+
+    // The status chip draws its tone at 12% over surface-200.
+    Color chipTint(Color tone) =>
+        Color.alphaBlend(tone.withValues(alpha: 0.12), light.surface200);
+
+    final pairs = <String, (Color, Color)>{
+      'successStrong on surface-100': (light.successStrong, light.surface100),
+      'successStrong on surface-200': (light.successStrong, light.surface200),
+      'successStrong on its chip tint': (
+        light.successStrong,
+        chipTint(light.success),
+      ),
+      'onFill on successStrong': (light.onFill, light.successStrong),
+      'warningStrong on surface-100': (light.warningStrong, light.surface100),
+      'warningStrong on surface-200': (light.warningStrong, light.surface200),
+      'warningStrong on its chip tint': (
+        light.warningStrong,
+        chipTint(light.warning),
+      ),
+      'onFill on warningStrong': (light.onFill, light.warningStrong),
+      'dangerStrong on surface-100': (light.dangerStrong, light.surface100),
+      'dangerStrong on surface-200': (light.dangerStrong, light.surface200),
+      'dangerStrong on its chip tint': (
+        light.dangerStrong,
+        chipTint(light.danger),
+      ),
+      'onFill on dangerStrong': (light.onFill, light.dangerStrong),
     };
     for (final MapEntry(key: name, value: (text, background))
         in pairs.entries) {
@@ -163,6 +231,9 @@ void main() {
             success: dark.success,
             warning: dark.warning,
             danger: dark.danger,
+            successStrong: dark.successStrong,
+            warningStrong: dark.warningStrong,
+            dangerStrong: dark.dangerStrong,
             surface100: dark.surface100,
             surface200: dark.surface200,
             ink: dark.ink,
