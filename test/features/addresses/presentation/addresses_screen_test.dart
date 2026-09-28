@@ -17,6 +17,8 @@ import 'package:routebreeze/features/addresses/domain/suggestion.dart';
 import 'package:routebreeze/features/addresses/presentation/address_form_cubit.dart';
 import 'package:routebreeze/features/addresses/presentation/addresses_screen.dart';
 
+import '../../../helpers/themed_app.dart';
+
 class MockAddressFormCubit extends MockCubit<AddressFormState>
     implements AddressFormCubit {}
 
@@ -64,25 +66,27 @@ void main() {
 
   tearDown(() => online.close());
 
+  /// Pumps the screen in a bare `MaterialApp`, or in the app themes when
+  /// [mode] is given.
   Future<void> pumpScreen(
     WidgetTester tester,
     AddressFormState state, {
     Stream<AddressFormState>? stream,
+    ThemeMode? mode,
   }) async {
     whenListen(
       cubit,
       stream ?? const Stream<AddressFormState>.empty(),
       initialState: state,
     );
+    final screen = AddressesScreen(
+      start: start,
+      cubit: cubit,
+      connectivity: connectivity,
+      onConfirmed: confirmed.add,
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        home: AddressesScreen(
-          start: start,
-          cubit: cubit,
-          connectivity: connectivity,
-          onConfirmed: confirmed.add,
-        ),
-      ),
+      mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
     );
     await tester.pump();
   }
@@ -131,6 +135,43 @@ void main() {
       expect(helper.style!.color, RbColors.inkMuted);
       expect(find.text('Sem conexão'), findsNothing);
       verify(() => cubit.setOnline(true)).called(1);
+    });
+
+    testWidgets('dark mode: #0F1115 background, #F2F4F7 title, #7EA6F8 '
+        '"Adicionar ponto" and #A4ACB9 helper', (tester) async {
+      await pumpScreen(
+        tester,
+        AddressFormState(fields: threeEmpty),
+        mode: ThemeMode.dark,
+      );
+
+      final background = tester.widget<Material>(
+        find
+            .descendant(
+              of: find.byType(Scaffold),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(background.color, const Color(0xFF0F1115));
+      expect(
+        tester.widget<Text>(find.text('Para onde vamos?')).style!.color,
+        const Color(0xFFF2F4F7),
+      );
+      final link = tester.widget<RichText>(
+        find.descendant(
+          of: find.widgetWithText(TextButton, 'Adicionar ponto'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(link.text.style!.color, const Color(0xFF7EA6F8));
+      expect(
+        tester
+            .widget<Text>(find.text('Preencha os 3 endereços para continuar'))
+            .style!
+            .color,
+        const Color(0xFFA4ACB9),
+      );
     });
 
     testWidgets('shows the validation errors under their fields', (
