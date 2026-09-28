@@ -61,7 +61,7 @@ class _LockScreenState extends State<LockScreen> {
                     Text(
                       message,
                       textAlign: TextAlign.center,
-                      style: RbText.body.copyWith(color: rb.danger),
+                      style: RbText.body.copyWith(color: rb.dangerStrong),
                     ),
                     const SizedBox(height: RbSpace.s3),
                   ],
