@@ -11,6 +11,7 @@ import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
+import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
@@ -36,6 +37,7 @@ void main() {
       expect(getIt<PlacesApi>(), isA<PlacesApiImpl>());
       expect(getIt<RoutesApi>(), isA<RoutesApiImpl>());
       expect(getIt<RouteStorage>(), isA<RouteStorageImpl>());
+      expect(getIt<NavigationAppLauncher>(), isA<UrlNavigationAppLauncher>());
       expect(getIt<RouteRepository>(), isA<RouteRepository>());
       expect(
         identical(getIt<RouteRepository>(), getIt<RouteRepository>()),
