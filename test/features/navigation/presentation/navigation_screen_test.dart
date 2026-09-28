@@ -383,6 +383,27 @@ void main() {
       );
     });
 
+    testWidgets('a recalculation badge and the GPS error shown together are '
+        'both live regions', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          badge: NavigationBadge.recalculated,
+          error: 'Perdemos o sinal de GPS',
+        ),
+      );
+
+      bool isLiveRegion(Finder finder) =>
+          tester.getSemantics(finder).flagsCollection.isLiveRegion;
+      expect(isLiveRegion(find.byType(RbStatusChip)), isTrue);
+      expect(isLiveRegion(find.byType(RbInlineError)), isTrue);
+      semantics.dispose();
+    });
+
     testWidgets('"Recentralizar" appears only while not following and '
         'recenters', (tester) async {
       await pumpScreen(
