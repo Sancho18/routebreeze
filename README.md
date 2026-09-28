@@ -25,6 +25,7 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Abrir a próxima parada no Google Maps ou no Waze** (`feature/open-in-maps`). Um botão no card da próxima parada abre "Abrir em outro app", com Google Maps e Waze. O RouteBreeze continua acompanhando a rota e, na volta, não pede o desbloqueio de novo (há uma navegação ativa). Detalhes em "Abrir em outro app", nas decisões técnicas.
 - **Ícone, nome e abertura** (`feature/app-icon`). O app ganhou ícone próprio (a rota do loading, com a partida e a chegada, em branco sobre o azul `brand`), o nome "RouteBreeze" embaixo dele e uma tela de abertura na cor da tela de bloqueio. Detalhes em "Ícone e abertura", nas decisões técnicas.
 - **Tema escuro** (`feature/dark-theme`). O app segue o tema do aparelho. A paleta escura estende o DS Rota sem mudar os valores do claro, todo par de texto e fundo passa de 4,5:1, e o mapa, as barras do sistema e a abertura acompanham o tema. Detalhes em "Tema escuro", nas decisões técnicas.
+- **Acessibilidade** (`feature/accessibility`). Todo texto passa de 4,5:1 nos dois temas, todo controle tem área de toque de pelo menos 48 dp e um rótulo, as telas cabem com o texto do sistema em 200 % e o leitor de tela lê o card da próxima parada numa frase só. Um grupo de testes em cada tela confere isso. Detalhes em "Acessibilidade", nas decisões técnicas.
 
 ## Demonstração
 
@@ -123,7 +124,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 602 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 730 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -136,17 +137,17 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 407 | 407 | 100,0 % |
+| lib/core | 428 | 427 | 99,8 % |
 | lib (raiz: `app.dart`, `main.dart`) | 83 | 81 | 97,6 % |
 | lib/features/addresses | 313 | 311 | 99,4 % |
-| lib/features/location | 200 | 200 | 100,0 % |
-| lib/features/lock | 73 | 73 | 100,0 % |
-| lib/features/navigation | 533 | 529 | 99,2 % |
-| lib/features/route | 465 | 463 | 99,6 % |
-| **Total (todos os arquivos)** | 2074 | 2064 | 99,5 % |
-| **Total (sem native-only)** | 2069 | 2061 | 99,6 % |
+| lib/features/location | 202 | 202 | 100,0 % |
+| lib/features/lock | 76 | 76 | 100,0 % |
+| lib/features/navigation | 551 | 547 | 99,3 % |
+| lib/features/route | 472 | 470 | 99,6 % |
+| **Total (todos os arquivos)** | 2125 | 2114 | 99,5 % |
+| **Total (sem native-only)** | 2120 | 2111 | 99,6 % |
 
-`test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
+`test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes, o caso `RbTone.neutral` de `strongColorIn` (`rb_feedback.dart`), que o chip e o banner resolvem antes, e as duas linhas nativas de `main.dart`.
 
 Teste de integração (precisa de um aparelho ou do simulador do iOS; usa fakes para biometria, GPS e Google APIs):
 
@@ -279,9 +280,9 @@ Uma chave, restrita às quatro APIs usadas e com cotas diárias. Ela não tem re
 
 ### Design system Rota como código
 
-Os tokens ficam em um só arquivo (`RbColors`, `RbText`, `RbSpace`, `RbRadius`): 9 cores, 6 estilos de texto, 4 espaçamentos e 3 raios. Os widgets base (`RbPrimaryButton`, `RbTextField`, `RbBanner`, `RbStatusChip`, `RbInlineError`, `RbRouteLoader`) usam só esses valores, e `buildRbTheme` os aplica ao Material. Fonte do sistema, sem fonte embarcada. O botão primário desabilitado usa `border` com texto `ink-muted`; habilitado usa `brand` com texto branco `body-strong` no mesmo raio e altura, então nada pula de lugar. Na lista de paradas, a parada visitada troca o número por um círculo `success` com um check ("entrega concluída" é um dos usos listados para `success`), e as linhas ficam a `space-2` uma da outra, como o DS pede para linhas de lista, com um divisor de 1 px em `border` (o uso que o DS descreve para essa cor) desenhado dentro desses 8 px e alinhado ao texto do endereço.
+Os tokens ficam em um só arquivo (`RbColors`, `RbText`, `RbSpace`, `RbRadius`): 9 cores, 6 estilos de texto, 4 espaçamentos e 3 raios. Os widgets base (`RbPrimaryButton`, `RbTextField`, `RbBanner`, `RbStatusChip`, `RbInlineError`, `RbRouteLoader`) usam só esses valores, e `buildRbTheme` os aplica ao Material. Fonte do sistema, sem fonte embarcada. O botão primário desabilitado usa `border` com texto `ink-muted`; habilitado usa `brand` com texto branco `body-strong` no mesmo raio e altura, então nada pula de lugar. Na lista de paradas, a parada visitada troca o número por um círculo `success` com um check ("entrega concluída" é um dos usos listados para `success`; o círculo usa a variante `successStrong`, veja "Acessibilidade"), e as linhas ficam a `space-2` uma da outra, como o DS pede para linhas de lista, com um divisor de 1 px em `border` (o uso que o DS descreve para essa cor) desenhado dentro desses 8 px e alinhado ao texto do endereço.
 
-Uma extensão que o DS não lista: o botão "Encerrar" da navegação usa `danger` como fundo, com texto branco, e fica abaixo de "Marcar como visitado" (em `brand`). O DS reserva `danger` para erros, falha de autenticação, permissão negada e sem internet; usei a mesma cor para a única ação destrutiva do app porque ela interrompe a navegação em andamento e a cor evita o toque por engano ao lado do botão que o motorista usa o tempo todo. É a mesma paleta, o mesmo `radius-lg` e a mesma altura do botão primário, então o componente é o `RbPrimaryButton` com a cor trocada. A rota é desenhada em `brand` com 5 px, os marcadores numerados são desenhados em canvas e o marcador de partida é um pino distinto. Testes de widget conferem esses valores.
+Uma extensão que o DS não lista: o botão "Encerrar" da navegação usa `danger` como fundo (na variante `dangerStrong`), com texto branco, e fica abaixo de "Marcar como visitado" (em `brand`). O DS reserva `danger` para erros, falha de autenticação, permissão negada e sem internet; usei a mesma cor para a única ação destrutiva do app porque ela interrompe a navegação em andamento e a cor evita o toque por engano ao lado do botão que o motorista usa o tempo todo. É a mesma paleta, o mesmo `radius-lg` e a mesma altura do botão primário, então o componente é o `RbPrimaryButton` com a cor trocada. A rota é desenhada em `brand` com 5 px, os marcadores numerados são desenhados em canvas e o marcador de partida é um pino distinto. Testes de widget conferem esses valores.
 
 ### Tema escuro
 
@@ -304,6 +305,39 @@ O app segue o tema do aparelho (`ThemeMode.system`). As cores ficam em `RbPalett
 - **Mapa.** No escuro, um estilo JSON com as cores da paleta (terreno #1A1D23, ruas #2F343D, água #0F1115, rótulos #A4ACB9); no claro, o estilo padrão do Google. A linha da rota usa o `brand` do tema. Os marcadores numerados e o pino de partida são iguais nos dois temas, porque o anel branco os destaca nos dois mapas.
 - **Sistema.** Ícones escuros na barra de status e de navegação no tema claro e claros no escuro. A abertura nativa já usa #1A1D23 no escuro (veja "Ícone e abertura").
 - **Troca com o app aberto.** A tela atual repinta sem perder o estado, e o mapa troca de estilo sem recriar a câmera.
+
+### Acessibilidade
+
+Três metas, conferidas por testes de widget em cada tela: todo texto legível nos dois temas, todo controle com área de toque e rótulo, e telas que cabem com o texto do sistema em 200 %.
+
+**Cores.** No tema claro, quatro cores do DS ficam abaixo de 4,5:1 como texto: o `warning` no fundo do chip (2,0:1), o `success` (2,6:1), o `danger` (3,9:1, e o branco sobre ele também) e o `brand` sobre `surface-100` (4,3:1). Em vez de mudar o DS, a paleta ganhou variantes fortes. Elas valem para texto na cor e para fundos com texto ou ícone por cima; as cores base continuam nas bordas, nos fundos a 12 %, nos marcadores e na rota. No escuro, as variantes repetem os tons da paleta escura, que já passam de 4,5:1.
+
+| Papel | Claro | Escuro | Onde |
+| --- | --- | --- | --- |
+| `successStrong` | #0D7F4A | #12B76A | "Rota concluída" e o círculo da parada visitada |
+| `warningStrong` | #996206 | #F59E0B | chips "Rota recalculada" e "Recálculo pendente (sem conexão)" |
+| `dangerStrong` | #D01E23 | #EB7074 | mensagens de erro, chip "Falha ao recalcular", banner "Sem conexão" e "Encerrar" |
+| `brandStrong` | #1B63F3 | #7EA6F8 | botões de texto: "Adicionar ponto", "Tentar novamente", "Nova rota", "Continuar" e "Recentralizar" |
+
+No claro, `successStrong` dá 5,1:1 sobre branco, `warningStrong` 4,7:1 sobre o fundo do chip, `dangerStrong` 5,4:1 com o branco nos dois sentidos e `brandStrong` 4,8:1 sobre `surface-100`. Ícones e o botão primário continuam em `brand`.
+
+**Toque.** Todo controle tem área de toque de pelo menos 48×48 dp no Android e 44×44 pt no iOS, e um rótulo para o leitor de tela. O botão "Abrir em outro app" do card da próxima parada passou de 44 para 48 dp.
+
+**Texto em 200 %.** Num aparelho de 360×800 dp com o texto do sistema em 200 %, nenhuma tela transborda e nenhum texto fica cortado. A única exceção é texto com limite de linhas que termina em reticências, como o endereço do card da próxima parada (até 2 linhas). Para caber:
+
+- o botão primário tem 52 dp como altura mínima e cresce quando o rótulo quebra linha; carregando, o rótulo fica no lugar, invisível sob o spinner, e a altura não muda;
+- o círculo com o número da parada cresce com o texto (48 dp em 200 %);
+- a tela de bloqueio, o card de status do mapa e o sheet "Abrir em outro app" rolam quando o conteúdo não cabe;
+- na navegação, o painel de baixo ocupa só o espaço abaixo do card e dos avisos e rola a partir das ações, em vez de cobrir o card.
+
+**Leitor de tela.** O card da próxima parada é lido numa frase só: "Próxima parada 2: Rua Augusta, 500. 1,2 km, 4 min, chegada às 14:32" (antes da primeira medida, a frase termina no endereço). O botão "Abrir em outro app" continua como um item separado. O número da parada é lido como "Parada 2" ou "Parada 2, visitada". Os chips de status, o banner "Sem conexão" e "Perdemos o sinal de GPS" são regiões ao vivo: o leitor anuncia quando aparecem, sem mover o foco.
+
+**Como os testes conferem.** O teste de cada tela (bloqueio, mapa, endereços, rota e navegação) tem um grupo de acessibilidade que usa `test/helpers/accessibility.dart`:
+
+- `expectAccessibleGuidelines` roda as diretrizes do Flutter (`textContrastGuideline`, `androidTapTargetGuideline`, `iOSTapTargetGuideline` e `labeledTapTargetGuideline`) nos dois temas, em cada estado com texto próprio: erros, chips, banner, o diálogo "Continuar rota?" e o sheet "Abrir em outro app";
+- `setLargeTextPhone` monta a tela em 360×800 dp com o texto em 200 %; ali o teste falha em qualquer erro de overflow e em `expectNoClippedText`, que acusa um parágrafo mais baixo que o próprio texto (o corte que um pai de altura fixa faz sem erro nenhum).
+
+Os testes da paleta conferem cada par de contraste das variantes fortes, e os de semântica leem o rótulo do card, os das paradas e as regiões ao vivo.
 
 ### Generalização para N endereços
 
@@ -344,7 +378,7 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 | GPS do aparelho desligado | "Ative a localização do dispositivo para continuar." com "Ativar localização" |
 | GPS impreciso no mapa inicial (sem fix ≤ 50 m em 15 s) | "Não conseguimos uma posição precisa. Verifique se está em local aberto." com "Tentar novamente"; "Para onde vamos?" fica desabilitado |
 | GPS impreciso antes de iniciar a navegação | "Aguardando sinal de GPS" e "Iniciar" desabilitado até um fix ≤ 50 m |
-| Erro no stream de posição | "Perdemos o sinal de GPS" em `danger`; a última posição é mantida |
+| Erro no stream de posição | "Perdemos o sinal de GPS" em `dangerStrong`; a última posição é mantida |
 | Fixes ruins durante a navegação (precisão > 30 m) | Ignorados na detecção de desvio; não disparam recálculo |
 | Sem internet em Endereços | Banner "Sem conexão"; "Confirmar rota" desabilitado; autocomplete suspenso; texto mantido |
 | Sem internet na Rota | O cálculo falha (uma nova tentativa automática após 2 s) e mostra "Não foi possível calcular a rota." com "Tentar novamente" |
@@ -358,12 +392,12 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 | Muitas tentativas de biometria | "Muitas tentativas. Aguarde e tente novamente" |
 | Sem biometria, mas com PIN | Autentica com o PIN, sem mensagem de erro |
 | Sem biometria e sem bloqueio de tela | "Configure um bloqueio de tela no aparelho para usar o app" com "Tentar novamente" |
-| Campo vazio ao confirmar | "Campo obrigatório" em `danger`, borda em `danger` |
+| Campo vazio ao confirmar | "Campo obrigatório" em `dangerStrong`, borda em `danger` |
 | Texto sem sugestão escolhida | "Selecione um endereço da lista" |
 | Mesmo endereço em dois campos | "Endereço repetido" no segundo campo; some ao remover a duplicata |
 | Partida a mais de 50 km das paradas | A rota é calculada normalmente (o bias é só uma dica) |
 | Fix pior que 50 m durante a navegação | O marcador se move, mas a distância e o horário de chegada ficam na última medida boa |
-| Google Maps ou Waze não abre (sem app e sem navegador) | "Não foi possível abrir o <app>." em `danger` no sheet, que continua aberto para tentar o outro |
+| Google Maps ou Waze não abre (sem app e sem navegador) | "Não foi possível abrir o <app>." em `dangerStrong` no sheet, que continua aberto para tentar o outro |
 | Rota salva pela versão 0.1.0 (sem o fim de cada trecho) | A navegação segue normal; o card mostra a próxima parada sem distância e tempo, e o painel mostra os totais |
 
 ## Limitações conhecidas
@@ -376,6 +410,7 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 - **Detecção de conectividade.** `connectivity_plus` informa se há rede, não se a internet responde. Com rede sem internet, a requisição falha e é tratada como sem conexão.
 - **Sem instruções passo a passo.** O app desenha a rota e mostra a posição; não há navegação por voz ou texto curva a curva. Para isso, o botão "Abrir em outro app" passa a próxima parada ao Google Maps ou ao Waze.
 - **Só pt-BR.** Um único idioma.
+- **Acessibilidade.** As bordas de campos e cards seguem o DS (1,3:1 contra o fundo); os campos se distinguem pelo preenchimento, pelo texto de exemplo e pela mensagem. Os marcadores do mapa ficam com a acessibilidade do SDK, e o loader animado não segue a opção de reduzir movimento.
 - **Sem contas, backend ou histórico de rotas.** Não foi pedido.
 - **Estimativa de chegada simples.** O tempo que falta num trecho é proporcional à distância que falta nele, sem trânsito e sem contar o tempo parado nas entregas (o horário se ajusta a cada fix, porque parte do relógio atual). Numa rua de ida e volta dentro do mesmo trecho, a projeção pode pegar o lado errado por alguns instantes.
 - **Rota salva sem criptografia.** A rota em andamento (origem, endereços, polyline) fica em texto puro nas preferências do app, fora do backup automático; não expira sozinha.
