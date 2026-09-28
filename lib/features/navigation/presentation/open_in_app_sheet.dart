@@ -68,7 +68,8 @@ class _OpenInAppSheetState extends State<OpenInAppSheet> {
     final failed = _failed;
     return SafeArea(
       top: false,
-      child: Padding(
+      // With large text the list can outgrow the sheet; it then scrolls.
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(RbSpace.s3),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -20,6 +20,7 @@ import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockNavigationCubit extends MockCubit<NavigationState>
@@ -853,6 +854,131 @@ void main() {
         tester.widget<Text>(find.text('Rota concluída')).style!.color,
         const Color(0xFF12B76A),
       );
+    });
+  });
+
+  group('NavigationScreen accessibility', () {
+    final progress = RouteProgress(
+      next: const RouteStop(stop: a, order: 1, visited: false),
+      toNextMeters: 1234,
+      toNextSeconds: 250,
+      remainingMeters: 8400,
+      remainingSeconds: 1320,
+      at: DateTime.utc(2026, 9, 22, 14, 28),
+    );
+    // Not following, so "Recentralizar" shows too.
+    NavigationState navigating({
+      NavigationBadge? badge,
+      bool online = true,
+      String? error,
+    }) => NavigationState(
+      plan: plan,
+      phase: NavigationPhase.navigating,
+      fix: fix,
+      progress: progress,
+      following: false,
+      badge: badge,
+      online: online,
+      error: error,
+    );
+
+    // Each state with a text that proves it is on screen.
+    final states = <String, (NavigationState, String)>{
+      'waiting for GPS': (
+        NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
+        NavigationScreen.waitingGpsCaption,
+      ),
+      'navigating with the next stop card': (
+        navigating(),
+        '1,2 km · 4 min · chegada às 14:32',
+      ),
+      'with "Rota recalculada"': (
+        navigating(badge: NavigationBadge.recalculated),
+        'Rota recalculada',
+      ),
+      'with "Falha ao recalcular"': (
+        navigating(badge: NavigationBadge.recalcFailed),
+        'Falha ao recalcular',
+      ),
+      'with "Recálculo pendente (sem conexão)"': (
+        navigating(badge: NavigationBadge.recalcPending, online: false),
+        'Recálculo pendente (sem conexão)',
+      ),
+      'offline': (navigating(online: false), NavigationScreen.offlineBanner),
+      'with the GPS error': (
+        navigating(error: 'Perdemos o sinal de GPS'),
+        'Perdemos o sinal de GPS',
+      ),
+      'completed': (
+        NavigationState(
+          plan: plan.markVisited('pa').markVisited('pb'),
+          phase: NavigationPhase.completed,
+          fix: fix,
+          following: false,
+        ),
+        NavigationScreen.completedTitle,
+      ),
+    };
+
+    /// Whether nothing covers the center of [finder]: a tap there reaches it.
+    bool uncovered(WidgetTester tester, Finder finder) {
+      final target = tester.renderObject(finder);
+      return tester
+          .hitTestOnBinding(tester.getCenter(finder))
+          .path
+          .any((entry) => entry.target == target);
+    }
+
+    /// Opens "Abrir em outro app" from the next stop card.
+    Future<void> openSheet(WidgetTester tester, ThemeMode mode) async {
+      await pumpScreen(tester, navigating(), mode: mode);
+      await tester.tap(find.byTooltip(NextStopCard.openInAppTooltip));
+      await tester.pumpAndSettle();
+      expect(find.text(OpenInAppSheet.caption), findsOneWidget);
+    }
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+        testWidgets('$name meets the contrast, tap target and label '
+            'guidelines in ${mode.name} mode', (tester) async {
+          await pumpScreen(tester, state, mode: mode);
+          expect(find.text(text), findsOneWidget);
+
+          await expectAccessibleGuidelines(tester);
+        });
+      }
+
+      testWidgets('"Abrir em outro app" meets the contrast, tap target and '
+          'label guidelines in ${mode.name} mode', (tester) async {
+        await openSheet(tester, mode);
+
+        await expectAccessibleGuidelines(tester);
+      });
+    }
+
+    for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+      testWidgets('$name lays out at 200% text on a 360×800 phone', (
+        tester,
+      ) async {
+        await setLargeTextPhone(tester);
+        await pumpScreen(tester, state, mode: ThemeMode.light);
+
+        expect(find.text(text), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
+        // The sheet grows upward, toward the top overlay: nothing may cover
+        // the state's text.
+        expect(uncovered(tester, find.text(text)), isTrue);
+      });
+    }
+
+    testWidgets('"Abrir em outro app" lays out at 200% text on a 360×800 '
+        'phone', (tester) async {
+      await setLargeTextPhone(tester);
+      await openSheet(tester, ThemeMode.light);
+
+      expect(tester.takeException(), isNull);
+      expectNoClippedText(tester);
     });
   });
 }
