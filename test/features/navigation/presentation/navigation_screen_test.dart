@@ -212,7 +212,16 @@ void main() {
         RbPrimaryButton,
         'Marcar como visitado',
       );
-      expect(primary(tester, 'Marcar como visitado').color, RbColors.brand);
+      expect(
+        tester
+            .widget<Material>(
+              find
+                  .descendant(of: markVisited, matching: find.byType(Material))
+                  .first,
+            )
+            .color,
+        RbColors.brand,
+      );
       expect(
         tester.getBottomLeft(markVisited).dy,
         lessThan(

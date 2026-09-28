@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 
+import '../../helpers/themed_app.dart';
+
 void main() {
   const label = 'Confirmar rota';
 
@@ -12,6 +14,11 @@ void main() {
         child: Padding(padding: const EdgeInsets.all(16), child: child),
       ),
     ),
+  );
+
+  Widget wrapDark(Widget child) => themedApp(
+    Scaffold(body: Center(child: child)),
+    mode: ThemeMode.dark,
   );
 
   Material buttonMaterial(WidgetTester tester) => tester.widget<Material>(
@@ -135,6 +142,49 @@ void main() {
       expect(labelStyle(tester).color, RbColors.inkMuted);
       await tester.tap(find.byType(RbPrimaryButton));
       expect(taps, 1);
+    });
+  });
+
+  group('RbPrimaryButton in dark mode', () {
+    testWidgets('enabled: dark brand #7EA6F8 fill with a #0F1115 label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapDark(RbPrimaryButton(label: label, onPressed: () {})),
+      );
+
+      expect(buttonMaterial(tester).color, const Color(0xFF7EA6F8));
+      expect(labelStyle(tester).color, const Color(0xFF0F1115));
+    });
+
+    testWidgets('disabled: dark border #2F343D fill with a #A4ACB9 label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapDark(
+          RbPrimaryButton(label: label, enabled: false, onPressed: () {}),
+        ),
+      );
+
+      expect(buttonMaterial(tester).color, const Color(0xFF2F343D));
+      expect(labelStyle(tester).color, const Color(0xFFA4ACB9));
+    });
+
+    testWidgets('color: a custom fill is kept, with the #0F1115 label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapDark(
+          RbPrimaryButton(
+            label: label,
+            color: const Color(0xFFEB7074),
+            onPressed: () {},
+          ),
+        ),
+      );
+
+      expect(buttonMaterial(tester).color, const Color(0xFFEB7074));
+      expect(labelStyle(tester).color, const Color(0xFF0F1115));
     });
   });
 }

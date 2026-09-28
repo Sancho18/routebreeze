@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/rb_palette.dart';
 import '../theme/rb_tokens.dart';
 
 /// Primary action button.
@@ -14,7 +15,7 @@ class RbPrimaryButton extends StatelessWidget {
     this.onPressed,
     this.enabled = true,
     this.loading = false,
-    this.color = RbColors.brand,
+    this.color,
   });
 
   final String label;
@@ -22,15 +23,17 @@ class RbPrimaryButton extends StatelessWidget {
   final bool enabled;
   final bool loading;
 
-  /// Background while enabled. Only DS colors are expected here.
-  final Color color;
+  /// Background while enabled; the palette's `brand` when null. Only palette
+  /// fills are expected here.
+  final Color? color;
 
   static const double height = 52;
 
   @override
   Widget build(BuildContext context) {
-    final background = enabled ? color : RbColors.border;
-    final foreground = enabled ? Colors.white : RbColors.inkMuted;
+    final rb = context.rb;
+    final background = enabled ? color ?? rb.brand : rb.border;
+    final foreground = enabled ? rb.onFill : rb.inkMuted;
     final radius = BorderRadius.circular(RbRadius.lg);
     final active = enabled && !loading;
 
