@@ -127,3 +127,11 @@ Registro das decisões do RouteBreeze no formato Contexto / Decisão / Consequê
 **Decisão.** Medir depois do layout a altura das sobreposições fixas (`MeasureSize`, um `RenderProxyBox` que avisa quando o tamanho do filho muda) e passar ao `GoogleMap` como `padding`. Na navegação entram o banner offline e o card (em cima) e o painel (embaixo); ficam de fora os chips temporários e o "Recentralizar", para o mapa não pular quando eles aparecem. Na tela de rota entra o painel.
 
 **Consequências.** A câmera segue e enquadra dentro da área visível, e o logo do Google fica visível, como os termos do Maps pedem. A medida chega um frame depois do layout; até lá o padding é zero, o que não aparece porque o mapa ainda está sendo criado.
+
+## D-015: Abrir a próxima parada em outro app
+
+**Contexto.** Depois da entrega. O RouteBreeze desenha a rota e acompanha a posição, mas não dá instruções curva a curva (limitação conhecida). Quem dirige costuma querer a voz do Google Maps ou do Waze até a próxima entrega.
+
+**Decisão.** Um botão no card da próxima parada abre um bottom sheet com Google Maps e Waze. O `NavigationApp` monta links universais: Maps URLs (`/maps/dir/?api=1` com as coordenadas, o `placeId`, `travelmode=driving` e `dir_action=navigate`) e `waze.com/ul` (`ll` e `navigate=yes`). O `NavigationAppLauncher` abre o link com `url_launcher` em `LaunchMode.externalApplication` e devolve `false` quando nada abre (ou a plataforma falha). O sheet fecha quando um app abre; na falha, fica aberto com o motivo.
+
+**Consequências.** Nenhuma configuração nativa: sem esquemas `comgooglemaps://` e `waze://`, sem `LSApplicationQueriesSchemes` nem `<queries>`, porque o link universal abre o app instalado ou o site. Não dá para saber de antemão se o app está instalado; a opção aparece sempre e, sem o app, o site abre (validado no simulador do iOS, que não tem nenhum dos dois). O outro app recebe só a próxima parada, não a rota inteira: o RouteBreeze continua dono da ordem, e o entregador volta a ele a cada entrega.

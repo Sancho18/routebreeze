@@ -22,6 +22,7 @@ Feito com Flutter 3.47.5 e o design system **Rota** (tokens em `lib/core/theme/r
 A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/Sancho18/routebreeze/releases/tag/v0.1.0). O que veio depois é evolução do projeto, uma branch `feature/*` por funcionalidade, com pull request para `develop`:
 
 - **Progresso até a próxima parada** (`feature/live-progress`). Durante a navegação, um card "Próxima parada" mostra o número e o endereço da parada e quanto falta até ela ("1,2 km · 4 min · chegada às 14:32"). O painel da rota troca os totais pelo que falta até o fim ("Faltam 8,4 km · 22 min · término às 15:10"). Tudo sai da resposta da Routes API que o app já pedia, sem chamada extra. Detalhes em "Progresso até a próxima parada", nas decisões técnicas. Na mesma branch, o mapa passou a respeitar o espaço do painel e do card (antes, a posição do entregador e o logo do Google ficavam atrás do painel), e o fluxo foi validado no simulador do iOS.
+- **Abrir a próxima parada no Google Maps ou no Waze** (`feature/open-in-maps`). Um botão no card da próxima parada abre "Abrir em outro app", com Google Maps e Waze. O RouteBreeze continua acompanhando a rota e, na volta, não pede o desbloqueio de novo (há uma navegação ativa). Detalhes em "Abrir em outro app", nas decisões técnicas.
 
 ## Demonstração
 
@@ -120,7 +121,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 474 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 489 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -133,15 +134,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 338 | 337 | 99,7 % |
+| lib/core | 339 | 338 | 99,7 % |
 | lib (raiz: `app.dart`, `main.dart`) | 80 | 78 | 97,5 % |
 | lib/features/addresses | 306 | 304 | 99,3 % |
 | lib/features/location | 191 | 191 | 100,0 % |
 | lib/features/lock | 71 | 71 | 100,0 % |
-| lib/features/navigation | 455 | 451 | 99,1 % |
+| lib/features/navigation | 517 | 513 | 99,2 % |
 | lib/features/route | 457 | 455 | 99,6 % |
-| **Total (todos os arquivos)** | 1898 | 1887 | 99,4 % |
-| **Total (sem native-only)** | 1893 | 1884 | 99,5 % |
+| **Total (todos os arquivos)** | 1961 | 1950 | 99,4 % |
+| **Total (sem native-only)** | 1956 | 1947 | 99,5 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -189,8 +190,9 @@ lib/
     route/        data: RoutesApi, RouteStorage (shared_preferences)
                   domain: RoutePlan, RoutePlanner, RouteRepository
                   presentation: RouteCubit, RouteScreen, RouteSheet, StopBadge, MapMarkers
-    navigation/   domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator
-                  presentation: NavigationCubit, NavigationScreen, NextStopCard
+    navigation/   data: NavigationAppLauncher (url_launcher)
+                  domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator, NavigationApp
+                  presentation: NavigationCubit, NavigationScreen, NextStopCard, OpenInAppSheet
 test/            espelha lib/ (unidade, bloc_test, widget)
 integration_test/ fluxo principal com fakes, roda no aparelho
 tool/            set_api_key.sh
@@ -243,6 +245,13 @@ Autocomplete: mínimo de 3 caracteres, debounce de 300 ms, no máximo 5 sugestõ
 - **Custo.** Nenhuma chamada a mais: pedir a polyline de cada trecho no lugar da polyline da rota não muda a SKU.
 
 A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas sobre o Equador, onde as distâncias são exatas).
+
+### Abrir em outro app
+
+- **Links universais.** Google Maps usa o formato Maps URLs (`https://www.google.com/maps/dir/?api=1&destination=<lat,lng>&destination_place_id=<id>&travelmode=driving&dir_action=navigate`); o Waze usa `https://waze.com/ul?ll=<lat,lng>&navigate=yes`. O sistema abre o app quando ele está instalado e o site quando não está, então não precisa de esquema próprio (`comgooglemaps://`, `waze://`), nem de `LSApplicationQueriesSchemes` no iOS, nem de `<queries>` no Android.
+- **Destino.** Coordenadas com seis casas decimais (sem notação exponencial) e, no Google Maps, o `placeId` da parada, para o app mostrar o lugar certo.
+- **Sem checar antes.** O app chama `launchUrl` direto e trata o `false` (ou um erro da plataforma) mostrando "Não foi possível abrir o <app>." no próprio sheet, que continua aberto para tentar o outro app. É o que a documentação do `url_launcher` recomenda no lugar de `canLaunchUrl`.
+- **Na volta.** Sair para o outro app pausa o stream de posição como qualquer ida ao segundo plano, e a volta retoma. Com a navegação ativa não há rebloqueio.
 
 ### Offline: rota persistida e recálculo adiado
 
@@ -308,6 +317,7 @@ O painel da rota e o card da próxima parada ficam por cima do mapa. As alturas 
 | Mesmo endereço em dois campos | "Endereço repetido" no segundo campo; some ao remover a duplicata |
 | Partida a mais de 50 km das paradas | A rota é calculada normalmente (o bias é só uma dica) |
 | Fix pior que 50 m durante a navegação | O marcador se move, mas a distância e o horário de chegada ficam na última medida boa |
+| Google Maps ou Waze não abre (sem app e sem navegador) | "Não foi possível abrir o <app>." em `danger` no sheet, que continua aberto para tentar o outro |
 | Rota salva pela versão 0.1.0 (sem o fim de cada trecho) | A navegação segue normal; o card mostra a próxima parada sem distância e tempo, e o painel mostra os totais |
 
 ## Limitações conhecidas
@@ -319,7 +329,7 @@ O painel da rota e o card da próxima parada ficam por cima do mapa. As alturas 
 - **Mapa offline.** Os tiles dependem do cache do Maps SDK; o app não controla isso.
 - **Detecção de conectividade.** `connectivity_plus` informa se há rede, não se a internet responde. Com rede sem internet, a requisição falha e é tratada como sem conexão.
 - **Modo escuro.** O design system define só o tema claro.
-- **Sem instruções passo a passo.** O app desenha a rota e mostra a posição; não há navegação por voz ou texto curva a curva.
+- **Sem instruções passo a passo.** O app desenha a rota e mostra a posição; não há navegação por voz ou texto curva a curva. Para isso, o botão "Abrir em outro app" passa a próxima parada ao Google Maps ou ao Waze.
 - **Só pt-BR.** Um único idioma.
 - **Sem contas, backend ou histórico de rotas.** Não foi pedido.
 - **Estimativa de chegada simples.** O tempo que falta num trecho é proporcional à distância que falta nele, sem trânsito e sem contar o tempo parado nas entregas (o horário se ajusta a cada fix, porque parte do relógio atual). Numa rua de ida e volta dentro do mesmo trecho, a projeção pode pegar o lado errado por alguns instantes.
