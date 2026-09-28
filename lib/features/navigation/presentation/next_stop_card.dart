@@ -8,13 +8,24 @@ import '../domain/progress_estimator.dart';
 
 /// The stop the driver is heading to, over the navigation map: its number and
 /// address and, once measured, the distance, time and arrival clock.
+/// [onOpenInApp] adds a button to hand the stop over to another app.
 class NextStopCard extends StatelessWidget {
-  const NextStopCard({super.key, required this.stop, this.progress});
+  const NextStopCard({
+    super.key,
+    required this.stop,
+    this.progress,
+    this.onOpenInApp,
+  });
 
   final RouteStop stop;
   final RouteProgress? progress;
+  final VoidCallback? onOpenInApp;
 
   static const String label = 'Próxima parada';
+  static const String openInAppTooltip = 'Abrir em outro app';
+
+  /// Tap target of the open-in-app button.
+  static const double actionSize = 44;
 
   /// `"1,2 km · 4 min · chegada às 14:32"`.
   static String summary(RouteProgress progress) =>
@@ -28,6 +39,7 @@ class NextStopCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = this.progress;
+    final onOpenInApp = this.onOpenInApp;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(RbSpace.s3),
@@ -54,6 +66,19 @@ class NextStopCard extends StatelessWidget {
                   style: RbText.bodyStrong.copyWith(color: RbColors.ink),
                 ),
               ),
+              if (onOpenInApp != null) ...[
+                const SizedBox(width: RbSpace.s2),
+                IconButton(
+                  onPressed: onOpenInApp,
+                  tooltip: openInAppTooltip,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: actionSize,
+                    height: actionSize,
+                  ),
+                  icon: const Icon(Icons.directions, color: RbColors.brand),
+                ),
+              ],
             ],
           ),
           if (progress != null) ...[
