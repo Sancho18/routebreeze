@@ -13,6 +13,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:routebreeze/app.dart';
 import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/core/geo/polyline_codec.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/core/widgets/rb_route_loader.dart';
@@ -55,6 +56,10 @@ const Stop oscarFreire = Stop(
 
 /// start → Oscar Freire → Paulista → Augusta, Google polyline encoding.
 const String encodedPolyline = 'bmynCjzv{GbBby@~C_jA_oAvQ';
+
+/// [encodedPolyline] decoded: one vertex per stop after the start, so leg
+/// `i` ends on vertex `i + 1`.
+final List<GeoPoint> routeLine = decodePolyline(encodedPolyline);
 
 class FakeLocalAuthService implements LocalAuthService {
   @override
@@ -130,16 +135,16 @@ class FakeRoutesApi implements RoutesApi {
   @override
   Future<RouteResponse> computeRoutes(RouteRequest request) async {
     lastRequest = request;
-    return const RouteResponse(
-      encodedPolyline: encodedPolyline,
+    return RouteResponse(
+      polyline: routeLine,
       distanceMeters: 4200,
       durationSeconds: 900,
-      legs: [
-        RouteLeg(distanceMeters: 1100, durationSeconds: 240),
-        RouteLeg(distanceMeters: 1400, durationSeconds: 300),
-        RouteLeg(distanceMeters: 1700, durationSeconds: 360),
+      legs: const [
+        RouteLeg(distanceMeters: 1100, durationSeconds: 240, endIndex: 1),
+        RouteLeg(distanceMeters: 1400, durationSeconds: 300, endIndex: 2),
+        RouteLeg(distanceMeters: 1700, durationSeconds: 360, endIndex: 3),
       ],
-      optimizedIndex: [1, 0],
+      optimizedIndex: const [1, 0],
     );
   }
 }

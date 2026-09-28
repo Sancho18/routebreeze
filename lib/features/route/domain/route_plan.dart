@@ -37,24 +37,36 @@ class RouteStop extends Equatable {
   bool get stringify => true;
 }
 
+/// One stretch of the route, from the previous stop (or the origin) to the
+/// next one.
 class RouteLeg extends Equatable {
-  const RouteLeg({required this.distanceMeters, required this.durationSeconds});
+  const RouteLeg({
+    required this.distanceMeters,
+    required this.durationSeconds,
+    this.endIndex,
+  });
 
   factory RouteLeg.fromJson(Map<String, dynamic> json) => RouteLeg(
     distanceMeters: json['distanceMeters'] as int,
     durationSeconds: json['durationSeconds'] as int,
+    endIndex: json['endIndex'] as int?,
   );
 
   final int distanceMeters;
   final int durationSeconds;
 
+  /// Index in [RoutePlan.polyline] of the vertex where this leg reaches its
+  /// stop. Null in plans persisted without it (app 0.1.0).
+  final int? endIndex;
+
   Map<String, dynamic> toJson() => {
     'distanceMeters': distanceMeters,
     'durationSeconds': durationSeconds,
+    if (endIndex != null) 'endIndex': endIndex,
   };
 
   @override
-  List<Object?> get props => [distanceMeters, durationSeconds];
+  List<Object?> get props => [distanceMeters, durationSeconds, endIndex];
 
   @override
   bool get stringify => true;
@@ -99,6 +111,10 @@ class RoutePlan extends Equatable {
   final List<GeoPoint> polyline;
   final int distanceMeters;
   final int durationSeconds;
+
+  /// One per stop of the last computation, in visiting order: they belong to
+  /// the last `legs.length` [stops] (a recalculation keeps the visited stops
+  /// first, without legs).
   final List<RouteLeg> legs;
   final DateTime computedAt;
 

@@ -51,17 +51,21 @@ void main() {
     'Rua B': GeoPoint(-23.60, -46.70),
     'Rua C': GeoPoint(-23.57, -46.65),
   };
-  final response = RouteResponse(
-    encodedPolyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+  const response = RouteResponse(
+    polyline: [
+      GeoPoint(38.5, -120.2),
+      GeoPoint(40.7, -120.95),
+      GeoPoint(43.252, -126.453),
+    ],
     distanceMeters: 12345,
     durationSeconds: 605,
-    legs: const [
-      RouteLeg(distanceMeters: 4000, durationSeconds: 200),
-      RouteLeg(distanceMeters: 4000, durationSeconds: 200),
-      RouteLeg(distanceMeters: 4345, durationSeconds: 205),
+    legs: [
+      RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 1),
+      RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 1),
+      RouteLeg(distanceMeters: 4345, durationSeconds: 205, endIndex: 2),
     ],
     // Typed A, B, C: B is the farthest (destination); C goes before A.
-    optimizedIndex: const [1, 0],
+    optimizedIndex: [1, 0],
   );
 
   late MockLocationService location;

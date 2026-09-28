@@ -64,6 +64,34 @@ void main() {
     });
   });
 
+  group('RouteLeg JSON', () {
+    test('keeps where the leg ends on the polyline', () {
+      const leg = RouteLeg(
+        distanceMeters: 4000,
+        durationSeconds: 200,
+        endIndex: 12,
+      );
+
+      expect(leg.toJson(), {
+        'distanceMeters': 4000,
+        'durationSeconds': 200,
+        'endIndex': 12,
+      });
+      expect(RouteLeg.fromJson(leg.toJson()), leg);
+    });
+
+    test('a leg saved without its end (app 0.1.0) reads back with none and '
+        'is written back the same way', () {
+      final leg = RouteLeg.fromJson(const {
+        'distanceMeters': 600,
+        'durationSeconds': 60,
+      });
+
+      expect(leg.endIndex, isNull);
+      expect(leg.toJson(), {'distanceMeters': 600, 'durationSeconds': 60});
+    });
+  });
+
   group('RoutePlan progress', () {
     test('unvisited keeps the optimized order and skips visited stops', () {
       expect(plan.unvisited.map((s) => s.stop.placeId), ['pb', 'pa', 'pc']);

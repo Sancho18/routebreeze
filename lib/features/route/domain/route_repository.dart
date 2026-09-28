@@ -1,5 +1,4 @@
 import '../../../core/geo/geo_point.dart';
-import '../../../core/geo/polyline_codec.dart';
 import '../../addresses/domain/stop.dart';
 import '../data/route_storage.dart';
 import '../data/routes_api.dart';
@@ -42,7 +41,7 @@ class RouteRepository {
             visited: false,
           ),
       ],
-      polyline: decodePolyline(response.encodedPolyline),
+      polyline: response.polyline,
       distanceMeters: response.distanceMeters,
       durationSeconds: response.durationSeconds,
       legs: response.legs,
