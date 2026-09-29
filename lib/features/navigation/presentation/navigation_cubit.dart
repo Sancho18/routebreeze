@@ -380,6 +380,8 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
+  /// While arrived the driver may walk away from the road to deliver, so no
+  /// fix is checked for a deviation until a result is recorded.
   Future<void> _navigate(Fix fix) async {
     _odometer.add(fix);
     if (fix.accuracyMeters <= _deviation.maxAccuracyMeters) _lastAccepted = fix;
@@ -388,6 +390,7 @@ class NavigationCubit extends Cubit<NavigationState> {
       emit(state.copyWith(arrived: true));
       return;
     }
+    if (state.arrived) return;
     final offRoute = _deviation.feed(fix, state.plan.polyline);
     final decision = _policy.decide(
       offRoute: offRoute,
@@ -456,9 +459,9 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   /// One request from [origin] through the unvisited stops; the visited
   /// ones keep their numbers. The answer takes the results recorded while
-  /// the request was in flight, the start and the current distance; an
-  /// answer that arrives after the route completed is dropped and storage
-  /// cleared again.
+  /// the request was in flight, the start and the current distance, and
+  /// clears the arrival when it makes another stop next; an answer that
+  /// arrives after the route completed is dropped and storage cleared again.
   Future<void> _recalculate(GeoPoint origin) async {
     final plan = state.plan;
     if (plan.unvisited.isEmpty) return;
@@ -493,6 +496,9 @@ class NavigationCubit extends Cubit<NavigationState> {
         replaced = merged;
       }
     }
+    final sameNext =
+        replaced == null ||
+        replaced.nextStop?.stop == state.plan.nextStop?.stop;
     emit(
       _measured(
         state.copyWith(
@@ -500,6 +506,7 @@ class NavigationCubit extends Cubit<NavigationState> {
           recalcInFlight: false,
           lastRecalcAt: _now(),
           badge: badge,
+          arrived: state.arrived && sameNext,
         ),
       ),
     );

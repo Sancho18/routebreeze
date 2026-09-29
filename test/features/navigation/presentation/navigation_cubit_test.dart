@@ -298,6 +298,110 @@ void main() {
         cubit.close();
       });
     });
+
+    test('while arrived, three fixes off the route and away from the stop '
+        'request nothing and keep arrived; after a result the same fixes '
+        'recalculate', () {
+      stubPlan(recalculated);
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        emitFix(async, atStop(a));
+        expect(cubit.state.arrived, isTrue);
+        // 120 m from the line and from A: off the route, not at the stop.
+        final walking = GeoPoint(lat(120), a.point.lng);
+
+        for (var i = 0; i < 3; i++) {
+          emitFix(async, fix(walking));
+        }
+
+        expect(cubit.state.arrived, isTrue);
+        verifyNever(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        );
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.badge, isNull);
+        expect(cubit.state.plan.nextStop!.stop, a);
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        for (var i = 0; i < 3; i++) {
+          emitFix(async, fix(walking));
+        }
+
+        verify(
+          () => routes.plan(
+            walking,
+            [b],
+            keepVisited: [
+              RouteStop(
+                stop: a,
+                order: 1,
+                result: StopResult.delivered(at: t0),
+              ),
+            ],
+          ),
+        ).called(1);
+        expect(cubit.state.badge, NavigationBadge.recalculated);
+        cubit.close();
+      });
+    });
+
+    test('an answer in flight at arrival that makes another stop next '
+        'clears arrived', () {
+      fakeAsync((async) {
+        final pending = Completer<RoutePlan>();
+        stubPlan(pending);
+        final cubit = navigating(async);
+        goOffRoute(async);
+        expect(cubit.state.recalcInFlight, isTrue);
+        emitFix(async, atStop(a));
+        expect(cubit.state.arrived, isTrue);
+
+        pending.complete(recalculated);
+        async.flushMicrotasks();
+
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.plan.polyline, recalculated.polyline);
+        expect(cubit.state.plan.nextStop!.stop, b);
+        expect(cubit.state.arrived, isFalse);
+        cubit.close();
+      });
+    });
+
+    test('an answer in flight at arrival that keeps the same next stop '
+        'keeps arrived', () {
+      final sameNext = RoutePlan(
+        origin: farPoint,
+        stops: const [
+          RouteStop(stop: a, order: 1),
+          RouteStop(stop: b, order: 2),
+        ],
+        polyline: [farPoint, const GeoPoint(0, 0), const GeoPoint(0, 0.02)],
+        distanceMeters: 4600,
+        durationSeconds: 420,
+        legs: const [],
+        computedAt: t0.add(const Duration(minutes: 1)),
+      );
+      fakeAsync((async) {
+        final pending = Completer<RoutePlan>();
+        stubPlan(pending);
+        final cubit = navigating(async);
+        goOffRoute(async);
+        expect(cubit.state.recalcInFlight, isTrue);
+        emitFix(async, atStop(a));
+        expect(cubit.state.arrived, isTrue);
+
+        pending.complete(sameNext);
+        async.flushMicrotasks();
+
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.plan.polyline, sameNext.polyline);
+        expect(cubit.state.plan.nextStop!.stop, a);
+        expect(cubit.state.arrived, isTrue);
+        cubit.close();
+      });
+    });
   });
 
   group('results', () {
