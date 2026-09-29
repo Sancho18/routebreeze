@@ -1799,6 +1799,64 @@ void main() {
         });
       });
 
+      test('"Finalizar rota" within 1 s of the last result is ignored: at '
+          '+999 ms it stays on the way back with nothing cleared, at +1000 ms '
+          'it completes with the summary ended at that tap', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          final onItsWayBack = cubit.state;
+
+          async.elapse(const Duration(milliseconds: 999));
+          cubit.finishRoute();
+          async.flushMicrotasks();
+
+          expect(cubit.state, onItsWayBack);
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          expect(cubit.state.plan.isReturning, isTrue);
+          expect(cubit.state.summary, isNull);
+          expect(fixes.hasListener, isTrue);
+          verifyNever(() => routes.clear());
+
+          async.elapse(const Duration(milliseconds: 1));
+          cubit.finishRoute();
+          async.flushMicrotasks();
+
+          expect(cubit.state.phase, NavigationPhase.completed);
+          expect(
+            cubit.state.summary,
+            summaryAt(t0.add(const Duration(seconds: 11))),
+          );
+          verify(() => routes.clear()).called(1);
+          cubit.close();
+        });
+      });
+
+      test('"Finalizar rota" on a route continued on its way back completes '
+          'at once: no result was recorded since it was opened', () {
+        fakeAsync((async) {
+          // Killed on its way back and continued 10 min after its last result.
+          final continued = roundTrip
+              .withStart(started)
+              .withTraveled(850)
+              .record('pa', deliveredA)
+              .record('pb', refusedB);
+          async.elapse(const Duration(minutes: 10, seconds: 10));
+          final cubit = navigating(async, continued);
+          expect(cubit.state.plan.isReturning, isTrue);
+
+          cubit.finishRoute();
+          async.flushMicrotasks();
+
+          expect(cubit.state.phase, NavigationPhase.completed);
+          expect(
+            cubit.state.summary,
+            summaryAt(t0.add(const Duration(minutes: 10, seconds: 10))),
+          );
+          verify(() => routes.clear()).called(1);
+          cubit.close();
+        });
+      });
+
       test('"Finalizar rota" is ignored before the way back: with a stop '
           'left, on a one-way route and while waiting for GPS', () {
         fakeAsync((async) {

@@ -598,6 +598,55 @@ void main() {
     expect(stored, isNull);
   });
 
+  testWidgets('a double tap on the last "Entregue" of a round trip records '
+      'it once and stays on the way back: the second tap, 150 ms later on '
+      '"Finalizar rota", is ignored, and a later tap shows the '
+      'summary', (tester) async {
+    when(() => routes.computeRoutes(any()))
+        .thenAnswer((_) async => roundTripResponse);
+    storeAsJson();
+    await openRoute(tester, roundTrip: true);
+    clock = DateTime(2026, 9, 22, 9);
+    await navigateFromRoute(tester);
+    for (final minute in [10, 20]) {
+      clock = DateTime(2026, 9, 22, 9, minute);
+      await tester.tap(find.text(RouteSheet.deliveredLabel));
+      await tester.pumpAndSettle();
+    }
+
+    clock = DateTime(2026, 9, 22, 9, 30);
+    final at = tester.getCenter(find.text(RouteSheet.deliveredLabel));
+    await tester.tapAt(at);
+    await tester.pump(const Duration(milliseconds: 150));
+    final finish = find.widgetWithText(
+      RbPrimaryButton,
+      NavigationScreen.finishLabel,
+    );
+    // "Finalizar rota" now fills the place of "Entregue", under the finger.
+    expect(tester.getRect(finish).contains(at), isTrue);
+    clock = DateTime(2026, 9, 22, 9, 30, 0, 150);
+    await tester.tapAt(at);
+    await tester.pumpAndSettle();
+
+    expect(find.text(RouteSummarySheet.title), findsNothing);
+    expect(find.byType(ReturnCard), findsOneWidget);
+    expect(finish, findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNWidgets(3));
+    final saved = RoutePlan.fromJson(
+      jsonDecode(stored!) as Map<String, dynamic>,
+    );
+    expect(saved.isReturning, isTrue);
+
+    clock = DateTime(2026, 9, 22, 9, 45);
+    await tester.tap(finish);
+    await tester.pumpAndSettle();
+
+    expect(find.text(RouteSummarySheet.title), findsOneWidget);
+    expect(find.text('3 entregues'), findsOneWidget);
+    expect(find.text('Início às 09:00 · fim às 09:45'), findsOneWidget);
+    expect(stored, isNull);
+  });
+
   testWidgets('a failed route calculation shows "Tentar novamente" and the '
       'AppBar back returns to the intact address form', (tester) async {
     await bootToMap(tester);

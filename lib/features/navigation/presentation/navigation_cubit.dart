@@ -202,8 +202,8 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   static const Duration resubscribeDelay = Duration(seconds: 5);
 
-  /// A result recorded sooner than this after the previous one is a double
-  /// tap and is ignored.
+  /// A result, or "Finalizar rota", tapped sooner than this after the
+  /// previous result is a double tap and is ignored.
   static const Duration recordGuard = Duration(seconds: 1);
 
   StreamSubscription<Fix>? _positions;
@@ -274,12 +274,17 @@ class NavigationCubit extends Cubit<NavigationState> {
       _record((at) => StopResult.failed(reason, at: at));
 
   /// "Finalizar rota": on the way back of a round trip, completes the route
-  /// at the clock time; ignored otherwise.
+  /// at the clock time; ignored otherwise. It takes the place of the result
+  /// buttons, so within [recordGuard] of the last result it is the second
+  /// tap of a double tap and is ignored too.
   Future<void> finishRoute() async {
     if (state.phase != NavigationPhase.navigating || !state.plan.isReturning) {
       return;
     }
-    await _complete(_traveled(state.plan), end: _now());
+    final now = _now();
+    final last = _lastRecordAt;
+    if (last != null && now.difference(last) < recordGuard) return;
+    await _complete(_traveled(state.plan), end: now);
   }
 
   void recenter() => emit(state.copyWith(following: true));
