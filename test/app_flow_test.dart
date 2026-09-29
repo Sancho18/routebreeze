@@ -543,6 +543,61 @@ void main() {
     expect(stored, isNull);
   });
 
+  testWidgets('a round trip killed on its way back is offered after a '
+      'restart: "Continuar" brings back the return row, the return card and '
+      '"Finalizar rota", which shows the summary', (tester) async {
+    when(() => routes.computeRoutes(any()))
+        .thenAnswer((_) async => roundTripResponse);
+    storeAsJson();
+    await openRoute(tester, roundTrip: true);
+    clock = DateTime(2026, 9, 22, 9);
+    await navigateFromRoute(tester);
+    for (final minute in [10, 20, 30]) {
+      clock = DateTime(2026, 9, 22, 9, minute);
+      await tester.tap(find.text(RouteSheet.deliveredLabel));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byType(ReturnCard), findsOneWidget);
+
+    await restart(tester);
+    expect(find.text(MapScreen.resumeTitle), findsOneWidget);
+    await tester.tap(find.text(MapScreen.resumeAccept));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationScreen), findsOneWidget);
+    // At Rua B, the last stop: the whole way back is ahead.
+    clock = DateTime(2026, 9, 22, 9, 35);
+    positions.add(Fix(points['Rua B']!, 8, DateTime.utc(2026, 9, 22, 12, 35)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(NavigationScreen.startLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NextStopCard), findsNothing);
+    expect(find.byType(ReturnCard), findsOneWidget);
+    expect(find.text('6,0 km · 10 min · chegada às 09:45'), findsOneWidget);
+    expect(
+      find.text('Faltam 6,0 km · 10 min · término às 09:45'),
+      findsOneWidget,
+    );
+    expect(find.byKey(RouteSheet.returnKey), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNWidgets(3));
+    expect(find.text(RouteSheet.deliveredLabel), findsNothing);
+    expect(find.text(RouteSheet.notDeliveredLabel), findsNothing);
+    expect(
+      find.widgetWithText(RbPrimaryButton, NavigationScreen.finishLabel),
+      findsOneWidget,
+    );
+
+    clock = DateTime(2026, 9, 22, 9, 45);
+    await tester.tap(find.text(NavigationScreen.finishLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.text(RouteSummarySheet.title), findsOneWidget);
+    expect(find.text('3 entregues'), findsOneWidget);
+    expect(find.text('0 m percorridos · 45 min'), findsOneWidget);
+    expect(find.text('Início às 09:00 · fim às 09:45'), findsOneWidget);
+    expect(stored, isNull);
+  });
+
   testWidgets('a failed route calculation shows "Tentar novamente" and the '
       'AppBar back returns to the intact address form', (tester) async {
     await bootToMap(tester);

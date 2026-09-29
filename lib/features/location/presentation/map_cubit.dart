@@ -95,14 +95,16 @@ class MapCubit extends Cubit<MapState> {
     await _routes?.clear();
   }
 
-  /// The persisted route when it is not finished; storage errors are
-  /// ignored.
+  /// The persisted route when it is not finished: a stop is left, or it is a
+  /// round trip on its way back. Storage errors are ignored.
   Future<RoutePlan?> _loadResumable() async {
     final routes = _routes;
     if (routes == null) return null;
     try {
       final plan = await routes.loadActive();
-      return plan != null && !plan.isComplete ? plan : null;
+      return plan != null && (!plan.isComplete || plan.isReturning)
+          ? plan
+          : null;
     } on Object {
       return null;
     }
