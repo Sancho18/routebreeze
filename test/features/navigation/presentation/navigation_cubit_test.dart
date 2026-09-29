@@ -133,11 +133,14 @@ void main() {
     async.flushMicrotasks();
   }
 
+  /// "Iniciar" saves the plan with its start; that save is verified here, so
+  /// a test sees only the saves that follow it.
   NavigationCubit navigating(FakeAsync async, [RoutePlan? initial]) {
     final cubit = build(async, initial)..prepare();
     async.flushMicrotasks();
     emitFix(async, onRoute());
     cubit.start();
+    verify(() => routes.save(any()));
     return cubit;
   }
 
@@ -460,6 +463,134 @@ void main() {
     });
   });
 
+  group('distance and start', () {
+    // Fixes 0.001° apart on the equator are 111.2 m apart.
+    Fix east(double lng) => fix(GeoPoint(0, lng));
+
+    test('no distance while waiting for GPS: only fixes after "Iniciar" '
+        'count', () {
+      fakeAsync((async) {
+        final cubit = build(async)..prepare();
+        async.flushMicrotasks();
+        emitFix(async, east(-0.013));
+        emitFix(async, east(-0.012));
+        emitFix(async, east(-0.011));
+        cubit.start();
+        emitFix(async, east(-0.010));
+        emitFix(async, east(-0.009));
+
+        cubit.pause();
+        async.flushMicrotasks();
+
+        final saved = verify(() => routes.save(captureAny())).captured
+            .cast<RoutePlan>();
+        expect(saved.map((p) => p.traveledMeters), [0, 111]);
+        cubit.close();
+      });
+    });
+
+    test('"Iniciar" stamps the start at the clock time and saves it; a '
+        'result, pause and "Encerrar" save the start with the distance; '
+        'fixes alone write nothing', () {
+      fakeAsync((async) {
+        final cubit = build(async)..prepare();
+        async.flushMicrotasks();
+        emitFix(async, onRoute());
+        async.elapse(const Duration(seconds: 5));
+
+        cubit.start();
+        async.flushMicrotasks();
+
+        final started = t0.add(const Duration(seconds: 5));
+        expect(cubit.state.plan.startedAt, started);
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          plan.withStart(started),
+        );
+        final afterStart = cubit.state.plan;
+
+        emitFix(async, east(-0.009));
+        emitFix(async, east(-0.008));
+        verifyNever(() => routes.save(any()));
+        expect(cubit.state.plan, afterStart);
+
+        async.elapse(const Duration(minutes: 1));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        final delivered = plan
+            .withStart(started)
+            .record(
+              'pa',
+              StopResult.delivered(at: t0.add(const Duration(seconds: 65))),
+            );
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          delivered.withTraveled(111),
+        );
+
+        emitFix(async, east(-0.007));
+        cubit.pause();
+        async.flushMicrotasks();
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          delivered.withTraveled(222),
+        );
+
+        cubit.resume();
+        emitFix(async, east(-0.006));
+        cubit.stop();
+        async.flushMicrotasks();
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          delivered.withTraveled(334),
+        );
+        cubit.close();
+      });
+    });
+
+    test('a cubit built from a saved plan keeps its first start and '
+        'continues its distance up to the summary; background after the end '
+        'saves nothing', () {
+      final first = t0.subtract(const Duration(hours: 1));
+      final resumed = plan.withStart(first).withTraveled(850);
+      fakeAsync((async) {
+        final cubit = navigating(async, resumed);
+        expect(cubit.state.plan.startedAt, first);
+
+        emitFix(async, east(-0.009));
+        emitFix(async, east(-0.008));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        final saved =
+            verify(() => routes.save(captureAny())).captured.single
+                as RoutePlan;
+        expect(saved.startedAt, first);
+        expect(saved.traveledMeters, 961);
+
+        async.elapse(NavigationCubit.recordGuard);
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        expect(
+          cubit.state.summary,
+          RouteSummary(
+            delivered: 2,
+            failed: const [],
+            traveledMeters: 961,
+            start: first,
+            end: t0.add(NavigationCubit.recordGuard),
+          ),
+        );
+
+        cubit.pause();
+        async.flushMicrotasks();
+        verifyNever(() => routes.save(any()));
+        cubit.close();
+      });
+    });
+  });
+
   group('recalculation', () {
     test('3 far fixes → one request from the current position through the '
         'unvisited stops; the plan is replaced and "Rota recalculada" '
@@ -540,7 +671,7 @@ void main() {
           () =>
               routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
         ).called(1);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
         expect(cubit.state.recalcInFlight, isFalse);
         expect(cubit.state.badge, NavigationBadge.recalcFailed);
         expect(cubit.state.badge!.kind, BadgeKind.recalcFailed);
@@ -548,7 +679,7 @@ void main() {
 
         async.elapse(const Duration(seconds: 4));
         expect(cubit.state.badge, isNull);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
 
         async.elapse(const Duration(seconds: 15));
         emitFix(async, far());
@@ -609,7 +740,7 @@ void main() {
           () =>
               routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
         ).called(1);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
 
         pending.complete(recalculated);
         async.flushMicrotasks();
@@ -640,7 +771,7 @@ void main() {
         expect(cubit.state.badge!.text, 'Recálculo pendente (sem conexão)');
         async.elapse(const Duration(seconds: 4));
         expect(cubit.state.badge, NavigationBadge.recalcPending);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
 
         online.add(true);
         async.flushMicrotasks();

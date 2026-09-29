@@ -12,6 +12,7 @@ import '../../route/domain/route_plan.dart';
 import '../../route/domain/route_repository.dart';
 import '../../route/domain/stop_result.dart';
 import '../domain/deviation_detector.dart';
+import '../domain/odometer.dart';
 import '../domain/progress_estimator.dart';
 import '../domain/recalc_policy.dart';
 import '../domain/route_summary.dart';
@@ -153,7 +154,8 @@ class NavigationState extends Equatable {
 }
 
 /// Live navigation over one [RoutePlan]: position stream, arrival,
-/// off-route recalculation, offline deferral and progress to the next stop.
+/// results, off-route recalculation, offline deferral, progress to the next
+/// stop and the distance traveled.
 class NavigationCubit extends Cubit<NavigationState> {
   NavigationCubit({
     required RoutePlan plan,
@@ -170,6 +172,7 @@ class NavigationCubit extends Cubit<NavigationState> {
        _arrival = arrival ?? ArrivalDetector(),
        _policy = policy ?? RecalcPolicy(),
        _now = now ?? DateTime.now,
+       _odometer = Odometer(meters: plan.traveledMeters),
        super(NavigationState(plan: plan));
 
   final LocationService _location;
@@ -181,6 +184,10 @@ class NavigationCubit extends Cubit<NavigationState> {
   final RecalcPolicy _policy;
   final ProgressEstimator _estimator;
   final DateTime Function() _now;
+
+  /// Distance traveled while navigating, from the plan's saved value; it
+  /// reaches the plan only when the plan is saved, never per fix.
+  final Odometer _odometer;
 
   static const double maxStartAccuracyMeters = 50;
 
@@ -225,18 +232,30 @@ class NavigationCubit extends Cubit<NavigationState> {
     _online ??= _connectivity.isOnline.listen(onOnlineChanged);
   }
 
+  /// Navigates; the first "Iniciar" of the route stamps its start, which is
+  /// saved with it.
   void start() {
     if (!state.canStart) return;
     _session.isNavigationActive = true;
+    final plan = _traveled(state.plan.withStart(_now()));
     emit(
       _measured(
-        state.copyWith(phase: NavigationPhase.navigating, following: true),
+        state.copyWith(
+          phase: NavigationPhase.navigating,
+          following: true,
+          plan: plan,
+        ),
       ),
     );
+    unawaited(_routes.save(plan));
   }
 
-  /// Stops the streams and leaves the route intact.
+  /// Stops the streams and leaves the route intact; while navigating it is
+  /// saved with its start and distance.
   void stop() {
+    if (state.phase == NavigationPhase.navigating) {
+      unawaited(_routes.save(_traveled(state.plan)));
+    }
     _cancelAll();
     emit(_measured(state.copyWith(phase: NavigationPhase.idle)));
   }
@@ -255,12 +274,16 @@ class NavigationCubit extends Cubit<NavigationState> {
   void onMapDragged() => emit(state.copyWith(following: false));
 
   /// Pauses the position stream while the app is in the background; state
-  /// is kept.
+  /// is kept. While navigating the route is saved with its start and
+  /// distance.
   void pause() {
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
     _positions?.cancel();
     _positions = null;
+    if (state.phase == NavigationPhase.navigating) {
+      unawaited(_routes.save(_traveled(state.plan)));
+    }
   }
 
   void resume() {
@@ -339,6 +362,9 @@ class NavigationCubit extends Cubit<NavigationState> {
     return next.copyWith(progress: progress, clearProgress: progress == null);
   }
 
+  /// [plan] with the distance traveled so far.
+  RoutePlan _traveled(RoutePlan plan) => plan.withTraveled(_odometer.meters);
+
   void _onStreamError(Object error) => _onStreamEnded();
 
   /// Keeps the last position, shows the message and listens again after
@@ -355,6 +381,7 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   Future<void> _navigate(Fix fix) async {
+    _odometer.add(fix);
     if (fix.accuracyMeters <= _deviation.maxAccuracyMeters) _lastAccepted = fix;
     final next = state.plan.nextStop;
     if (next != null && _arrival.isArrived(fix, next.stop)) {
@@ -398,7 +425,7 @@ class NavigationCubit extends Cubit<NavigationState> {
       return;
     }
     _lastRecordAt = now;
-    final plan = state.plan.record(next.stop.placeId, result(now));
+    final plan = _traveled(state.plan.record(next.stop.placeId, result(now)));
     _deviation.reset();
     if (plan.isComplete) {
       _positions?.cancel();
@@ -414,7 +441,7 @@ class NavigationCubit extends Cubit<NavigationState> {
             arrived: false,
             summary: RouteSummary.of(
               plan,
-              traveledMeters: plan.traveledMeters,
+              traveledMeters: _odometer.meters,
               end: now,
             ),
           ),
