@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 
-/// A decoded PNG from `assets/brand/`.
+/// A decoded PNG from `assets/brand/` or another [dir].
 class Png {
   Png(this.width, this.height, this.rgba);
 
@@ -15,8 +15,8 @@ class Png {
   final int height;
   final ByteData rgba;
 
-  static Future<Png> load(String name) async {
-    final bytes = File('assets/brand/$name').readAsBytesSync();
+  static Future<Png> load(String name, {String dir = 'assets/brand'}) async {
+    final bytes = File('$dir/$name').readAsBytesSync();
     final codec = await ui.instantiateImageCodec(bytes);
     final image = (await codec.getNextFrame()).image;
     final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
@@ -46,6 +46,20 @@ class Png {
       }
     }
     return farthest;
+  }
+
+  /// Number of pixels that are not white. [rgba] is premultiplied, so a white
+  /// pixel reads its alpha on every channel, whatever its coverage.
+  int notWhite() {
+    var count = 0;
+    for (var i = 0; i < width * height * 4; i += 4) {
+      final alpha = rgba.getUint8(i + 3);
+      if ([for (var c = 0; c < 3; c++) rgba.getUint8(i + c)]
+          .any((channel) => channel != alpha)) {
+        count++;
+      }
+    }
+    return count;
   }
 }
 
@@ -138,5 +152,48 @@ void main() {
       expect(splash.at(splashPoint(t, image: 960, circle: 640)), white);
     }
     expect(splash.farthestDrawn(), lessThanOrEqualTo(320 + edgePixel));
+  });
+
+  group('ic_stat_routebreeze.png, the notification small icon', () {
+    const sizes = {
+      'mdpi': 24,
+      'hdpi': 36,
+      'xhdpi': 48,
+      'xxhdpi': 72,
+      'xxxhdpi': 96,
+    };
+    Future<Png> icon(String density) => Png.load(
+      'ic_stat_routebreeze.png',
+      dir: 'android/app/src/main/res/drawable-$density',
+    );
+
+    /// [curvePoint] of the mark at scale 1 on 1024 px, on a [size] px icon.
+    Offset iconPoint(double t, int size) =>
+        curvePoint(t, canvas: 1024, scale: 1) * (size / 1024);
+
+    test('24, 36, 48, 72 and 96 px from mdpi to xxxhdpi', () async {
+      for (final MapEntry(key: density, value: size) in sizes.entries) {
+        final png = await icon(density);
+        expect([png.width, png.height], [size, size], reason: density);
+      }
+    });
+
+    test('every drawn pixel is white, on a transparent background', () async {
+      for (final MapEntry(key: density, value: size) in sizes.entries) {
+        final png = await icon(density);
+        expect(png.at(Offset.zero)[3], clear, reason: density);
+        expect(png.at(iconPoint(1, size)), white, reason: density);
+        expect(png.notWhite(), 0, reason: density);
+      }
+    });
+
+    test('the white mark along the loader curve, the ring hole '
+        'see-through', () async {
+      final png = await icon('xxxhdpi');
+      for (final t in [0.25, 0.5, 0.75, 1.0]) {
+        expect(png.at(iconPoint(t, 96)), white, reason: 't=$t');
+      }
+      expect(png.at(iconPoint(0, 96))[3], clear);
+    });
   });
 }
