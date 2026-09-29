@@ -416,6 +416,17 @@ void main() {
 
   group('RouteScreen accessibility', () {
     final ready = RouteState(status: RouteStatus.ready, plan: plan);
+    final roundTrip = RoutePlan(
+      origin: origin,
+      stops: plan.stops,
+      polyline: const [origin, GeoPoint(-23.60, -46.70), origin],
+      distanceMeters: 17345,
+      durationSeconds: 1025,
+      legs: const [],
+      computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+      returnTo: origin,
+      returnLeg: const RouteLeg(distanceMeters: 5000, durationSeconds: 420),
+    );
     // Each state with a text that proves it is on screen, and whether the
     // connectivity check answers online.
     final states = <String, (RouteState, String, bool)>{
@@ -433,6 +444,11 @@ void main() {
         true,
       ),
       'ready with the sheet': (ready, RouteSheet.heading, true),
+      'ready with a round trip': (
+        RouteState(status: RouteStatus.ready, plan: roundTrip),
+        'Retorno ao ponto de partida',
+        true,
+      ),
       'offline': (ready, RouteScreen.offlineBanner, false),
     };
 

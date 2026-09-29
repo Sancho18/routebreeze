@@ -10,7 +10,8 @@ import 'route_format.dart';
 import 'stop_badge.dart';
 import 'stop_result_labels.dart';
 
-/// Bottom sheet with the optimized stop order, totals and the primary action.
+/// Bottom sheet with the optimized stop order (a round trip ends with the way
+/// back to the start), totals and the primary action.
 /// While a stop is left, [onDelivered] and [onNotDelivered] add the
 /// "Entregue" and "Não entregue" buttons side by side above the primary
 /// action; [totals] replaces the plan's distance and duration line; [footer]
@@ -54,6 +55,9 @@ class RouteSheet extends StatelessWidget {
 
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');
 
+  static const String returnLabel = 'Retorno ao ponto de partida';
+  static const Key returnKey = ValueKey('return');
+
   /// The stop list never grows past this (or 40% of the screen): heading,
   /// totals and actions stay visible and the list scrolls.
   static const double maxListHeight = 320;
@@ -86,14 +90,16 @@ class RouteSheet extends StatelessWidget {
               child: ListView.separated(
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
-                itemCount: plan.stops.length,
+                itemCount: plan.stops.length + (plan.isRoundTrip ? 1 : 0),
                 separatorBuilder: (_, _) => Divider(
                   height: rowGap,
                   thickness: 1,
                   indent: dividerIndent,
                   color: rb.border,
                 ),
-                itemBuilder: (_, i) => _StopRow(plan.stops[i]),
+                itemBuilder: (_, i) => i < plan.stops.length
+                    ? _StopRow(plan.stops[i])
+                    : const _ReturnRow(),
               ),
             ),
             const SizedBox(height: RbSpace.s2),
@@ -177,6 +183,37 @@ class _StopRow extends StatelessWidget {
                   style: RbText.caption.copyWith(color: rb.inkMuted),
                 ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The last row of a round trip: a home on a `brand` circle that, like
+/// [StopBadge], scales with the system text.
+class _ReturnRow extends StatelessWidget {
+  const _ReturnRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final rb = context.rb;
+    final side = MediaQuery.textScalerOf(context).scale(StopBadge.size);
+    return Row(
+      key: RouteSheet.returnKey,
+      children: [
+        Container(
+          width: side,
+          height: side,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: rb.brand, shape: BoxShape.circle),
+          child: Icon(Icons.home, size: StopBadge.iconSize, color: rb.onFill),
+        ),
+        const SizedBox(width: RbSpace.s2),
+        Expanded(
+          child: Text(
+            RouteSheet.returnLabel,
+            style: RbText.body.copyWith(color: rb.ink),
           ),
         ),
       ],

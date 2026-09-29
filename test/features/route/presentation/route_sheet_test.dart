@@ -37,6 +37,24 @@ void main() {
     computedAt: DateTime.utc(2026, 9, 22, 10, 30),
   );
 
+  /// [plan] as a round trip: 5 km and 7 min back to [origin] on top of the
+  /// 12,3 km and 10 min to the stops.
+  RoutePlan roundTrip() => RoutePlan(
+    origin: origin,
+    stops: const [
+      RouteStop(stop: b, order: 1),
+      RouteStop(stop: a, order: 2),
+      RouteStop(stop: c, order: 3),
+    ],
+    polyline: const [origin],
+    distanceMeters: 17345,
+    durationSeconds: 1025,
+    legs: const [],
+    computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+    returnTo: origin,
+    returnLeg: const RouteLeg(distanceMeters: 5000, durationSeconds: 420),
+  );
+
   final startFinder = find.widgetWithText(RbPrimaryButton, 'Iniciar');
   final deliveredFinder = find.widgetWithText(RbPrimaryButton, 'Entregue');
   final notDeliveredFinder = find.widgetWithText(
@@ -81,6 +99,16 @@ void main() {
   }
 
   Finder row(String placeId) => find.byKey(RouteSheet.stopKey(placeId));
+
+  final returnRow = find.byKey(RouteSheet.returnKey);
+
+  /// The circle behind the home icon of the return row.
+  Finder homeBadge() => find
+      .ancestor(
+        of: find.descendant(of: returnRow, matching: find.byIcon(Icons.home)),
+        matching: find.byType(Container),
+      )
+      .first;
 
   Text textIn(WidgetTester tester, Finder scope, String text) => tester
       .widget<Text>(find.descendant(of: scope, matching: find.text(text)));
@@ -544,6 +572,77 @@ void main() {
       expect(startFinder, findsOneWidget);
     });
 
+    testWidgets('a round trip ends the list with "Retorno ao ponto de partida" '
+        'in body/ink after the stops, behind the same divider, with a 24 px '
+        'brand home badge', (tester) async {
+      await pumpSheet(tester, plan: roundTrip());
+
+      expect(returnRow, findsOneWidget);
+      final label = textIn(tester, returnRow, 'Retorno ao ponto de partida');
+      expect(label.style!.fontSize, 15);
+      expect(label.style!.fontWeight, FontWeight.w400);
+      expect(label.style!.color, RbColors.ink);
+      expect(
+        tester.getTopLeft(returnRow).dy - tester.getBottomLeft(row('pc')).dy,
+        RouteSheet.rowGap,
+      );
+      expect(find.byType(Divider), findsNWidgets(3));
+      expect(
+        tester.getTopLeft(find.byType(Divider).last).dy,
+        tester.getBottomLeft(row('pc')).dy,
+      );
+
+      final badge = tester.widget<Container>(homeBadge());
+      final decoration = badge.decoration! as BoxDecoration;
+      expect(decoration.color, RbColors.brand);
+      expect(decoration.shape, BoxShape.circle);
+      expect(tester.getSize(homeBadge()), const Size(24, 24));
+      final home = tester.widget<Icon>(find.byIcon(Icons.home));
+      expect(home.color, Colors.white);
+      expect(home.size, 16);
+      expect(
+        tester.getTopLeft(homeBadge()).dx,
+        tester.getTopLeft(row('pc')).dx,
+      );
+    });
+
+    testWidgets('a one-way route has no return row', (tester) async {
+      await pumpSheet(tester, plan: plan());
+
+      expect(returnRow, findsNothing);
+      expect(find.text('Retorno ao ponto de partida'), findsNothing);
+      expect(find.byIcon(Icons.home), findsNothing);
+    });
+
+    testWidgets('the totals of a round trip are the plan\'s, the way back '
+        'included: "17,3 km · 17 min"', (tester) async {
+      await pumpSheet(tester, plan: roundTrip());
+
+      expect(find.text('17,3 km · 17 min'), findsOneWidget);
+      expect(find.text('12,3 km · 10 min'), findsNothing);
+    });
+
+    testWidgets('the return row stays last once every stop has a result', (
+      tester,
+    ) async {
+      await pumpSheet(
+        tester,
+        plan: roundTrip()
+            .record('pb', delivered)
+            .record('pa', refused)
+            .record('pc', delivered),
+      );
+
+      expect(
+        tester.getTopLeft(returnRow).dy,
+        greaterThan(tester.getBottomLeft(row('pc')).dy),
+      );
+      expect(
+        textIn(tester, returnRow, 'Retorno ao ponto de partida').style!.color,
+        RbColors.ink,
+      );
+    });
+
     testWidgets('renders the footer below the actions', (tester) async {
       const footerKey = Key('footer');
       await pumpSheet(
@@ -616,6 +715,25 @@ void main() {
       expect(materialOf(tester, startFinder).color, const Color(0xFF7EA6F8));
     });
 
+    testWidgets('the return row: a #7EA6F8 home badge with a #0F1115 home '
+        'and a #F2F4F7 label', (tester) async {
+      await pumpSheet(tester, plan: roundTrip(), mode: ThemeMode.dark);
+
+      final badge = tester.widget<Container>(homeBadge());
+      expect(
+        (badge.decoration! as BoxDecoration).color,
+        const Color(0xFF7EA6F8),
+      );
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.home)).color,
+        const Color(0xFF0F1115),
+      );
+      expect(
+        textIn(tester, returnRow, 'Retorno ao ponto de partida').style!.color,
+        const Color(0xFFF2F4F7),
+      );
+    });
+
     testWidgets('the reason of a stop not delivered is #A4ACB9', (
       tester,
     ) async {
@@ -661,6 +779,23 @@ void main() {
         await expectAccessibleGuidelines(tester);
       });
     }
+
+    testWidgets('at 200% text the home badge grows to 48 px like the stop '
+        'badges and the return row lays out whole', (tester) async {
+      await setLargeTextPhone(tester);
+      await pumpSheet(tester, plan: roundTrip(), mode: ThemeMode.light);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Retorno ao ponto de partida'), findsOneWidget);
+      expectNoClippedText(tester);
+      expect(tester.getSize(homeBadge()), const Size(48, 48));
+      expect(
+        tester.getSize(
+          find.descendant(of: row('pb'), matching: find.byType(StopBadge)),
+        ),
+        const Size(48, 48),
+      );
+    });
 
     testWidgets('at 200% text on a 360×800 phone it lays out whole and the '
         'result buttons share the height of the taller label', (tester) async {
