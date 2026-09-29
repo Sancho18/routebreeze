@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -131,6 +133,7 @@ void main() {
     bool settle = true,
   }) async {
     cubit = MockNavigationCubit();
+    when(() => cubit.stop()).thenAnswer((_) async {});
     when(() => cubit.recordDelivered()).thenAnswer((_) async {});
     when(() => cubit.recordFailed(any())).thenAnswer((_) async {});
     whenListen(
@@ -301,6 +304,56 @@ void main() {
         (m) => m.markerId.value == 'stop-pb',
       );
       expect(second.icon.toJson(), ['defaultMarker', 20.0]);
+    });
+
+    testWidgets('"Encerrar" leaves only once the stop has saved the route, so '
+        'the route screen reads that save', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final saved = Completer<void>();
+      when(() => cubit.stop()).thenAnswer((_) => saved.future);
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
+      await tester.pump();
+
+      verify(() => cubit.stop()).called(1);
+      expect(exits, 0);
+
+      saved.complete();
+      await tester.pump();
+      expect(exits, 1);
+    });
+
+    testWidgets('a failed save on "Encerrar" still leaves the navigation', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final failure = StateError('storage');
+      when(() => cubit.stop()).thenAnswer((_) => Future<void>.error(failure));
+      final errors = <Object>[];
+
+      // The error still surfaces, uncaught; the zone takes it here.
+      runZonedGuarded(
+        primary(tester, 'Encerrar').onPressed!,
+        (error, _) => errors.add(error),
+      );
+      await tester.pump();
+
+      expect(exits, 1);
+      expect(errors, [failure]);
     });
 
     testWidgets('navigating: "Não entregue" asks "Por que não foi entregue?" '

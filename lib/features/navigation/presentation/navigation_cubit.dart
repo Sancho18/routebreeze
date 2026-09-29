@@ -252,13 +252,15 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   /// Stops the streams and leaves the route intact; while navigating it is
-  /// saved with its start and distance.
-  void stop() {
-    if (state.phase == NavigationPhase.navigating) {
-      unawaited(_routes.save(_traveled(state.plan)));
-    }
+  /// saved with its start and distance, and the future completes with that
+  /// save.
+  Future<void> stop() {
+    final save = state.phase == NavigationPhase.navigating
+        ? _routes.save(_traveled(state.plan))
+        : Future<void>.value();
     _cancelAll();
     emit(_measured(state.copyWith(phase: NavigationPhase.idle)));
+    return save;
   }
 
   /// "Entregue": the next stop delivered at the clock time.

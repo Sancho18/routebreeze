@@ -1247,6 +1247,27 @@ void main() {
       });
     });
 
+    test('"Encerrar" completes once the route is saved', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        final save = Completer<void>();
+        when(() => routes.save(any())).thenAnswer((_) => save.future);
+        var done = false;
+
+        cubit.stop().then((_) => done = true);
+        async.flushMicrotasks();
+
+        expect(cubit.state.phase, NavigationPhase.idle);
+        verify(() => routes.save(any())).called(1);
+        expect(done, isFalse);
+
+        save.complete();
+        async.flushMicrotasks();
+        expect(done, isTrue);
+        cubit.close();
+      });
+    });
+
     test('close cancels everything', () {
       fakeAsync((async) {
         final cubit = navigating(async);

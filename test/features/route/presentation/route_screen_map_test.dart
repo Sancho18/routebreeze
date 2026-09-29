@@ -86,7 +86,7 @@ void main() {
       cubit: cubit,
       connectivity: connectivity,
       markers: FakeMapMarkers(),
-      onStart: (_) {},
+      onStart: (_) async {},
     );
     await tester.pumpWidget(
       mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),

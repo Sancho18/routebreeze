@@ -238,10 +238,10 @@ void main() {
     expect(find.text('$name, São Paulo'), findsOneWidget);
   }
 
-  /// Backs [storage] with [stored], starting from [plan]: saves write the
-  /// route as JSON text and loads read it back, as on the device.
-  void storeAsJson(RoutePlan plan) {
-    stored = jsonEncode(plan.toJson());
+  /// Backs [storage] with [stored], starting from [plan] or empty: saves
+  /// write the route as JSON text and loads read it back, as on the device.
+  void storeAsJson([RoutePlan? plan]) {
+    stored = plan == null ? null : jsonEncode(plan.toJson());
     when(() => storage.load()).thenAnswer(
       (_) async => switch (stored) {
         final json? => RoutePlan.fromJson(
@@ -275,6 +275,33 @@ void main() {
     await bootToMap(tester);
     await tester.tap(find.text(MapScreen.resumeAccept));
     await tester.pumpAndSettle();
+    positions.add(Fix(origin, 8, DateTime.utc(2026, 9, 22, 10, 1)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(NavigationScreen.startLabel));
+    await tester.pumpAndSettle();
+    expect(find.text(NavigationScreen.stopLabel), findsOneWidget);
+  }
+
+  /// From the map through the addresses "Rua A", "Rua B" and "Rua C" to the
+  /// route screen, optimized as C, A, B.
+  Future<void> openRoute(WidgetTester tester) async {
+    await bootToMap(tester);
+    await tester.tap(find.text(MapScreen.continueLabel));
+    await tester.pumpAndSettle();
+    await pickAddress(tester, 0, 'Rua A');
+    await pickAddress(tester, 1, 'Rua B');
+    await pickAddress(tester, 2, 'Rua C');
+    await tester.tap(find.text(AddressesScreen.confirmLabel));
+    await tester.pumpAndSettle();
+    expect(find.byType(RouteScreen), findsOneWidget);
+  }
+
+  /// "Iniciar" on the route screen, a precise fix, then "Iniciar" on the
+  /// navigation at the current [clock].
+  Future<void> navigateFromRoute(WidgetTester tester) async {
+    await tester.tap(find.text('Iniciar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationScreen), findsOneWidget);
     positions.add(Fix(origin, 8, DateTime.utc(2026, 9, 22, 10, 1)));
     await tester.pumpAndSettle();
     await tester.tap(find.text(NavigationScreen.startLabel));
@@ -621,5 +648,96 @@ void main() {
     expect(find.byType(NavigationScreen), findsNothing);
     expect(find.text(MapScreen.resumeTitle), findsNothing);
     expect(stored, isNull);
+  });
+
+  group('back on the route screen', () {
+    // The typed "Rua A", second in the optimized order C, A, B.
+    final secondStop = RouteStop(
+      stop: Stop('id-Rua A', 'Rua A, São Paulo', points['Rua A']!),
+      order: 2,
+    );
+
+    testWidgets('"Encerrar" returns to the route with stop 1 delivered and '
+        '"Iniciar" continues from stop 2: the summary counts every result '
+        'with the first start and the distance driven before "Encerrar"', (
+      tester,
+    ) async {
+      storeAsJson();
+      await openRoute(tester);
+
+      clock = DateTime(2026, 9, 22, 9);
+      await navigateFromRoute(tester);
+      // 100 m driven before the first result.
+      positions
+        ..add(Fix(origin, 8, DateTime.utc(2026, 9, 22, 10, 2)))
+        ..add(
+          Fix(
+            GeoPoint(origin.lat + lat(100), origin.lng),
+            8,
+            DateTime.utc(2026, 9, 22, 10, 3),
+          ),
+        );
+      await tester.pumpAndSettle();
+      clock = DateTime(2026, 9, 22, 9, 5);
+      await tester.tap(find.text(RouteSheet.deliveredLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(NavigationScreen.stopLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationScreen), findsNothing);
+      expect(find.byType(RouteScreen), findsOneWidget);
+      expect(inRow('id-Rua C', find.byIcon(Icons.check)), findsOneWidget);
+      expect(inRow('id-Rua A', find.text('2')), findsOneWidget);
+      expect(inRow('id-Rua B', find.text('3')), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
+
+      clock = DateTime(2026, 9, 22, 9, 10);
+      await navigateFromRoute(tester);
+      expect(
+        tester.widget<NextStopCard>(find.byType(NextStopCard)).stop,
+        secondStop,
+      );
+
+      clock = DateTime(2026, 9, 22, 9, 15);
+      await tester.tap(find.text(RouteSheet.deliveredLabel));
+      await tester.pumpAndSettle();
+      clock = DateTime(2026, 9, 22, 9, 25);
+      await tester.tap(find.text(RouteSheet.notDeliveredLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Recusado'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(RouteSummarySheet.title), findsOneWidget);
+      expect(find.text('2 entregues · 1 não entregue'), findsOneWidget);
+      expect(find.text('100 m percorridos · 25 min'), findsOneWidget);
+      expect(find.text('Início às 09:00 · fim às 09:25'), findsOneWidget);
+      expect(find.text('Parada 3 · Rua B, São Paulo'), findsOneWidget);
+      expect(find.text('Recusado'), findsOneWidget);
+    });
+
+    testWidgets('the system back from the navigation also returns to the '
+        'route with stop 1 delivered, and "Iniciar" continues from stop 2', (
+      tester,
+    ) async {
+      storeAsJson();
+      await openRoute(tester);
+      await navigateFromRoute(tester);
+      await tester.tap(find.text(RouteSheet.deliveredLabel));
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationScreen), findsNothing);
+      expect(find.byType(RouteScreen), findsOneWidget);
+      expect(inRow('id-Rua C', find.byIcon(Icons.check)), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
+
+      await navigateFromRoute(tester);
+      expect(
+        tester.widget<NextStopCard>(find.byType(NextStopCard)).stop,
+        secondStop,
+      );
+    });
   });
 }

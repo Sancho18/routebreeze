@@ -69,7 +69,7 @@ class NavigationScreen extends StatefulWidget {
 
   final RoutePlan plan;
 
-  /// Called on "Encerrar" once the stream is stopped.
+  /// Called on "Encerrar" once the stream is stopped and the route saved.
   final VoidCallback onExit;
 
   /// "Nova rota" on the summary.
@@ -227,9 +227,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _cubit.onMapDragged();
   }
 
-  void _stop() {
-    _cubit.stop();
-    widget.onExit();
+  /// Leaves once the route is saved, so the screen below reads that save;
+  /// a failed save still leaves.
+  Future<void> _stop() async {
+    try {
+      await _cubit.stop();
+    } finally {
+      if (mounted) widget.onExit();
+    }
   }
 
   /// "Não entregue": the reason picked records the next stop; closing the
