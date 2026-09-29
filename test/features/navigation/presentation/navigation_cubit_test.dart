@@ -1202,8 +1202,8 @@ void main() {
       });
     });
 
-    test('closing a stale cubit leaves the hooks and the active flag of a '
-        'cubit prepared after it untouched', () {
+    test('closing a stale cubit leaves the hooks, the active flag and the '
+        'tracker of a cubit prepared after it untouched', () {
       fakeAsync((async) {
         final first = build(async)..prepare();
         async.flushMicrotasks();
@@ -1216,6 +1216,9 @@ void main() {
         first.close();
         async.flushMicrotasks();
 
+        // The stale cubit never navigated, so the service the second one
+        // started keeps running.
+        verifyNever(() => tracker.stop());
         expect(session.isNavigationActive, isTrue);
         expect(session.onPause, isNotNull);
         expect(session.onResume, isNotNull);
