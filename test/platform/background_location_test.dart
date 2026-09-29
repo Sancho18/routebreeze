@@ -29,6 +29,25 @@ void main() {
     ]);
   });
 
+  test('Android keeps the notification small icon, which only Dart names, '
+      'from the release build\'s resource shrinking', () {
+    final keep = File('android/app/src/main/res/raw/keep.xml')
+        .readAsStringSync();
+    final resources = RegExp(r'<resources\b[^>]*>').firstMatch(keep)![0]!;
+    final attributes = {
+      for (final attribute in RegExp(
+        r'([\w:]+)="([^"]*)"',
+      ).allMatches(resources))
+        attribute[1]!: attribute[2]!,
+    };
+
+    expect(attributes['xmlns:tools'], 'http://schemas.android.com/tools');
+    expect(
+      [for (final name in attributes['tools:keep']!.split(',')) name.trim()],
+      ['@drawable/ic_stat_routebreeze'],
+    );
+  });
+
   test('iOS declares the location background mode only', () {
     final plist = File('ios/Runner/Info.plist').readAsStringSync();
     final modes = RegExp(

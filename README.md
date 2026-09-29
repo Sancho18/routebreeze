@@ -120,12 +120,21 @@ xcrun simctl location booted set -23.5645,-46.6527
 
 As duas primeiras linhas cadastram um rosto, a terceira reconhece o rosto quando o app pede o Face ID e a última fixa a posição na Av. Paulista. `xcrun simctl location booted start --speed=25 -` lê pontos `lat,lng` da entrada padrão e percorre o caminho, o que serve para ver a navegação andando. Não testei num iPhone físico.
 
-Acompanhamento em segundo plano no Android: os testes conferem as chamadas ao foreground service e as configurações do stream de posição, e o resto se confere num aparelho, com o APK instalado:
+Acompanhamento em segundo plano no Android: os testes conferem as chamadas ao foreground service e as configurações do stream de posição, e o resto se confere num aparelho. O APK da v0.1.0 (em "Demonstração") é anterior a essa funcionalidade. Compile o APK de release a partir deste código (branch `feature/background-tracking` em diante) e instale:
+
+```bash
+flutter build apk --release --dart-define-from-file=env.json
+adb install build/app/outputs/flutter-apk/app-release.apk
+```
+
+Esse APK é assinado com a chave de debug da máquina que compila (veja acima), e o Android não atualiza um app instalado com outra assinatura. Se o aparelho tiver um RouteBreeze assinado por outra máquina, como o APK da v0.1.0 para quem não o compilou, desinstale-o antes com `adb uninstall com.viniciusrocha.routebreeze`. A rota salva vai junto.
 
 1. Calcule uma rota, toque em "Iniciar" e bloqueie a tela. A notificação "RouteBreeze · Acompanhando sua rota" fica no painel.
 2. Com a tela bloqueada, ande até a próxima parada.
 3. Desbloqueie: o card mostra "Você chegou".
-4. Toque em "Encerrar": a notificação some.
+4. Abra outro app, espere 30 s ou mais e toque na notificação: o RouteBreeze volta na tela de navegação, sem a tela de bloqueio.
+5. Toque em "Encerrar": a notificação some.
+6. Com as notificações do RouteBreeze desativadas (veja abaixo), repita os passos 1 a 3. Sem a notificação no painel, a caminhada com a tela bloqueada ainda termina em "Você chegou".
 
 No Android 13 ou mais novo, o app ainda não pede a permissão de notificação. Para ver a notificação, ative as notificações do RouteBreeze nas configurações do app antes de começar; sem elas, o acompanhamento funciona igual, só que sem a notificação no painel.
 
@@ -137,7 +146,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 1010 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `POST_NOTIFICATIONS` e `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 1011 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android, o `res/raw/keep.xml` que mantém o ícone da notificação no build de release e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `POST_NOTIFICATIONS` e `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -419,7 +428,7 @@ git checkout ios/Runner.xcodeproj/project.pbxproj
 O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca no projeto do Xcode (`ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS` vira `AppIcon`, um valor inválido). Com ele, regenerar não muda nenhum arquivo versionado.
 
 - **Android.** Ícone adaptativo (fundo `brand`, a marca como primeiro plano dentro da zona segura de 66 dp), camada monocromática para os ícones temáticos do Android 13+ e PNGs de 48 a 192 px para o Android 7 (minSdk 24).
-- **Notificação.** O ícone pequeno da notificação é a marca em branco sobre transparente: o Android usa só a transparência desse ícone, e um ícone colorido e opaco viraria um quadrado branco.
+- **Notificação.** O ícone pequeno da notificação é a marca em branco sobre transparente: o Android usa só a transparência desse ícone, e um ícone colorido e opaco viraria um quadrado branco. Só o Dart cita esse ícone pelo nome, e o build de release remove os recursos que o código Android não referencia. Por isso `android/app/src/main/res/raw/keep.xml` mantém o ícone no APK de release.
 - **iOS.** Todos os tamanhos do catálogo, sem canal alfa.
 - **Nome.** "RouteBreeze" no Android e no iOS.
 - **Abertura.** O círculo do ícone no centro, sobre a cor da tela de bloqueio (`surface-200`): #FFFFFF no modo claro e #1A1D23 no escuro. No Android 12+, a abertura do sistema mostra a marca sobre o círculo azul.
