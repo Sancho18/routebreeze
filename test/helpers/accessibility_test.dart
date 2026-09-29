@@ -39,6 +39,61 @@ void main() {
       expect(() => expectNoClippedText(tester), throwsA(isA<TestFailure>()));
     });
 
+    /// The one-line size of a short word, measured on screen.
+    Future<Size> oneLineSize(WidgetTester tester) async {
+      await pumpText(tester, const Text('Rua'));
+      final paragraph = tester.renderObject<RenderParagraph>(find.text('Rua'));
+      return Size(
+        paragraph.getMaxIntrinsicWidth(double.infinity),
+        paragraph.getMaxIntrinsicHeight(double.infinity),
+      );
+    }
+
+    testWidgets('fails on a line cut 2 px short of its height', (tester) async {
+      final line = await oneLineSize(tester);
+      await pumpText(
+        tester,
+        Center(
+          child: SizedBox(height: line.height - 2, child: const Text('Rua')),
+        ),
+      );
+
+      expect(() => expectNoClippedText(tester), throwsA(isA<TestFailure>()));
+    });
+
+    testWidgets('fails on a line that does not wrap, 2 px wider than its '
+        'box', (tester) async {
+      final line = await oneLineSize(tester);
+      await pumpText(
+        tester,
+        Center(
+          child: SizedBox(
+            width: line.width - 2,
+            child: const Text('Rua', softWrap: false),
+          ),
+        ),
+      );
+
+      expect(() => expectNoClippedText(tester), throwsA(isA<TestFailure>()));
+    });
+
+    testWidgets('passes on a line in a box of exactly its size', (
+      tester,
+    ) async {
+      final line = await oneLineSize(tester);
+      await pumpText(
+        tester,
+        Center(
+          child: SizedBox.fromSize(
+            size: line,
+            child: const Text('Rua', softWrap: false),
+          ),
+        ),
+      );
+
+      expectNoClippedText(tester);
+    });
+
     testWidgets('passes on a two-line paragraph that ends in an ellipsis', (
       tester,
     ) async {
