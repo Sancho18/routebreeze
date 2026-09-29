@@ -125,7 +125,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 851 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 854 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -143,10 +143,10 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 | lib/features/addresses | 313 | 311 | 99,4 % |
 | lib/features/location | 202 | 202 | 100,0 % |
 | lib/features/lock | 77 | 77 | 100,0 % |
-| lib/features/navigation | 661 | 656 | 99,2 % |
+| lib/features/navigation | 663 | 658 | 99,2 % |
 | lib/features/route | 550 | 548 | 99,6 % |
-| **Total (todos os arquivos)** | 2332 | 2321 | 99,5 % |
-| **Total (sem native-only)** | 2327 | 2318 | 99,6 % |
+| **Total (todos os arquivos)** | 2334 | 2323 | 99,5 % |
+| **Total (sem native-only)** | 2329 | 2320 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -272,7 +272,7 @@ A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas so
 - **Resumo.** O último resultado troca o painel pelo resumo, nesta ordem: "Rota concluída", as contagens ("3 entregues · 1 não entregue"), a distância e o tempo ("12,4 km percorridos · 1 h 05 min"), os horários ("Início às 08:40 · fim às 09:45"), cada parada não entregue ("Parada 2 · Rua Augusta, 500", com o motivo embaixo) e "Nova rota", que abre o mapa sem rota salva. O início é o primeiro "Iniciar" da rota, mesmo numa rota continuada, e o fim é o último resultado. Com o texto em 200 %, um resumo que não cabe abre em "Nova rota" e rola até o título.
 - **Distância percorrida.** É a soma dos segmentos em linha reta entre fixes consecutivos com precisão ≤ 30 m, o mesmo corte da detecção de desvio. Um fix pior fica de fora, e o próximo fix bom liga ao último bom. Só conta durante a navegação: nada soma antes de "Iniciar". A distância fica na memória e vai para a rota salva a cada resultado, em "Encerrar" e quando o app vai para o segundo plano, nunca a cada fix. Uma rota continuada depois de um reinício retoma a distância salva.
 - **Bloqueio com o resumo na tela.** A navegação conta como ativa até a tela de navegação fechar, também depois de concluída. Assim, voltar do segundo plano após 30 s ou mais com o resumo na tela não mostra o bloqueio: rebloquear limparia as telas, e o resumo se perderia, porque a rota salva já foi apagada.
-- **Rotas salvas antes.** Uma parada salva como visitada, sem resultado, conta como entregue. Sem horário de início, o resumo mostra só a distância ("12,4 km percorridos") e omite a linha de início e fim.
+- **Rotas salvas antes.** Uma parada salva como visitada, sem resultado, conta como entregue. Uma rota salva sem horário de início ganha o início no próximo "Iniciar", então o resumo sempre traz o tempo e os horários.
 
 As regras do resumo e da distância ficam em `RouteSummary` e `Odometer` (Dart puro). O `NavigationCubit` guarda a chegada como estado, registra os resultados e monta o resumo.
 
@@ -425,7 +425,7 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 | "Por que não foi entregue?" fechado sem motivo | Nada é registrado; a próxima parada continua a mesma |
 | Entregador anda pela parada depois de chegar | "Você chegou" continua, e o app não recalcula por desvio até o resultado |
 | Volta do segundo plano (30 s ou mais) com o resumo na tela | O resumo continua, sem tela de bloqueio |
-| Rota salva antes dos resultados de entrega | Paradas visitadas contam como entregues; sem horário de início, o resumo mostra só a distância |
+| Rota salva antes dos resultados de entrega | Paradas visitadas contam como entregues; o início passa a ser o "Iniciar" da continuação |
 
 ## Limitações conhecidas
 
