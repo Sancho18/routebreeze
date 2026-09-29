@@ -56,6 +56,7 @@ class NavigationState extends Equatable {
     this.error,
     this.lastRecalcAt,
     this.progress,
+    this.arrived = false,
   });
 
   final NavigationPhase phase;
@@ -81,6 +82,10 @@ class NavigationState extends Equatable {
   /// [NavigationCubit.maxStartAccuracyMeters] or better.
   final RouteProgress? progress;
 
+  /// A fix of 50 m or better came within 40 m of the next stop; kept until
+  /// a result is recorded.
+  final bool arrived;
+
   /// "Iniciar" is enabled only on a fix of 50 m or better.
   bool get canStart =>
       phase == NavigationPhase.waitingGps &&
@@ -102,6 +107,7 @@ class NavigationState extends Equatable {
     DateTime? lastRecalcAt,
     RouteProgress? progress,
     bool clearProgress = false,
+    bool? arrived,
   }) => NavigationState(
     phase: phase ?? this.phase,
     plan: plan ?? this.plan,
@@ -114,6 +120,7 @@ class NavigationState extends Equatable {
     error: clearError ? null : error ?? this.error,
     lastRecalcAt: lastRecalcAt ?? this.lastRecalcAt,
     progress: clearProgress ? null : progress ?? this.progress,
+    arrived: arrived ?? this.arrived,
   );
 
   @override
@@ -129,6 +136,7 @@ class NavigationState extends Equatable {
     error,
     lastRecalcAt,
     progress,
+    arrived,
   ];
 
   @override
@@ -330,7 +338,8 @@ class NavigationCubit extends Cubit<NavigationState> {
     if (fix.accuracyMeters <= _deviation.maxAccuracyMeters) _lastAccepted = fix;
     final next = state.plan.nextStop;
     if (next != null && _arrival.isArrived(fix, next.stop)) {
-      return _visit(next);
+      emit(state.copyWith(arrived: true));
+      return;
     }
     final offRoute = _deviation.feed(fix, state.plan.polyline);
     final decision = _policy.decide(
@@ -375,12 +384,13 @@ class NavigationCubit extends Cubit<NavigationState> {
             phase: NavigationPhase.completed,
             recalcPending: false,
             clearBadge: true,
+            arrived: false,
           ),
         ),
       );
       await _routes.clear();
     } else {
-      emit(_measured(state.copyWith(plan: plan)));
+      emit(_measured(state.copyWith(plan: plan, arrived: false)));
       await _routes.save(plan);
     }
   }
