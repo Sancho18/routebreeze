@@ -1,18 +1,22 @@
 import '../../../core/geo/geo_math.dart';
+import '../../../core/geo/geo_point.dart';
 import '../../addresses/domain/stop.dart';
 import '../../location/domain/fix.dart';
 
-/// Arrival at a stop: within [radiusMeters] great-circle distance, counted
-/// only for fixes with accuracy of [maxAccuracyMeters] or better.
+/// Arrival at a stop or a point: within [radiusMeters] great-circle
+/// distance, counted only for fixes with accuracy of [maxAccuracyMeters] or
+/// better.
 class ArrivalDetector {
   ArrivalDetector({this.radiusMeters = 40, this.maxAccuracyMeters = 50});
 
   final double radiusMeters;
   final double maxAccuracyMeters;
 
-  bool isArrived(Fix fix, Stop stop) =>
+  bool isArrived(Fix fix, Stop stop) => isNear(fix, stop.point);
+
+  bool isNear(Fix fix, GeoPoint point) =>
       fix.accuracyMeters <= maxAccuracyMeters &&
-      haversineMeters(fix.point, stop.point) <= radiusMeters;
+      haversineMeters(fix.point, point) <= radiusMeters;
 }
 
 enum RecalcDecision {

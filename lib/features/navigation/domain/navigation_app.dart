@@ -11,7 +11,8 @@ enum NavigationApp {
 
   /// Universal link that starts driving directions to [stop]: it opens the
   /// app when installed and its website otherwise, so no URL scheme or
-  /// package query is needed.
+  /// package query is needed. A stop without a place id (the start of a
+  /// round trip) is reached by its coordinates only.
   Uri linkTo(Stop stop) {
     final point =
         '${_coordinate(stop.point.lat)},'
@@ -20,7 +21,7 @@ enum NavigationApp {
       googleMaps => Uri.https('www.google.com', '/maps/dir/', {
         'api': '1',
         'destination': point,
-        'destination_place_id': stop.placeId,
+        if (stop.placeId.isNotEmpty) 'destination_place_id': stop.placeId,
         'travelmode': 'driving',
         'dir_action': 'navigate',
       }),

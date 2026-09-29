@@ -36,6 +36,27 @@ void main() {
       );
     });
 
+    group('a point without a place id (the start of a round trip)', () {
+      const start = Stop('', 'Ponto de partida', GeoPoint(-23.5614, -46.6559));
+
+      test('Google Maps: directions by coordinates only, no '
+          'destination_place_id', () {
+        expect(
+          NavigationApp.googleMaps.linkTo(start).toString(),
+          'https://www.google.com/maps/dir/?api=1'
+          '&destination=-23.561400%2C-46.655900'
+          '&travelmode=driving&dir_action=navigate',
+        );
+      });
+
+      test('Waze: the same deep link to the coordinates', () {
+        expect(
+          NavigationApp.waze.linkTo(start).toString(),
+          'https://waze.com/ul?ll=-23.561400%2C-46.655900&navigate=yes',
+        );
+      });
+    });
+
     test('coordinates keep six decimals and never use exponent notation', () {
       const nearZero = Stop('p0', 'Null Island', GeoPoint(0.0000001, -1e-7));
 
