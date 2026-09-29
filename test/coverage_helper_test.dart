@@ -54,6 +54,7 @@ import 'package:routebreeze/features/navigation/presentation/navigation_cubit.da
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
 import 'package:routebreeze/features/navigation/presentation/open_in_app_sheet.dart';
+import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
