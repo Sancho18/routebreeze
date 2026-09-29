@@ -96,7 +96,7 @@ void main() {
 
       final badge = tester.widget<StopBadge>(find.byType(StopBadge));
       expect(badge.order, 2);
-      expect(badge.visited, isFalse);
+      expect(badge.result, isNull);
 
       final address = text(tester, 'Rua Augusta, 500 - Consolação, São Paulo');
       expect(address.style!.fontSize, 15);

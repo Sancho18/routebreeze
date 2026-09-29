@@ -133,7 +133,7 @@ class _StopRow extends StatelessWidget {
     return Row(
       key: RouteSheet.stopKey(stop.stop.placeId),
       children: [
-        StopBadge(order: stop.order, visited: visited),
+        StopBadge(order: stop.order, result: stop.result),
         const SizedBox(width: RbSpace.s2),
         Expanded(
           child: Text(

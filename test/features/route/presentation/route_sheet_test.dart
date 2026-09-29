@@ -218,8 +218,8 @@ void main() {
       expect(totals.style!.color, RbColors.inkMuted);
     });
 
-    testWidgets('visited stop: successStrong badge with a white check '
-        '(semantics "Parada 1, visitada") instead of the number, address in '
+    testWidgets('delivered stop: successStrong badge with a white check '
+        '(semantics "Parada 1, entregue") instead of the number, address in '
         'ink-muted, no chip', (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpSheet(tester, plan: plan(firstVisited: true));
@@ -236,7 +236,7 @@ void main() {
               find.descendant(of: row('pb'), matching: find.byType(StopBadge)),
             )
             .label,
-        'Parada 1, visitada',
+        'Parada 1, entregue',
       );
       expect(find.text('Visitado'), findsNothing);
       expect(
