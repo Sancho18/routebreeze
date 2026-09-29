@@ -1743,6 +1743,42 @@ void main() {
         });
       });
 
+      test('on the way back, a fix exactly 40 m from the start with 50 m '
+          'accuracy completes the route', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          async.elapse(const Duration(minutes: 1));
+
+          emitFix(async, fix(GeoPoint(lat(40), origin.lng), accuracy: 50));
+
+          expect(cubit.state.phase, NavigationPhase.completed);
+          expect(
+            cubit.state.summary,
+            summaryAt(t0.add(const Duration(minutes: 1, seconds: 10))),
+          );
+          verify(() => routes.clear()).called(1);
+          cubit.close();
+        });
+      });
+
+      test('on the way back, a fix 40.1 m from the start with 50 m accuracy, '
+          'or 40 m away with 50.1 m accuracy, keeps it navigating', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          final before = cubit.state.plan;
+
+          emitFix(async, fix(GeoPoint(lat(40.1), origin.lng), accuracy: 50));
+          emitFix(async, fix(GeoPoint(lat(40), origin.lng), accuracy: 50.1));
+
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          expect(cubit.state.summary, isNull);
+          expect(cubit.state.plan, before);
+          expect(fixes.hasListener, isTrue);
+          verifyNever(() => routes.clear());
+          cubit.close();
+        });
+      });
+
       test('a fix at the start while a stop has no result (leaving the '
           'depot, or with one stop left) neither arrives nor completes', () {
         fakeAsync((async) {

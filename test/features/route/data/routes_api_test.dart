@@ -64,6 +64,17 @@ void main() {
     intermediates: [a, b, c],
     destination: origin,
   );
+  // The same round trip recalculated from the driver's position, built as
+  // the repository builds it: with one stop left, and on the way back.
+  const current = GeoPoint(-23.59, -46.69);
+  final oneStopLeft = const RoutePlanner().buildRequest(current, const [
+    b,
+  ], returnTo: origin);
+  final wayBack = const RoutePlanner().buildRequest(
+    current,
+    const [],
+    returnTo: origin,
+  );
   const invalid = ApiFailure(null, 'Resposta inválida da Routes API');
 
   // Google's reference points split into three legs; each leg starts on the
@@ -249,6 +260,75 @@ void main() {
         'regionCode': 'br',
         'units': 'METRIC',
       });
+    });
+
+    test('round trip recalculated with one stop left: from the current '
+        'position through that stop, the only intermediate, with '
+        'optimizeWaypointOrder, back to the start', () async {
+      await api(
+        body(
+          legs: [leg(4345, '205s', leg12), leg(3200, '540s', leg23)],
+          index: const [0],
+        ),
+      ).computeRoutes(oneStopLeft);
+
+      expect(adapter.requests.single.data, {
+        'origin': {
+          'location': {
+            'latLng': {'latitude': -23.59, 'longitude': -46.69},
+          },
+        },
+        'destination': {
+          'location': {
+            'latLng': {'latitude': -23.5614, 'longitude': -46.6559},
+          },
+        },
+        'intermediates': [
+          {
+            'location': {
+              'latLng': {'latitude': -23.60, 'longitude': -46.70},
+            },
+          },
+        ],
+        'travelMode': 'DRIVE',
+        'optimizeWaypointOrder': true,
+        'languageCode': 'pt-BR',
+        'regionCode': 'br',
+        'units': 'METRIC',
+      });
+    });
+
+    test('round trip recalculated on the way back: from the current '
+        'position straight to the start, with no intermediates and no '
+        'optimizeWaypointOrder', () async {
+      await api(
+        body(
+          distance: 3200,
+          duration: '540s',
+          legs: [leg(3200, '540s', leg23)],
+          index: null,
+        ),
+      ).computeRoutes(wayBack);
+
+      final sent = adapter.requests.single.data as Map<String, dynamic>;
+      expect(sent, {
+        'origin': {
+          'location': {
+            'latLng': {'latitude': -23.59, 'longitude': -46.69},
+          },
+        },
+        'destination': {
+          'location': {
+            'latLng': {'latitude': -23.5614, 'longitude': -46.6559},
+          },
+        },
+        'travelMode': 'DRIVE',
+        'languageCode': 'pt-BR',
+        'regionCode': 'br',
+        'units': 'METRIC',
+      });
+      expect(sent.containsKey('intermediates'), isFalse);
+      expect(sent.containsKey('optimizeWaypointOrder'), isFalse);
     });
   });
 
