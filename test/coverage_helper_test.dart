@@ -45,6 +45,7 @@ import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
 import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
 import 'package:routebreeze/features/navigation/domain/deviation_detector.dart';
 import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
+import 'package:routebreeze/features/navigation/domain/odometer.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/domain/recalc_policy.dart';
 import 'package:routebreeze/features/navigation/domain/route_summary.dart';
