@@ -45,15 +45,24 @@ void main() {
   const a = Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66));
   const b = Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70));
   const c = Stop('pc', 'Rua C, 3', GeoPoint(-23.70, -46.80));
-  const request = RouteRequest(
+  final request = RouteRequest(
     origin: origin,
-    intermediates: [a, b],
-    destination: c,
+    intermediates: const [a, b],
+    destination: c.point,
+    destinationStop: c,
   );
-  const single = RouteRequest(
+  final single = RouteRequest(
     origin: origin,
-    intermediates: [],
-    destination: a,
+    intermediates: const [],
+    destination: a.point,
+    destinationStop: a,
+  );
+  // A round trip: every stop is an intermediate and the start the
+  // destination.
+  const roundTrip = RouteRequest(
+    origin: origin,
+    intermediates: [a, b, c],
+    destination: origin,
   );
   const invalid = ApiFailure(null, 'Resposta inválida da Routes API');
 
@@ -66,6 +75,7 @@ void main() {
   const leg01 = '_p~iF~ps|U_ulLnnqC';
   const leg12 = '_flwFn`faV_mqNvxq`@';
   const leg23 = '_t~fGfzxbW_bqCvyiB';
+  const leg30 = '_wpkG~tcfW~eq`@_coh@';
   const onlyP1 = '_flwFn`faV';
   const onlyP3 = '_wpkG~tcfW';
 
@@ -190,6 +200,56 @@ void main() {
         expect(body2['travelMode'], 'DRIVE');
       },
     );
+
+    test('round trip: the start as destination and every stop as an '
+        'intermediate, with optimizeWaypointOrder', () async {
+      await api(
+        body(
+          legs: [
+            leg(4000, '200s', leg01),
+            leg(4345, '205s', leg12),
+            leg(4000, '200s', leg23),
+            leg(3200, '540s', leg30),
+          ],
+          index: const [2, 0, 1],
+        ),
+      ).computeRoutes(roundTrip);
+
+      expect(adapter.requests.single.data, {
+        'origin': {
+          'location': {
+            'latLng': {'latitude': -23.5614, 'longitude': -46.6559},
+          },
+        },
+        'destination': {
+          'location': {
+            'latLng': {'latitude': -23.5614, 'longitude': -46.6559},
+          },
+        },
+        'intermediates': [
+          {
+            'location': {
+              'latLng': {'latitude': -23.565, 'longitude': -46.66},
+            },
+          },
+          {
+            'location': {
+              'latLng': {'latitude': -23.60, 'longitude': -46.70},
+            },
+          },
+          {
+            'location': {
+              'latLng': {'latitude': -23.70, 'longitude': -46.80},
+            },
+          },
+        ],
+        'travelMode': 'DRIVE',
+        'optimizeWaypointOrder': true,
+        'languageCode': 'pt-BR',
+        'regionCode': 'br',
+        'units': 'METRIC',
+      });
+    });
   });
 
   group('computeRoutes response', () {
@@ -212,6 +272,30 @@ void main() {
           optimizedIndex: [1, 0],
         ),
       );
+    });
+
+    test('round trip: one leg per stop plus the way back to the start, '
+        'the last one ending where the line ends', () async {
+      final response = await api(
+        body(
+          legs: [
+            leg(4000, '200s', leg01),
+            leg(4345, '205s', leg12),
+            leg(4000, '200s', leg23),
+            leg(3200, '540s', leg30),
+          ],
+          index: const [2, 0, 1],
+        ),
+      ).computeRoutes(roundTrip);
+
+      expect(response.polyline, const [p0, p1, p2, p3, p0]);
+      expect(response.legs, const [
+        RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 1),
+        RouteLeg(distanceMeters: 4345, durationSeconds: 205, endIndex: 2),
+        RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 3),
+        RouteLeg(distanceMeters: 3200, durationSeconds: 540, endIndex: 4),
+      ]);
+      expect(response.optimizedIndex, [2, 0, 1]);
     });
 
     test('single stop: optimized index is null', () async {

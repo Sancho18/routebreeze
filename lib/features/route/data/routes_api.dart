@@ -87,7 +87,7 @@ class RoutesApiImpl implements RoutesApi {
 
   static Map<String, dynamic> _body(RouteRequest request) => {
     'origin': _waypoint(request.origin),
-    'destination': _waypoint(request.destination.point),
+    'destination': _waypoint(request.destination),
     if (request.intermediates.isNotEmpty) ...{
       'intermediates': [
         for (final stop in request.intermediates) _waypoint(stop.point),

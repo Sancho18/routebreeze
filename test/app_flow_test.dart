@@ -131,7 +131,7 @@ void main() {
       const RouteRequest(
         origin: origin,
         intermediates: [],
-        destination: Stop('x', 'x', origin),
+        destination: origin,
       ),
     );
     registerFallbackValue(

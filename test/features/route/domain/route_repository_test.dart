@@ -39,7 +39,11 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(
-      const RouteRequest(origin: origin, intermediates: [], destination: near),
+      const RouteRequest(
+        origin: origin,
+        intermediates: [],
+        destination: origin,
+      ),
     );
     registerFallbackValue(
       RoutePlan(
@@ -94,10 +98,11 @@ void main() {
       expect(plan, expected);
       final sent = verify(() => api.computeRoutes(captureAny())).captured;
       expect(sent, [
-        const RouteRequest(
+        RouteRequest(
           origin: origin,
-          intermediates: [mid, near],
-          destination: far,
+          intermediates: const [mid, near],
+          destination: far.point,
+          destinationStop: far,
         ),
       ]);
       expect(verify(() => storage.save(captureAny())).captured, [expected]);
@@ -140,10 +145,11 @@ void main() {
       expect(plan.durationSeconds, 400);
       final sent = verify(() => api.computeRoutes(captureAny())).captured;
       expect(sent, [
-        const RouteRequest(
+        RouteRequest(
           origin: current,
-          intermediates: [mid],
-          destination: far,
+          intermediates: const [mid],
+          destination: far.point,
+          destinationStop: far,
         ),
       ]);
       expect(verify(() => storage.save(captureAny())).captured, [plan]);

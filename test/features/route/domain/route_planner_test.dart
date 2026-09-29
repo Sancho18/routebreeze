@@ -19,10 +19,11 @@ void main() {
 
       expect(
         request,
-        const RouteRequest(
+        RouteRequest(
           origin: origin,
-          intermediates: [mid, near],
-          destination: far,
+          intermediates: const [mid, near],
+          destination: far.point,
+          destinationStop: far,
         ),
       );
     });
@@ -30,7 +31,8 @@ void main() {
     test('1 stop: it is the destination and there are no intermediates', () {
       final request = planner.buildRequest(origin, const [near]);
 
-      expect(request.destination, near);
+      expect(request.destination, near.point);
+      expect(request.destinationStop, near);
       expect(request.intermediates, isEmpty);
     });
 
@@ -47,7 +49,8 @@ void main() {
         s5,
       ]);
 
-      expect(request.destination, far);
+      expect(request.destination, far.point);
+      expect(request.destinationStop, far);
       expect(request.intermediates, const [near, s4, mid, s5]);
     });
 
@@ -58,7 +61,8 @@ void main() {
       final request = planner.buildRequest(nearFar, const [mid, near]);
 
       expect(request.origin, nearFar);
-      expect(request.destination, near);
+      expect(request.destination, near.point);
+      expect(request.destinationStop, near);
       expect(request.intermediates, const [mid]);
     });
 
@@ -73,7 +77,8 @@ void main() {
       final request = planner.buildRequest(farOrigin, const [mid, far, near]);
 
       expect(request.origin, farOrigin);
-      expect(request.destination, far);
+      expect(request.destination, far.point);
+      expect(request.destinationStop, far);
       expect(request.intermediates, const [mid, near]);
     });
 
@@ -85,11 +90,85 @@ void main() {
     });
   });
 
+  group('buildRequest with a return to the start', () {
+    // Where a recalculation starts, between the stops.
+    const current = GeoPoint(-23.59, -46.69);
+
+    test('3 stops: the start is the destination and every stop an '
+        'intermediate in input order, with no destination stop', () {
+      final request = planner.buildRequest(origin, const [
+        mid,
+        far,
+        near,
+      ], returnTo: origin);
+
+      expect(
+        request,
+        const RouteRequest(
+          origin: origin,
+          intermediates: [mid, far, near],
+          destination: origin,
+        ),
+      );
+      expect(request.destinationStop, isNull);
+    });
+
+    test('1 stop: it is the only intermediate (edge case)', () {
+      final request = planner.buildRequest(origin, const [
+        near,
+      ], returnTo: origin);
+
+      expect(
+        request,
+        const RouteRequest(
+          origin: origin,
+          intermediates: [near],
+          destination: origin,
+        ),
+      );
+      expect(request.destinationStop, isNull);
+    });
+
+    test('recalculation with stops left: from the current position through '
+        'the stops left, back to the start', () {
+      final request = planner.buildRequest(current, const [
+        far,
+        near,
+      ], returnTo: origin);
+
+      expect(
+        request,
+        const RouteRequest(
+          origin: current,
+          intermediates: [far, near],
+          destination: origin,
+        ),
+      );
+      expect(request.destinationStop, isNull);
+    });
+
+    test('recalculation while returning: no stops left, no intermediates, '
+        'straight to the start', () {
+      final request = planner.buildRequest(current, const [], returnTo: origin);
+
+      expect(
+        request,
+        const RouteRequest(
+          origin: current,
+          intermediates: [],
+          destination: origin,
+        ),
+      );
+      expect(request.destinationStop, isNull);
+    });
+  });
+
   group('order', () {
-    const request = RouteRequest(
+    final request = RouteRequest(
       origin: origin,
-      intermediates: [mid, near],
-      destination: far,
+      intermediates: const [mid, near],
+      destination: far.point,
+      destinationStop: far,
     );
 
     test('applies optimizedIntermediateWaypointIndex then the destination, '
@@ -124,13 +203,33 @@ void main() {
     });
 
     test('single stop: only the destination', () {
-      const single = RouteRequest(
+      final single = RouteRequest(
         origin: origin,
-        intermediates: [],
-        destination: near,
+        intermediates: const [],
+        destination: near.point,
+        destinationStop: near,
       );
 
       expect(planner.order(single, null), const [near]);
+    });
+
+    test('a round trip has no destination stop: only the intermediates, '
+        'permuted by the index, in request order without one, none when no '
+        'stop is left', () {
+      const roundTrip = RouteRequest(
+        origin: origin,
+        intermediates: [mid, far, near],
+        destination: origin,
+      );
+      const back = RouteRequest(
+        origin: origin,
+        intermediates: [],
+        destination: origin,
+      );
+
+      expect(planner.order(roundTrip, [2, 0, 1]), const [near, mid, far]);
+      expect(planner.order(roundTrip, null), const [mid, far, near]);
+      expect(planner.order(back, null), isEmpty);
     });
   });
 }
