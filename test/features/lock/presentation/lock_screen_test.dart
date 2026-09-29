@@ -181,7 +181,10 @@ void main() {
     Set<double> titleLineTops(WidgetTester tester) => tester
         .renderObject<RenderParagraph>(find.text('RouteBreeze'))
         .getBoxesForSelection(
-          const TextSelection(baseOffset: 0, extentOffset: 11),
+          const TextSelection(
+            baseOffset: 0,
+            extentOffset: 'RouteBreeze'.length,
+          ),
         )
         .map((box) => box.top)
         .toSet();
@@ -191,10 +194,20 @@ void main() {
       await setLargeTextPhone(tester);
       await pumpLock(tester, initial: const LockState(), mode: ThemeMode.light);
 
+      // Laid out whole, on one line, at its own width.
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text('RouteBreeze'),
+      );
       expect(titleLineTops(tester), hasLength(1));
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(
+        paragraph.size.width,
+        moreOrLessEquals(paragraph.getMaxIntrinsicWidth(double.infinity)),
+      );
+      // Scaled down to the width inside the screen padding.
       final title = tester.getRect(find.text('RouteBreeze'));
-      expect(title.left, greaterThanOrEqualTo(0));
-      expect(title.right, lessThanOrEqualTo(360));
+      expect(title.left, moreOrLessEquals(RbSpace.s4));
+      expect(title.width, moreOrLessEquals(360 - 2 * RbSpace.s4));
     });
 
     testWidgets('draws "RouteBreeze" at its own size at 100% text', (
