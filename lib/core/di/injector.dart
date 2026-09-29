@@ -17,6 +17,7 @@ import '../../features/lock/presentation/lock_cubit.dart';
 import '../../features/navigation/data/background_tracker.dart';
 import '../../features/navigation/data/customer_notifier.dart';
 import '../../features/navigation/data/navigation_app_launcher.dart';
+import '../../features/navigation/data/notification_permission.dart';
 import '../../features/navigation/presentation/navigation_cubit.dart';
 import '../../features/route/data/route_storage.dart';
 import '../../features/route/data/routes_api.dart';
@@ -62,6 +63,11 @@ Future<void> configureDependencies({String? apiKey}) async {
       () => defaultTargetPlatform == TargetPlatform.android
           ? ForegroundServiceTracker(getIt<FlutterLocalNotificationsPlugin>())
           : NoopBackgroundTracker(),
+    )
+    ..registerLazySingleton<NotificationPermission>(
+      () => PluginNotificationPermission(
+        getIt<FlutterLocalNotificationsPlugin>(),
+      ),
     )
     ..registerFactory<MapCubit>(
       () =>
