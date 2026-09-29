@@ -11,6 +11,7 @@ import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/core/widgets/rb_text_field.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
+import 'package:routebreeze/features/addresses/data/round_trip_preference.dart';
 import 'package:routebreeze/features/addresses/domain/address_field.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
@@ -26,6 +27,8 @@ class MockAddressFormCubit extends MockCubit<AddressFormState>
 class MockConnectivityService extends Mock implements ConnectivityService {}
 
 class MockPlacesApi extends Mock implements PlacesApi {}
+
+class MockRoundTripPreference extends Mock implements RoundTripPreference {}
 
 void main() {
   const start = GeoPoint(-23.5614, -46.6559);
@@ -290,7 +293,13 @@ void main() {
 
     testWidgets('a connectivity check that answers after the screen is gone '
         'does not touch the closed cubit', (tester) async {
-      final realCubit = AddressFormCubit(MockPlacesApi(), bias: start);
+      final preference = MockRoundTripPreference();
+      when(() => preference.load()).thenAnswer((_) async => false);
+      final realCubit = AddressFormCubit(
+        MockPlacesApi(),
+        bias: start,
+        preference: preference,
+      );
       final check = Completer<bool>();
       when(() => connectivity.check()).thenAnswer((_) => check.future);
       await tester.pumpWidget(

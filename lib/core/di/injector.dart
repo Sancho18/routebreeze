@@ -56,7 +56,11 @@ Future<void> configureDependencies({String? apiKey}) async {
           MapCubit(getIt<LocationService>(), routes: getIt<RouteRepository>()),
     )
     ..registerFactoryParam<AddressFormCubit, GeoPoint, void>(
-      (bias, _) => AddressFormCubit(getIt<PlacesApi>(), bias: bias),
+      (bias, _) => AddressFormCubit(
+        getIt<PlacesApi>(),
+        bias: bias,
+        preference: getIt<RoundTripPreference>(),
+      ),
     )
     ..registerFactory<RouteCubit>(() => RouteCubit(getIt<RouteRepository>()))
     ..registerFactoryParam<NavigationCubit, RoutePlan, void>(

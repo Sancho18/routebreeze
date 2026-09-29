@@ -20,8 +20,11 @@ import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
 import 'package:routebreeze/features/route/presentation/route_cubit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // The address form loads the round-trip choice when it is created.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   tearDown(resetDependencies);
 
   test(

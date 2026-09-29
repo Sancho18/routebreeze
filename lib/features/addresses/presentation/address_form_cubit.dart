@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/error/failure.dart';
 import '../../../core/geo/geo_point.dart';
 import '../data/places_api.dart';
+import '../data/round_trip_preference.dart';
 import '../domain/address_field.dart';
 import '../domain/address_form_validator.dart';
 import '../domain/stop.dart';
@@ -21,6 +22,7 @@ class AddressFormState extends Equatable {
     this.submitting = false,
     this.submitted,
     this.failure,
+    this.roundTrip = false,
   });
 
   final List<AddressField> fields;
@@ -31,6 +33,9 @@ class AddressFormState extends Equatable {
   final List<Stop>? submitted;
   final Failure? failure;
 
+  /// "Voltar ao ponto de partida": the route ends at its start.
+  final bool roundTrip;
+
   bool get canConfirm =>
       online && AddressFormValidator.validate(fields).isValid;
 
@@ -40,6 +45,7 @@ class AddressFormState extends Equatable {
     bool? submitting,
     Object? submitted = _unset,
     Object? failure = _unset,
+    bool? roundTrip,
   }) => AddressFormState(
     fields: fields ?? this.fields,
     online: online ?? this.online,
@@ -48,17 +54,27 @@ class AddressFormState extends Equatable {
         ? this.submitted
         : submitted as List<Stop>?,
     failure: identical(failure, _unset) ? this.failure : failure as Failure?,
+    roundTrip: roundTrip ?? this.roundTrip,
   );
 
   @override
-  List<Object?> get props => [fields, online, submitting, submitted, failure];
+  List<Object?> get props => [
+    fields,
+    online,
+    submitting,
+    submitted,
+    failure,
+    roundTrip,
+  ];
 }
 
-/// Address list with autocomplete sessions, debounce and validation.
+/// Address list with autocomplete sessions, debounce and validation, and
+/// the round-trip choice: off until the saved one loads, saved on confirm.
 class AddressFormCubit extends Cubit<AddressFormState> {
   AddressFormCubit(
     this._places, {
     required this.bias,
+    required this._preference,
     Uuid uuid = const Uuid(),
     bool online = true,
   }) : _uuid = uuid,
@@ -70,9 +86,14 @@ class AddressFormCubit extends Cubit<AddressFormState> {
            ],
            online: online,
          ),
-       );
+       ) {
+    _preference.load().then((roundTrip) {
+      if (!isClosed) emit(state.copyWith(roundTrip: roundTrip));
+    });
+  }
 
   final PlacesApi _places;
+  final RoundTripPreference _preference;
 
   /// Start position used as the autocomplete location bias.
   final GeoPoint bias;
@@ -201,6 +222,7 @@ class AddressFormCubit extends Cubit<AddressFormState> {
       );
       return;
     }
+    unawaited(_preference.save(state.roundTrip));
     emit(
       state.copyWith(
         submitted: [for (final f in state.fields) f.selected!],
@@ -208,6 +230,9 @@ class AddressFormCubit extends Cubit<AddressFormState> {
       ),
     );
   }
+
+  void setRoundTrip(bool roundTrip) =>
+      emit(state.copyWith(roundTrip: roundTrip));
 
   void setOnline(bool online) => emit(state.copyWith(online: online));
 
