@@ -18,7 +18,7 @@ class OpenInAppSheet extends StatefulWidget {
 
   static const String title = 'Abrir em outro app';
   static const String caption =
-      'O acompanhamento continua quando você voltar ao RouteBreeze.';
+      'O RouteBreeze continua acompanhando a rota em segundo plano.';
 
   static String failure(NavigationApp app) =>
       'Não foi possível abrir o ${app.label}.';
