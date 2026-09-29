@@ -22,6 +22,7 @@ import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 class MockLocalAuthService extends Mock implements LocalAuthService {}
 
@@ -199,7 +200,7 @@ void main() {
           RouteStop(
             stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
             order: 1,
-            visited: true,
+            result: StopResult.delivered(),
           ),
         ],
         polyline: const [origin, GeoPoint(-23.565, -46.66)],

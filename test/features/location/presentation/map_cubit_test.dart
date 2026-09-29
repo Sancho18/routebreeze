@@ -10,6 +10,7 @@ import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 class MockLocationService extends Mock implements LocationService {}
 
@@ -62,12 +63,11 @@ void main() {
         RouteStop(
           stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
           order: 1,
-          visited: true,
+          result: StopResult.delivered(),
         ),
         RouteStop(
           stop: Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70)),
           order: 2,
-          visited: false,
         ),
       ],
       polyline: const [GeoPoint(-23.5614, -46.6559), GeoPoint(-23.60, -46.70)],
@@ -108,8 +108,9 @@ void main() {
     blocTest<MapCubit, MapState>(
       'a persisted route with every stop visited → resumable null',
       build: () {
-        when(() => routes.loadActive())
-            .thenAnswer((_) async => plan.markVisited('pb'));
+        when(() => routes.loadActive()).thenAnswer(
+          (_) async => plan.record('pb', const StopResult.delivered()),
+        );
         return buildReady();
       },
       act: (cubit) => cubit.init(),

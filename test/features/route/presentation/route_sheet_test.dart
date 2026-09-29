@@ -5,6 +5,7 @@ import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 import 'package:routebreeze/features/route/presentation/stop_badge.dart';
 
@@ -15,14 +16,15 @@ void main() {
   const a = Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66));
   const b = Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70));
   const c = Stop('pc', 'Rua C, 3', GeoPoint(-23.70, -46.80));
+  const delivered = StopResult.delivered();
 
   /// Typed order was a, b, c; optimized order is b, a, c.
   RoutePlan plan({bool firstVisited = false}) => RoutePlan(
     origin: origin,
     stops: [
-      RouteStop(stop: b, order: 1, visited: firstVisited),
-      const RouteStop(stop: a, order: 2, visited: false),
-      const RouteStop(stop: c, order: 3, visited: false),
+      RouteStop(stop: b, order: 1, result: firstVisited ? delivered : null),
+      const RouteStop(stop: a, order: 2),
+      const RouteStop(stop: c, order: 3),
     ],
     polyline: const [origin],
     distanceMeters: 12345,
@@ -365,9 +367,9 @@ void main() {
       tester,
     ) async {
       final complete = plan()
-          .markVisited('pb')
-          .markVisited('pa')
-          .markVisited('pc');
+          .record('pb', delivered)
+          .record('pa', delivered)
+          .record('pc', delivered);
 
       await pumpSheet(tester, plan: complete, onMarkVisited: () {});
 
@@ -393,7 +395,6 @@ void main() {
                 origin,
               ),
               order: i,
-              visited: false,
             ),
         ],
         polyline: const [origin],

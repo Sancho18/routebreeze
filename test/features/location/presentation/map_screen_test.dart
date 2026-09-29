@@ -135,7 +135,6 @@ void main() {
       RouteStop(
         stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
         order: 1,
-        visited: false,
       ),
     ],
     polyline: const [],

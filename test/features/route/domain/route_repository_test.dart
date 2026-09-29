@@ -8,6 +8,7 @@ import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_planner.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 class MockRoutesApi extends Mock implements RoutesApi {}
 
@@ -80,9 +81,9 @@ void main() {
       final expected = RoutePlan(
         origin: origin,
         stops: const [
-          RouteStop(stop: near, order: 1, visited: false),
-          RouteStop(stop: mid, order: 2, visited: false),
-          RouteStop(stop: far, order: 3, visited: false),
+          RouteStop(stop: near, order: 1),
+          RouteStop(stop: mid, order: 2),
+          RouteStop(stop: far, order: 3),
         ],
         polyline: decoded,
         distanceMeters: 12345,
@@ -116,7 +117,11 @@ void main() {
           optimizedIndex: [0],
         ),
       );
-      const visited = RouteStop(stop: near, order: 1, visited: true);
+      const visited = RouteStop(
+        stop: near,
+        order: 1,
+        result: StopResult.delivered(),
+      );
       const current = GeoPoint(-23.566, -46.661);
 
       final plan = await repository.plan(
@@ -127,8 +132,8 @@ void main() {
 
       expect(plan.stops, const [
         visited,
-        RouteStop(stop: mid, order: 2, visited: false),
-        RouteStop(stop: far, order: 3, visited: false),
+        RouteStop(stop: mid, order: 2),
+        RouteStop(stop: far, order: 3),
       ]);
       expect(plan.origin, current);
       expect(plan.distanceMeters, 8000);
@@ -200,7 +205,7 @@ void main() {
   group('persistence', () {
     final plan = RoutePlan(
       origin: origin,
-      stops: const [RouteStop(stop: near, order: 1, visited: false)],
+      stops: const [RouteStop(stop: near, order: 1)],
       polyline: decoded,
       distanceMeters: 600,
       durationSeconds: 90,

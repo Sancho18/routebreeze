@@ -10,6 +10,7 @@ import '../../location/domain/fix.dart';
 import '../../location/domain/location_service.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/domain/route_repository.dart';
+import '../../route/domain/stop_result.dart';
 import '../domain/deviation_detector.dart';
 import '../domain/progress_estimator.dart';
 import '../domain/recalc_policy.dart';
@@ -357,7 +358,10 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   /// Once every stop is visited the stream stops and storage is cleared.
   Future<void> _visit(RouteStop next) async {
-    final plan = state.plan.markVisited(next.stop.placeId);
+    final plan = state.plan.record(
+      next.stop.placeId,
+      StopResult.delivered(at: _now()),
+    );
     _deviation.reset();
     if (plan.isComplete) {
       _positions?.cancel();
@@ -414,9 +418,12 @@ class NavigationCubit extends Cubit<NavigationState> {
       _deviation.reset();
       final visitedNow = [
         for (final stop in state.plan.stops)
-          if (stop.visited) stop.stop.placeId,
+          if (stop.visited) stop,
       ];
-      final merged = visitedNow.fold(replaced, (p, id) => p.markVisited(id));
+      final merged = visitedNow.fold(
+        replaced,
+        (p, stop) => p.record(stop.stop.placeId, stop.result!),
+      );
       if (merged != replaced) {
         await _routes.save(merged);
         if (isClosed) return;

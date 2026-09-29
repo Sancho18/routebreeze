@@ -40,8 +40,8 @@ void main() {
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: b, order: 1, visited: false),
-      RouteStop(stop: a, order: 2, visited: false),
+      RouteStop(stop: b, order: 1),
+      RouteStop(stop: a, order: 2),
     ],
     polyline: const [origin, GeoPoint(-23.60, -46.70)],
     distanceMeters: 12345,

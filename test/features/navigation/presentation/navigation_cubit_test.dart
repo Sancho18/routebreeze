@@ -16,6 +16,7 @@ import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 class MockLocationService extends Mock implements LocationService {}
 
@@ -33,8 +34,8 @@ void main() {
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: a, order: 1, visited: false),
-      RouteStop(stop: b, order: 2, visited: false),
+      RouteStop(stop: a, order: 1),
+      RouteStop(stop: b, order: 2),
     ],
     polyline: const [origin, GeoPoint(0, 0), GeoPoint(0, 0.02)],
     distanceMeters: 4448,
@@ -52,8 +53,8 @@ void main() {
   final recalculated = RoutePlan(
     origin: farPoint,
     stops: const [
-      RouteStop(stop: b, order: 1, visited: false),
-      RouteStop(stop: a, order: 2, visited: false),
+      RouteStop(stop: b, order: 1),
+      RouteStop(stop: a, order: 2),
     ],
     polyline: [farPoint, const GeoPoint(0, 0.02), const GeoPoint(0, 0)],
     distanceMeters: 5000,
@@ -316,7 +317,13 @@ void main() {
             () => routes.plan(
               farPoint,
               [b],
-              keepVisited: const [RouteStop(stop: a, order: 1, visited: true)],
+              keepVisited: [
+                RouteStop(
+                  stop: a,
+                  order: 1,
+                  result: StopResult.delivered(at: t0),
+                ),
+              ],
             ),
           ).called(1);
           cubit.close();
@@ -500,7 +507,9 @@ void main() {
         emitFix(async, atStop(b));
         expect(cubit.state.phase, NavigationPhase.completed);
 
-        pending.complete(recalculated.markVisited('pa'));
+        pending.complete(
+          recalculated.record('pa', StopResult.delivered(at: t0)),
+        );
         async.flushMicrotasks();
 
         expect(cubit.state.phase, NavigationPhase.completed);
@@ -870,8 +879,8 @@ void main() {
       ],
       computedAt: t0,
     );
-    const stopA = RouteStop(stop: a, order: 1, visited: false);
-    const stopB = RouteStop(stop: b, order: 2, visited: false);
+    const stopA = RouteStop(stop: a, order: 1);
+    const stopB = RouteStop(stop: b, order: 2);
 
     test('start measures it from the fix that enabled "Iniciar": half of '
         'leg 1 left (1112 m, 100 s), leg 2 in full, A at t0 + 100 s', () {
@@ -986,8 +995,8 @@ void main() {
       final replaced = RoutePlan(
         origin: farPoint,
         stops: const [
-          RouteStop(stop: b, order: 1, visited: false),
-          RouteStop(stop: a, order: 2, visited: false),
+          RouteStop(stop: b, order: 1),
+          RouteStop(stop: a, order: 2),
         ],
         polyline: [farPoint, const GeoPoint(0, 0.02), const GeoPoint(0, 0)],
         distanceMeters: 5224,
@@ -1009,7 +1018,7 @@ void main() {
         expect(
           cubit.state.progress,
           RouteProgress(
-            next: const RouteStop(stop: b, order: 1, visited: false),
+            next: const RouteStop(stop: b, order: 1),
             toNextMeters: 3000,
             toNextSeconds: 250,
             remainingMeters: 5224,

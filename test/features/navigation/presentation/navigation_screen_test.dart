@@ -17,6 +17,7 @@ import 'package:routebreeze/features/navigation/presentation/navigation_screen.d
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
 import 'package:routebreeze/features/navigation/presentation/open_in_app_sheet.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
@@ -46,11 +47,12 @@ void main() {
   const origin = GeoPoint(-23.5614, -46.6559);
   const a = Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66));
   const b = Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70));
+  const delivered = StopResult.delivered();
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: a, order: 1, visited: false),
-      RouteStop(stop: b, order: 2, visited: false),
+      RouteStop(stop: a, order: 1),
+      RouteStop(stop: b, order: 2),
     ],
     polyline: const [origin, GeoPoint(-23.60, -46.70)],
     distanceMeters: 12345,
@@ -211,7 +213,7 @@ void main() {
         'visitado" marks the next stop, visited stops leave the map', (
       tester,
     ) async {
-      final visited = plan.markVisited('pa');
+      final visited = plan.record('pa', delivered);
       await pumpScreen(
         tester,
         NavigationState(
@@ -538,7 +540,7 @@ void main() {
 
     testWidgets('completed replaces the sheet with "Rota concluída" in '
         'successStrong and "Nova rota"', (tester) async {
-      final done = plan.markVisited('pa').markVisited('pb');
+      final done = plan.record('pa', delivered).record('pb', delivered);
       await pumpScreen(
         tester,
         NavigationState(
@@ -562,7 +564,7 @@ void main() {
     });
     group('next stop and what is left', () {
       final progress = RouteProgress(
-        next: const RouteStop(stop: a, order: 1, visited: false),
+        next: const RouteStop(stop: a, order: 1),
         toNextMeters: 1234,
         toNextSeconds: 250,
         remainingMeters: 8400,
@@ -603,14 +605,14 @@ void main() {
         await pumpScreen(
           tester,
           NavigationState(
-            plan: plan.markVisited('pa'),
+            plan: plan.record('pa', delivered),
             phase: NavigationPhase.navigating,
             fix: fix,
           ),
         );
 
         final card = tester.widget<NextStopCard>(find.byType(NextStopCard));
-        expect(card.stop, const RouteStop(stop: b, order: 2, visited: false));
+        expect(card.stop, const RouteStop(stop: b, order: 2));
         expect(card.progress, isNull);
         expect(find.textContaining('chegada às'), findsNothing);
         expect(find.text('12,3 km · 10 min'), findsOneWidget);
@@ -661,7 +663,7 @@ void main() {
     });
     group('map padding', () {
       final progress = RouteProgress(
-        next: const RouteStop(stop: a, order: 1, visited: false),
+        next: const RouteStop(stop: a, order: 1),
         toNextMeters: 1234,
         toNextSeconds: 250,
         remainingMeters: 8400,
@@ -738,7 +740,7 @@ void main() {
       await pumpScreen(
         tester,
         NavigationState(
-          plan: plan.markVisited('pa'),
+          plan: plan.record('pa', delivered),
           phase: NavigationPhase.navigating,
           fix: fix,
         ),
@@ -881,7 +883,7 @@ void main() {
       await pumpScreen(
         tester,
         NavigationState(
-          plan: plan.markVisited('pa').markVisited('pb'),
+          plan: plan.record('pa', delivered).record('pb', delivered),
           phase: NavigationPhase.completed,
           fix: fix,
           following: false,
@@ -910,7 +912,7 @@ void main() {
 
   group('NavigationScreen accessibility', () {
     final progress = RouteProgress(
-      next: const RouteStop(stop: a, order: 1, visited: false),
+      next: const RouteStop(stop: a, order: 1),
       toNextMeters: 1234,
       toNextSeconds: 250,
       remainingMeters: 8400,
@@ -973,7 +975,7 @@ void main() {
       ),
       'completed': (
         NavigationState(
-          plan: plan.markVisited('pa').markVisited('pb'),
+          plan: plan.record('pa', delivered).record('pb', delivered),
           phase: NavigationPhase.completed,
           fix: fix,
           following: false,

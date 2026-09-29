@@ -18,14 +18,12 @@ void main() {
       GeoPoint(-23.553, -46.653),
     ),
     order: 2,
-    visited: false,
   );
 
   /// Matches the spec's own example sentence verbatim.
   const shortStop = RouteStop(
     stop: Stop('pa', 'Rua Augusta, 500', GeoPoint(-23.553, -46.653)),
     order: 2,
-    visited: false,
   );
   final progress = RouteProgress(
     next: stop,

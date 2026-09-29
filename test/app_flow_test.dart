@@ -27,6 +27,7 @@ import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_planner.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
 
 import 'helpers/fake_google_map.dart';
@@ -285,12 +286,11 @@ void main() {
         RouteStop(
           stop: Stop('id-Rua A', 'Rua A, São Paulo', GeoPoint(-23.565, -46.66)),
           order: 1,
-          visited: true,
+          result: StopResult.delivered(),
         ),
         RouteStop(
           stop: Stop('id-Rua B', 'Rua B, São Paulo', GeoPoint(-23.60, -46.70)),
           order: 2,
-          visited: false,
         ),
       ],
       polyline: const [origin, GeoPoint(-23.60, -46.70)],

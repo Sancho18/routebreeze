@@ -2,36 +2,42 @@ import 'package:equatable/equatable.dart';
 
 import '../../../core/geo/geo_point.dart';
 import '../../addresses/domain/stop.dart';
+import 'stop_result.dart';
 
-/// A stop in its optimized position (`order` is 1..N) with its visited flag.
+/// A stop in its optimized position (`order` is 1..N) with its [result].
 class RouteStop extends Equatable {
-  const RouteStop({
-    required this.stop,
-    required this.order,
-    required this.visited,
-  });
+  const RouteStop({required this.stop, required this.order, this.result});
 
+  /// Reads the saved [result]; a stop saved as visited before results
+  /// existed reads as delivered without a time.
   factory RouteStop.fromJson(Map<String, dynamic> json) => RouteStop(
     stop: Stop.fromJson(json['stop'] as Map<String, dynamic>),
     order: json['order'] as int,
-    visited: json['visited'] as bool,
+    result: switch (json['result'] as Map<String, dynamic>?) {
+      final result? => StopResult.fromJson(result),
+      null when json['visited'] as bool => const StopResult.delivered(),
+      null => null,
+    },
   );
 
   final Stop stop;
   final int order;
-  final bool visited;
 
-  RouteStop copyWith({bool? visited}) =>
-      RouteStop(stop: stop, order: order, visited: visited ?? this.visited);
+  /// Null until the driver records what happened at the stop.
+  final StopResult? result;
 
+  bool get visited => result != null;
+
+  /// `visited` is still written so older builds can read the route.
   Map<String, dynamic> toJson() => {
     'stop': stop.toJson(),
     'order': order,
     'visited': visited,
+    'result': ?result?.toJson(),
   };
 
   @override
-  List<Object?> get props => [stop, order, visited];
+  List<Object?> get props => [stop, order, result];
 
   @override
   bool get stringify => true;
@@ -83,6 +89,8 @@ class RoutePlan extends Equatable {
     required this.durationSeconds,
     required this.legs,
     required this.computedAt,
+    this.startedAt,
+    this.traveledMeters = 0,
   });
 
   factory RoutePlan.fromJson(Map<String, dynamic> json) => RoutePlan(
@@ -102,6 +110,11 @@ class RoutePlan extends Equatable {
         RouteLeg.fromJson(leg as Map<String, dynamic>),
     ],
     computedAt: DateTime.parse(json['computedAt'] as String),
+    startedAt: switch (json['startedAt'] as String?) {
+      final at? => DateTime.parse(at),
+      null => null,
+    },
+    traveledMeters: json['traveledMeters'] as int? ?? 0,
   );
 
   final GeoPoint origin;
@@ -118,6 +131,14 @@ class RoutePlan extends Equatable {
   final List<RouteLeg> legs;
   final DateTime computedAt;
 
+  /// First "Iniciar" of the route; null before it and in routes saved
+  /// before it was kept.
+  final DateTime? startedAt;
+
+  /// Meters traveled while navigating; 0 in routes saved before it was
+  /// kept.
+  final int traveledMeters;
+
   List<RouteStop> get unvisited => [
     for (final stop in stops)
       if (!stop.visited) stop,
@@ -127,17 +148,51 @@ class RoutePlan extends Equatable {
 
   RouteStop? get nextStop => unvisited.firstOrNull;
 
-  RoutePlan markVisited(String placeId) => RoutePlan(
-    origin: origin,
+  /// Gives the stop [placeId] its [result]; a stop that already has one
+  /// keeps it.
+  RoutePlan record(String placeId, StopResult result) => _copy(
     stops: [
       for (final stop in stops)
-        stop.stop.placeId == placeId ? stop.copyWith(visited: true) : stop,
+        stop.stop.placeId == placeId && stop.result == null
+            ? RouteStop(stop: stop.stop, order: stop.order, result: result)
+            : stop,
     ],
+  );
+
+  /// Starts the route at [at] unless it has already started.
+  RoutePlan withStart(DateTime at) => _copy(startedAt: startedAt ?? at);
+
+  RoutePlan withTraveled(int meters) => _copy(traveledMeters: meters);
+
+  /// This plan with the results (matched by place id), the start and the
+  /// distance traveled of [previous].
+  RoutePlan withProgressFrom(RoutePlan previous) {
+    var plan = _copy(
+      startedAt: previous.startedAt,
+      traveledMeters: previous.traveledMeters,
+    );
+    for (final stop in previous.stops) {
+      if (stop.result case final result?) {
+        plan = plan.record(stop.stop.placeId, result);
+      }
+    }
+    return plan;
+  }
+
+  RoutePlan _copy({
+    List<RouteStop>? stops,
+    DateTime? startedAt,
+    int? traveledMeters,
+  }) => RoutePlan(
+    origin: origin,
+    stops: stops ?? this.stops,
     polyline: polyline,
     distanceMeters: distanceMeters,
     durationSeconds: durationSeconds,
     legs: legs,
     computedAt: computedAt,
+    startedAt: startedAt ?? this.startedAt,
+    traveledMeters: traveledMeters ?? this.traveledMeters,
   );
 
   Map<String, dynamic> toJson() => {
@@ -148,6 +203,8 @@ class RoutePlan extends Equatable {
     'durationSeconds': durationSeconds,
     'legs': [for (final leg in legs) leg.toJson()],
     'computedAt': computedAt.toUtc().toIso8601String(),
+    'startedAt': ?startedAt?.toUtc().toIso8601String(),
+    if (traveledMeters > 0) 'traveledMeters': traveledMeters,
   };
 
   @override
@@ -159,6 +216,8 @@ class RoutePlan extends Equatable {
     durationSeconds,
     legs,
     computedAt,
+    startedAt,
+    traveledMeters,
   ];
 
   @override
