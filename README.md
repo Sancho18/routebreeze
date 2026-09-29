@@ -146,7 +146,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 1011 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android, o `res/raw/keep.xml` que mantém o ícone da notificação no build de release e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `POST_NOTIFICATIONS` e `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 1012 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android, o `res/raw/keep.xml` que mantém o ícone da notificação no build de release e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `POST_NOTIFICATIONS` e `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -159,15 +159,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 458 | 458 | 100,0 % |
+| lib/core | 459 | 459 | 100,0 % |
 | lib (raiz: `app.dart`, `main.dart`) | 82 | 80 | 97,6 % |
 | lib/features/addresses | 349 | 347 | 99,4 % |
 | lib/features/location | 207 | 207 | 100,0 % |
 | lib/features/lock | 77 | 77 | 100,0 % |
 | lib/features/navigation | 784 | 779 | 99,4 % |
 | lib/features/route | 590 | 588 | 99,7 % |
-| **Total (todos os arquivos)** | 2547 | 2536 | 99,6 % |
-| **Total (sem native-only)** | 2542 | 2533 | 99,6 % |
+| **Total (todos os arquivos)** | 2548 | 2537 | 99,6 % |
+| **Total (sem native-only)** | 2543 | 2534 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 

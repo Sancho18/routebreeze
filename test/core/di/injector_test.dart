@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
@@ -154,6 +155,25 @@ void main() {
           'requestCriticalPermission': false,
           'requestProvidesAppNotificationSettings': false,
         },
+      );
+    });
+
+    test('a plugin that fails to initialize does not stop the app: the '
+        'tracker still resolves, and its start swallows the failing '
+        'channel', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      notifications = FakeLocalNotifications.install(
+        error: PlatformException(code: 'invalid_icon'),
+      );
+
+      await expectLater(configureDependencies(apiKey: 'test-key'), completes);
+
+      final tracker = getIt<BackgroundTracker>();
+      expect(tracker, isA<ForegroundServiceTracker>());
+      await expectLater(tracker.start(), completes);
+      expect(
+        [for (final call in notifications.calls) call.method],
+        ['initialize', 'startForegroundService'],
       );
     });
   });

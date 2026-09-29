@@ -1,6 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get_it/get_it.dart';
 import 'package:local_auth/local_auth.dart';
@@ -90,16 +91,20 @@ Future<void> configureDependencies({String? apiKey}) async {
     ..registerLazySingleton<SessionState>(SessionState.new);
   // Once, before any service or notification. iOS asks for no permission
   // here.
-  await getIt<FlutterLocalNotificationsPlugin>().initialize(
-    settings: const InitializationSettings(
-      android: AndroidInitializationSettings('ic_stat_routebreeze'),
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestSoundPermission: false,
-        requestBadgePermission: false,
+  try {
+    await getIt<FlutterLocalNotificationsPlugin>().initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('ic_stat_routebreeze'),
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestSoundPermission: false,
+          requestBadgePermission: false,
+        ),
       ),
-    ),
-  );
+    );
+  } on PlatformException {
+    // The app opens and navigates without the ongoing notification.
+  }
 }
 
 Future<void> resetDependencies() => getIt.reset();
