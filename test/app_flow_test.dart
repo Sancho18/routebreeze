@@ -30,6 +30,7 @@ import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
+import 'package:routebreeze/features/navigation/presentation/return_card.dart';
 import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
@@ -498,6 +499,48 @@ void main() {
 
     expect(find.byType(AddressesScreen), findsOneWidget);
     expect(roundTripSwitch(tester), isTrue);
+  });
+
+  testWidgets('a round trip: after the third result the return card and '
+      '"Finalizar rota" take over, and "Finalizar rota" shows the summary '
+      'timed up to it', (tester) async {
+    when(() => routes.computeRoutes(any()))
+        .thenAnswer((_) async => roundTripResponse);
+    storeAsJson();
+    await openRoute(tester, roundTrip: true);
+    clock = DateTime(2026, 9, 22, 9);
+    await navigateFromRoute(tester);
+
+    for (final minute in [10, 20, 30]) {
+      clock = DateTime(2026, 9, 22, 9, minute);
+      await tester.tap(find.text(RouteSheet.deliveredLabel));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byType(NextStopCard), findsNothing);
+    expect(find.byType(ReturnCard), findsOneWidget);
+    expect(find.text(ReturnCard.title), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNWidgets(3));
+    expect(find.text(RouteSheet.returnLabel), findsOneWidget);
+    expect(find.text(RouteSheet.deliveredLabel), findsNothing);
+    expect(find.text(RouteSheet.notDeliveredLabel), findsNothing);
+    final saved = RoutePlan.fromJson(
+      jsonDecode(stored!) as Map<String, dynamic>,
+    );
+    expect(saved.isReturning, isTrue);
+    expect(saved.returnTo, origin);
+
+    clock = DateTime(2026, 9, 22, 9, 45);
+    await tester.tap(find.text(NavigationScreen.finishLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RouteSheet), findsNothing);
+    expect(find.byType(ReturnCard), findsNothing);
+    expect(find.text(RouteSummarySheet.title), findsOneWidget);
+    expect(find.text('3 entregues'), findsOneWidget);
+    expect(find.text('0 m percorridos · 45 min'), findsOneWidget);
+    expect(find.text('Início às 09:00 · fim às 09:45'), findsOneWidget);
+    expect(stored, isNull);
   });
 
   testWidgets('a failed route calculation shows "Tentar novamente" and the '

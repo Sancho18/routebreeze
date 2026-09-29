@@ -21,6 +21,7 @@ import 'package:routebreeze/features/navigation/presentation/navigation_cubit.da
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
 import 'package:routebreeze/features/navigation/presentation/open_in_app_sheet.dart';
+import 'package:routebreeze/features/navigation/presentation/return_card.dart';
 import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
@@ -97,6 +98,30 @@ void main() {
         StopResult.failed(FailureReason.recipientAbsent, at: endedAt),
       );
 
+  /// [plan] as a round trip back to [origin], A refused and B delivered: on
+  /// its way back.
+  final returning = RoutePlan(
+    origin: origin,
+    stops: plan.stops,
+    polyline: const [origin, GeoPoint(-23.60, -46.70), origin],
+    distanceMeters: 24690,
+    durationSeconds: 1210,
+    legs: const [],
+    computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+    returnTo: origin,
+    returnLeg: const RouteLeg(distanceMeters: 12345, durationSeconds: 605),
+  ).record('pa', refused).record('pb', delivered);
+
+  /// What is left of the way back: 3,2 km and 9 min from 15:31.
+  final wayBack = RouteProgress(
+    next: null,
+    toNextMeters: 3200,
+    toNextSeconds: 540,
+    remainingMeters: 3200,
+    remainingSeconds: 540,
+    at: DateTime.utc(2026, 9, 22, 15, 31),
+  );
+
   /// The route finished as [plan], 850 m from 10:30 to 10:48.
   NavigationState completed(RoutePlan plan) => NavigationState(
     plan: plan,
@@ -144,6 +169,7 @@ void main() {
     when(() => cubit.stop()).thenAnswer((_) async {});
     when(() => cubit.recordDelivered()).thenAnswer((_) async {});
     when(() => cubit.recordFailed(any())).thenAnswer((_) async {});
+    when(() => cubit.finishRoute()).thenAnswer((_) async {});
     whenListen(
       cubit,
       const Stream<NavigationState>.empty(),
@@ -1090,6 +1116,152 @@ void main() {
       verify(() => launcher.open(NavigationApp.googleMaps, b)).called(1);
       expect(find.byType(OpenInAppSheet), findsNothing);
     });
+
+    group('on the way back of a round trip', () {
+      final state = NavigationState(
+        plan: returning,
+        phase: NavigationPhase.navigating,
+        fix: fix,
+        progress: wayBack,
+      );
+
+      testWidgets('the return card takes the place of the next stop card, '
+          'with no "Avisar cliente"; the sheet ends with the return row, shows '
+          'what is left of the way back and "Finalizar rota" in brand in place '
+          'of the result buttons', (tester) async {
+        await pumpScreen(tester, state);
+
+        expect(find.byType(NextStopCard), findsNothing);
+        final card = tester.widget<ReturnCard>(find.byType(ReturnCard));
+        expect(card.progress, wayBack);
+        expect(find.text('Ponto de partida'), findsOneWidget);
+        expect(find.text('3,2 km · 9 min · chegada às 15:40'), findsOneWidget);
+        final cardTop = tester.getTopLeft(find.byType(ReturnCard));
+        expect(cardTop.dy, tester.getTopLeft(find.byKey(mapKey)).dy + 16);
+        expect(cardTop.dx, 16);
+        expect(find.byTooltip('Avisar cliente'), findsNothing);
+
+        expect(
+          find.text('Faltam 3,2 km · 9 min · término às 15:40'),
+          findsOneWidget,
+        );
+        final returnRow = find.byKey(RouteSheet.returnKey);
+        expect(
+          tester.getTopLeft(returnRow).dy,
+          greaterThan(
+            tester.getBottomLeft(find.byKey(RouteSheet.stopKey('pb'))).dy,
+          ),
+        );
+        expect(find.text('Entregue'), findsNothing);
+        expect(find.text('Não entregue'), findsNothing);
+        expect(find.text('Encerrar'), findsNothing);
+        expect(primary(tester, 'Finalizar rota').enabled, isTrue);
+        expect(fillOf(tester, 'Finalizar rota'), RbColors.brand);
+        expect(
+          tester.getBottomLeft(returnRow).dy,
+          lessThan(
+            tester
+                .getTopLeft(
+                  find.widgetWithText(RbPrimaryButton, 'Finalizar rota'),
+                )
+                .dy,
+          ),
+        );
+      });
+
+      testWidgets('"Finalizar rota" finishes the route', (tester) async {
+        await pumpScreen(tester, state);
+
+        await tester.tap(
+          find.widgetWithText(RbPrimaryButton, 'Finalizar rota'),
+        );
+        await tester.pump();
+
+        verify(() => cubit.finishRoute()).called(1);
+        verifyNever(() => cubit.stop());
+        expect(exits, 0);
+      });
+
+      testWidgets('"Abrir em outro app" on the return card hands the start '
+          'over to the chosen app, with no place id, also once a '
+          'recalculation moved the plan origin', (tester) async {
+        // Recalculated on the way back at the current position.
+        const current = GeoPoint(-23.58, -46.62);
+        final recalculated = RoutePlan(
+          origin: current,
+          stops: returning.stops,
+          polyline: const [current, origin],
+          distanceMeters: 4200,
+          durationSeconds: 480,
+          legs: const [],
+          computedAt: DateTime.utc(2026, 9, 22, 15, 20),
+          returnTo: origin,
+          returnLeg: const RouteLeg(distanceMeters: 4200, durationSeconds: 480),
+        );
+        when(() => launcher.open(any(), any())).thenAnswer((_) async => true);
+        await pumpScreen(tester, state.copyWith(plan: recalculated));
+
+        await tester.tap(find.byTooltip('Abrir em outro app'));
+        await tester.pumpAndSettle();
+        expect(find.byType(OpenInAppSheet), findsOneWidget);
+        await tester.tap(find.text('Google Maps'));
+        await tester.pumpAndSettle();
+
+        verify(
+          () => launcher.open(
+            NavigationApp.googleMaps,
+            const Stop('', 'Ponto de partida', origin),
+          ),
+        ).called(1);
+      });
+    });
+
+    testWidgets('the start pin of a round trip recalculated away from its '
+        'start stays at the start; a one-way route keeps it at its origin', (
+      tester,
+    ) async {
+      // Recalculated at the current position with A delivered: the plan
+      // origin moved there, the start stays the point of return.
+      const current = GeoPoint(-23.58, -46.62);
+      RoutePlan recalculated({GeoPoint? returnTo}) => RoutePlan(
+        origin: current,
+        stops: const [
+          RouteStop(stop: a, order: 1, result: delivered),
+          RouteStop(stop: b, order: 2),
+        ],
+        polyline: [current, b.point, ?returnTo],
+        distanceMeters: 9000,
+        durationSeconds: 700,
+        legs: const [],
+        computedAt: DateTime.utc(2026, 9, 22, 10, 40),
+        returnTo: returnTo,
+      );
+      LatLng startPin() => mapsBuilt.last.markers
+          .singleWhere((m) => m.markerId.value == 'start')
+          .position;
+
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: recalculated(returnTo: origin),
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+
+      expect(startPin(), const LatLng(-23.5614, -46.6559));
+
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: recalculated(),
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+
+      expect(startPin(), const LatLng(-23.58, -46.62));
+    });
   });
 
   group('NavigationScreen in dark mode', () {
@@ -1304,6 +1476,17 @@ void main() {
         navigating(error: 'Perdemos o sinal de GPS'),
         'Perdemos o sinal de GPS',
         NavigationScreen.stopLabel,
+      ),
+      'on the way back of a round trip': (
+        NavigationState(
+          plan: returning,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          progress: wayBack,
+          following: false,
+        ),
+        '3,2 km · 9 min · chegada às 15:40',
+        NavigationScreen.finishLabel,
       ),
       // With one stop not delivered the whole summary fits at 200%.
       'completed with its summary': (
