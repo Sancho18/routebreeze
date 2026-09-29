@@ -28,7 +28,8 @@ class RouteMapObjects {
 }
 
 /// Pure mapping from a [plan] to map objects; [numberedIcons] is keyed by stop
-/// order and [routeColor] paints the polyline.
+/// order and [routeColor] paints the polyline. The start pin of a round trip
+/// stays at its point of return when a recalculation moves the origin.
 RouteMapObjects buildMapObjects(
   RoutePlan plan, {
   required Map<int, BitmapDescriptor> numberedIcons,
@@ -39,7 +40,7 @@ RouteMapObjects buildMapObjects(
   final markers = <Marker>{
     Marker(
       markerId: const MarkerId(RouteMapObjects.startMarkerId),
-      position: origin,
+      position: _latLng(plan.returnTo ?? plan.origin),
       icon: startIcon,
       infoWindow: const InfoWindow(title: 'Partida'),
     ),

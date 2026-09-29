@@ -100,6 +100,46 @@ void main() {
       expect(objects.bounds.northeast, const LatLng(-23.5614, -46.60));
     });
 
+    test('a round trip keeps the start pin at its point of return when a '
+        'recalculation moved the origin', () {
+      // Recalculated from a point on the way, after the first stop.
+      const moved = GeoPoint(-23.58, -46.62);
+      final recalculated = RoutePlan(
+        origin: moved,
+        stops: const [
+          RouteStop(stop: a, order: 1),
+          RouteStop(stop: c, order: 2),
+        ],
+        polyline: const [moved, GeoPoint(-23.565, -46.66), origin],
+        distanceMeters: 8000,
+        durationSeconds: 900,
+        legs: const [],
+        computedAt: DateTime.utc(2026, 9, 22, 11),
+        returnTo: origin,
+        returnLeg: const RouteLeg(distanceMeters: 4000, durationSeconds: 450),
+      );
+
+      final roundTrip = buildMapObjects(
+        recalculated,
+        numberedIcons: icons,
+        startIcon: startIcon,
+        routeColor: const Color(0xFF2A6DF4),
+      );
+
+      final start = roundTrip.markers.singleWhere(
+        (m) => m.markerId.value == 'start',
+      );
+      expect(start.position, const LatLng(-23.5614, -46.6559));
+      expect(start.icon.toJson(), startIcon.toJson());
+      expect(start.infoWindow.title, 'Partida');
+      expect(
+        roundTrip.markers.where(
+          (m) => m.position == const LatLng(-23.58, -46.62),
+        ),
+        isEmpty,
+      );
+    });
+
     test('the polyline takes the given route color (#7EA6F8); markers, '
         'bounds and the other polyline fields do not change', () {
       final dark = buildMapObjects(
