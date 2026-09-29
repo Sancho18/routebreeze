@@ -125,7 +125,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 837 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 848 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -143,10 +143,10 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 | lib/features/addresses | 313 | 311 | 99,4 % |
 | lib/features/location | 202 | 202 | 100,0 % |
 | lib/features/lock | 77 | 77 | 100,0 % |
-| lib/features/navigation | 656 | 651 | 99,2 % |
-| lib/features/route | 537 | 535 | 99,6 % |
-| **Total (todos os arquivos)** | 2314 | 2303 | 99,5 % |
-| **Total (sem native-only)** | 2309 | 2300 | 99,6 % |
+| lib/features/navigation | 657 | 652 | 99,2 % |
+| lib/features/route | 550 | 548 | 99,6 % |
+| **Total (todos os arquivos)** | 2328 | 2317 | 99,5 % |
+| **Total (sem native-only)** | 2323 | 2314 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -266,7 +266,7 @@ A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas so
 
 ### Resultado da entrega e resumo
 
-- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva. Um resultado não muda depois de registrado.
+- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva. "Encerrar" volta para a tela Rota sem perder o progresso: a lista mostra os resultados, e "Iniciar" continua da próxima parada, com o mesmo início e a distância percorrida. Um resultado não muda depois de registrado.
 - **Toque duplo.** Um toque em "Entregue" ou num motivo a menos de 1 s do resultado anterior é ignorado. Cada toque registra a próxima parada, então um toque duplo registraria duas.
 - **Chegada.** Um fix com precisão ≤ 50 m a até 40 m da próxima parada troca a distância do card por "Você chegou". A parada continua a próxima até o resultado, mesmo que o entregador se afaste. Enquanto isso, o app não recalcula por desvio, porque para entregar ele pode sair da rua. Se uma resposta de recálculo trouxer outra parada como próxima, o "Você chegou" some. Um recálculo adiado sem conexão é descartado na chegada, junto com o aviso "Recálculo pendente (sem conexão)", e a volta da conexão não pede nada. Depois do resultado, a detecção de desvio recomeça.
 - **Resumo.** O último resultado troca o painel pelo resumo, nesta ordem: "Rota concluída", as contagens ("3 entregues · 1 não entregue"), a distância e o tempo ("12,4 km percorridos · 1 h 05 min"), os horários ("Início às 08:40 · fim às 09:45"), cada parada não entregue ("Parada 2 · Rua Augusta, 500", com o motivo embaixo) e "Nova rota", que abre o mapa sem rota salva. O início é o primeiro "Iniciar" da rota, mesmo numa rota continuada, e o fim é o último resultado. Com o texto em 200 %, um resumo que não cabe abre em "Nova rota" e rola até o título.
