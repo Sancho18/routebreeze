@@ -210,6 +210,32 @@ void main() {
       expect(title.width, moreOrLessEquals(360 - 2 * RbSpace.s4));
     });
 
+    testWidgets('scrolls to its button when 200% text does not fit a short '
+        'screen', (tester) async {
+      await setLargeTextPhone(tester);
+      tester.view.physicalSize = const Size(360, 400);
+      await pumpLock(
+        tester,
+        initial: const LockState(
+          status: LockStatus.failed,
+          reason: AuthResult.noCredentials,
+        ),
+        mode: ThemeMode.light,
+      );
+
+      expect(tester.takeException(), isNull);
+      final scrollable = find.byType(Scrollable);
+      expect(
+        tester.state<ScrollableState>(scrollable).position.maxScrollExtent,
+        greaterThanOrEqualTo(100),
+      );
+      await tester.drag(scrollable, const Offset(0, -1000));
+      await tester.pumpAndSettle();
+      final action = tester.getRect(find.text('Tentar novamente'));
+      expect(action.top, greaterThanOrEqualTo(0));
+      expect(action.bottom, lessThanOrEqualTo(400));
+    });
+
     testWidgets('draws "RouteBreeze" at its own size at 100% text', (
       tester,
     ) async {
