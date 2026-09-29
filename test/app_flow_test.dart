@@ -657,6 +657,29 @@ void main() {
       order: 2,
     );
 
+    testWidgets('two backs from the navigation while the stop save runs land '
+        'on the route screen', (tester) async {
+      storeAsJson();
+      await openRoute(tester);
+      await navigateFromRoute(tester);
+      // The stop save waits here, as a slow write on the device would.
+      final writing = Completer<void>();
+      when(() => storage.save(any())).thenAnswer((invocation) async {
+        await writing.future;
+        final saved = invocation.positionalArguments.single as RoutePlan;
+        stored = jsonEncode(saved.toJson());
+      });
+
+      await tester.binding.handlePopRoute();
+      await tester.binding.handlePopRoute();
+      writing.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RouteScreen), findsOneWidget);
+      expect(find.byType(NavigationScreen), findsNothing);
+      expect(find.byType(AddressesScreen), findsNothing);
+    });
+
     testWidgets('the system back on the summary opens the map with no saved '
         'route, like "Nova rota", instead of the route screen', (tester) async {
       storeAsJson();

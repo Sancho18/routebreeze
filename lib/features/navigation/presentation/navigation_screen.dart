@@ -229,9 +229,15 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _cubit.onMapDragged();
   }
 
+  /// Set by the first exit: a second one while the save runs would pop the
+  /// screen below too.
+  bool _leaving = false;
+
   /// Leaves once the route is saved, so the screen below reads that save;
   /// a failed save still leaves.
   Future<void> _stop() async {
+    if (_leaving) return;
+    _leaving = true;
     try {
       await _cubit.stop();
     } finally {

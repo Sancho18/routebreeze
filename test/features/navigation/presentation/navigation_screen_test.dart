@@ -381,6 +381,32 @@ void main() {
       expect(newRoutes, 0);
     });
 
+    testWidgets('a second exit while the stop save is pending does nothing: '
+        'the screen stops and leaves once', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final saved = Completer<void>();
+      when(() => cubit.stop()).thenAnswer((_) => saved.future);
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
+      await tester.binding.handlePopRoute();
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      verify(() => cubit.stop()).called(1);
+      expect(exits, 0);
+
+      saved.complete();
+      await tester.pump();
+      expect(exits, 1);
+    });
+
     testWidgets('the system back on the summary runs "Nova rota"', (
       tester,
     ) async {
