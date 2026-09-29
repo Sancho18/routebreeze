@@ -43,6 +43,7 @@ import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_google_map.dart';
+import 'helpers/fake_local_notifications.dart';
 
 class MockLocalAuthService extends Mock implements LocalAuthService {}
 
@@ -172,6 +173,7 @@ void main() {
   setUp(() async {
     // First use: no round-trip choice saved.
     SharedPreferences.setMockInitialValues({});
+    FakeLocalNotifications.install();
     await configureDependencies(apiKey: 'test-key');
     positions = StreamController<Fix>.broadcast();
     online = StreamController<bool>.broadcast();

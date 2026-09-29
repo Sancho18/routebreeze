@@ -26,6 +26,8 @@ import 'package:routebreeze/features/navigation/presentation/route_summary_sheet
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
 
+import 'helpers/fake_local_notifications.dart';
+
 class MockLocalAuthService extends Mock implements LocalAuthService {}
 
 class MockLocationService extends Mock implements LocationService {}
@@ -49,6 +51,7 @@ void main() {
   late DateTime clock;
 
   setUp(() async {
+    FakeLocalNotifications.install();
     await configureDependencies(apiKey: 'test-key');
     auth = MockLocalAuthService();
     getIt.unregister<LocalAuthService>();
