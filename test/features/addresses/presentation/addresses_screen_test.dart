@@ -19,6 +19,7 @@ import 'package:routebreeze/features/addresses/presentation/address_form_cubit.d
 import 'package:routebreeze/features/addresses/presentation/addresses_screen.dart';
 
 import '../../../helpers/accessibility.dart';
+import '../../../helpers/contrast.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockAddressFormCubit extends MockCubit<AddressFormState>
@@ -48,7 +49,7 @@ void main() {
   late MockAddressFormCubit cubit;
   late MockConnectivityService connectivity;
   late StreamController<bool> online;
-  late List<List<Stop>> confirmed;
+  late List<(List<Stop>, bool)> confirmed;
 
   setUpAll(() => registerFallbackValue(suggestion));
 
@@ -66,6 +67,7 @@ void main() {
     when(() => cubit.removeField(any())).thenReturn(null);
     when(() => cubit.confirm()).thenReturn(null);
     when(() => cubit.reset()).thenReturn(null);
+    when(() => cubit.setRoundTrip(any())).thenReturn(null);
   });
 
   tearDown(() => online.close());
@@ -87,7 +89,7 @@ void main() {
       start: start,
       cubit: cubit,
       connectivity: connectivity,
-      onConfirmed: confirmed.add,
+      onConfirmed: (stops, roundTrip) => confirmed.add((stops, roundTrip)),
     );
     await tester.pumpWidget(
       mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
@@ -98,6 +100,13 @@ void main() {
   final confirmFinder = find.widgetWithText(RbPrimaryButton, 'Confirmar rota');
   RbPrimaryButton confirmButton(WidgetTester tester) =>
       tester.widget<RbPrimaryButton>(confirmFinder);
+
+  final switchFinder = find.widgetWithText(
+    SwitchListTile,
+    'Voltar ao ponto de partida',
+  );
+  SwitchListTile roundTripSwitch(WidgetTester tester) =>
+      tester.widget<SwitchListTile>(switchFinder);
 
   List<String?> placeholders(WidgetTester tester) => tester
       .widgetList<RbTextField>(find.byType(RbTextField))
@@ -308,7 +317,8 @@ void main() {
             start: start,
             cubit: realCubit,
             connectivity: connectivity,
-            onConfirmed: confirmed.add,
+            onConfirmed: (stops, roundTrip) =>
+                confirmed.add((stops, roundTrip)),
           ),
         ),
       );
@@ -335,9 +345,130 @@ void main() {
       );
       await tester.pump();
 
-      expect(confirmed, [stops]);
+      expect(confirmed, [(stops, false)]);
       verify(() => cubit.reset()).called(1);
     });
+
+    testWidgets('the switch "Voltar ao ponto de partida" sits between '
+        '"Adicionar ponto" and "Confirmar rota", off, labeled in body/ink', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpScreen(tester, AddressFormState(fields: threeEmpty));
+
+      expect(switchFinder, findsOneWidget);
+      expect(roundTripSwitch(tester).value, isFalse);
+      final link = find.widgetWithText(TextButton, 'Adicionar ponto');
+      expect(
+        tester.getTopLeft(switchFinder).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(link).dy),
+      );
+      expect(
+        tester.getBottomLeft(switchFinder).dy,
+        lessThanOrEqualTo(tester.getTopLeft(confirmFinder).dy),
+      );
+      final label = tester.widget<Text>(
+        find.text('Voltar ao ponto de partida'),
+      );
+      expect(label.style!.fontSize, 15);
+      expect(label.style!.fontWeight, FontWeight.w400);
+      expect(label.style!.color, RbColors.ink);
+      expect(
+        tester.getSemantics(switchFinder),
+        isSemantics(
+          label: 'Voltar ao ponto de partida',
+          hasToggledState: true,
+          isToggled: false,
+          hasTapAction: true,
+        ),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('the switch shows the choice of the form: on', (tester) async {
+      await pumpScreen(
+        tester,
+        AddressFormState(fields: threeEmpty, roundTrip: true),
+      );
+
+      expect(roundTripSwitch(tester).value, isTrue);
+    });
+
+    for (final on in [false, true]) {
+      testWidgets('tapping the switch while ${on ? 'on' : 'off'} hands '
+          '${!on} to the cubit', (tester) async {
+        await pumpScreen(
+          tester,
+          AddressFormState(fields: threeEmpty, roundTrip: on),
+        );
+
+        await tester.tap(switchFinder);
+        await tester.pump();
+
+        verify(() => cubit.setRoundTrip(!on)).called(1);
+        verifyNever(() => cubit.setRoundTrip(on));
+      });
+    }
+
+    testWidgets('a route confirmed with the switch on reaches onConfirmed '
+        'with its stops and the flag', (tester) async {
+      final stops = [stopFor('a'), stopFor('b'), stopFor('c')];
+      await pumpScreen(
+        tester,
+        AddressFormState(fields: threeValid, roundTrip: true),
+        stream: Stream.fromIterable([
+          AddressFormState(
+            fields: threeValid,
+            submitted: stops,
+            roundTrip: true,
+          ),
+        ]),
+      );
+      await tester.pump();
+
+      expect(confirmed, [(stops, true)]);
+      verify(() => cubit.reset()).called(1);
+    });
+
+    // Light: brand #2A6DF4, onFill white, ink-muted #5B6472, surface-200
+    // white. Dark: brand #7EA6F8, onFill #0F1115, ink-muted #A4ACB9,
+    // surface-200 #1A1D23.
+    final switchColors = {
+      ThemeMode.light: (
+        const Color(0xFF2A6DF4),
+        const Color(0xFFFFFFFF),
+        const Color(0xFF5B6472),
+        const Color(0xFFFFFFFF),
+      ),
+      ThemeMode.dark: (
+        const Color(0xFF7EA6F8),
+        const Color(0xFF0F1115),
+        const Color(0xFFA4ACB9),
+        const Color(0xFF1A1D23),
+      ),
+    };
+    for (final MapEntry(key: mode, value: (brand, onFill, muted, surface))
+        in switchColors.entries) {
+      testWidgets('${mode.name} mode: the switch on is a brand track under an '
+          'onFill thumb; off, an ink-muted thumb and outline on a '
+          'surface-200 track', (tester) async {
+        await pumpScreen(
+          tester,
+          AddressFormState(fields: threeEmpty),
+          mode: mode,
+        );
+
+        final tile = roundTripSwitch(tester);
+        const on = {WidgetState.selected};
+        const off = <WidgetState>{};
+        expect(tile.trackColor!.resolve(on), brand);
+        expect(tile.thumbColor!.resolve(on), onFill);
+        expect(tile.trackOutlineColor!.resolve(on), brand);
+        expect(tile.trackColor!.resolve(off), surface);
+        expect(tile.thumbColor!.resolve(off), muted);
+        expect(tile.trackOutlineColor!.resolve(off), muted);
+      });
+    }
   });
 
   group('AddressesScreen accessibility', () {
@@ -368,6 +499,14 @@ void main() {
         AddressFormState(fields: threeValid, online: false),
         'Sem conexão',
       ),
+      'with the switch off': (
+        AddressFormState(fields: threeValid),
+        AddressesScreen.roundTripLabel,
+      ),
+      'with the switch on': (
+        AddressFormState(fields: threeValid, roundTrip: true),
+        AddressesScreen.roundTripLabel,
+      ),
     };
 
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
@@ -376,10 +515,54 @@ void main() {
             'guidelines in ${mode.name} mode', (tester) async {
           await pumpScreen(tester, state, mode: mode);
           expect(find.text(text), findsOneWidget);
+          expect(roundTripSwitch(tester).value, state.roundTrip);
 
           await expectAccessibleGuidelines(tester);
         });
       }
+    }
+
+    // Non-text contrast (WCAG 1.4.11): the parts that show the position.
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      testWidgets('the switch, on and off, reaches 3:1 against what is around '
+          'it in ${mode.name} mode', (tester) async {
+        await pumpScreen(
+          tester,
+          AddressFormState(fields: threeValid),
+          mode: mode,
+        );
+        final background = tester
+            .widget<Material>(
+              find
+                  .descendant(
+                    of: find.byType(Scaffold),
+                    matching: find.byType(Material),
+                  )
+                  .first,
+            )
+            .color!;
+        final tile = roundTripSwitch(tester);
+        const on = {WidgetState.selected};
+        const off = <WidgetState>{};
+
+        final onTrack = tile.trackColor!.resolve(on)!;
+        expect(contrastRatio(onTrack, background), greaterThanOrEqualTo(3));
+        expect(
+          contrastRatio(tile.thumbColor!.resolve(on)!, onTrack),
+          greaterThanOrEqualTo(3),
+        );
+        expect(
+          contrastRatio(tile.trackOutlineColor!.resolve(off)!, background),
+          greaterThanOrEqualTo(3),
+        );
+        expect(
+          contrastRatio(
+            tile.thumbColor!.resolve(off)!,
+            tile.trackColor!.resolve(off)!,
+          ),
+          greaterThanOrEqualTo(3),
+        );
+      });
     }
 
     for (final MapEntry(key: name, value: (state, text)) in states.entries) {
@@ -389,6 +572,17 @@ void main() {
         await setLargeTextPhone(tester);
         await pumpScreen(tester, state, mode: ThemeMode.light);
 
+        expect(roundTripSwitch(tester).value, state.roundTrip);
+        expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
+
+        // With the switch, the end of the form is below the fold at 200%.
+        await tester.scrollUntilVisible(
+          find.text(text),
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump();
         expect(find.text(text), findsOneWidget);
         expect(tester.takeException(), isNull);
         expectNoClippedText(tester);

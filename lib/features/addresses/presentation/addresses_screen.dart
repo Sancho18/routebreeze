@@ -14,7 +14,8 @@ import '../domain/stop.dart';
 import 'address_field_widget.dart';
 import 'address_form_cubit.dart';
 
-/// Address entry screen: "Ponto A/B/C…" fields with the offline banner on top.
+/// Address entry screen: "Ponto A/B/C…" fields with the offline banner on
+/// top and the round-trip switch above "Confirmar rota".
 class AddressesScreen extends StatefulWidget {
   const AddressesScreen({
     super.key,
@@ -27,7 +28,8 @@ class AddressesScreen extends StatefulWidget {
   /// Start position: autocomplete bias.
   final GeoPoint start;
 
-  final void Function(List<Stop> stops) onConfirmed;
+  /// The confirmed stops and whether the route returns to its start.
+  final void Function(List<Stop> stops, bool roundTrip) onConfirmed;
 
   /// Overrides the cubit from `getIt` (tests).
   final AddressFormCubit? cubit;
@@ -37,6 +39,7 @@ class AddressesScreen extends StatefulWidget {
 
   static const String title = 'Para onde vamos?';
   static const String addLabel = 'Adicionar ponto';
+  static const String roundTripLabel = 'Voltar ao ponto de partida';
   static const String confirmLabel = 'Confirmar rota';
   static const String helper = 'Preencha os 3 endereços para continuar';
 
@@ -74,7 +77,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
       listenWhen: (previous, current) =>
           current.submitted != null && previous.submitted != current.submitted,
       listener: (_, state) {
-        widget.onConfirmed(state.submitted!);
+        widget.onConfirmed(state.submitted!, state.roundTrip);
         _cubit.reset();
       },
       builder: (context, state) {
@@ -120,7 +123,31 @@ class _AddressesScreenState extends State<AddressesScreen> {
                           child: const Text(AddressesScreen.addLabel),
                         ),
                       ),
-                      const SizedBox(height: RbSpace.s4),
+                      const SizedBox(height: RbSpace.s2),
+                      // Off, the thumb and outline are ink-muted: the theme's
+                      // outline (border) is too faint on the page.
+                      SwitchListTile(
+                        value: state.roundTrip,
+                        onChanged: _cubit.setRoundTrip,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          AddressesScreen.roundTripLabel,
+                          style: RbText.body.copyWith(color: rb.ink),
+                        ),
+                        thumbColor: _byPosition(
+                          on: rb.onFill,
+                          off: rb.inkMuted,
+                        ),
+                        trackColor: _byPosition(
+                          on: rb.brand,
+                          off: rb.surface200,
+                        ),
+                        trackOutlineColor: _byPosition(
+                          on: rb.brand,
+                          off: rb.inkMuted,
+                        ),
+                      ),
+                      const SizedBox(height: RbSpace.s3),
                       RbPrimaryButton(
                         label: AddressesScreen.confirmLabel,
                         enabled: state.canConfirm,
@@ -145,6 +172,14 @@ class _AddressesScreenState extends State<AddressesScreen> {
     );
   }
 }
+
+/// [on] while the switch is on, [off] otherwise.
+WidgetStateProperty<Color> _byPosition({
+  required Color on,
+  required Color off,
+}) => WidgetStateProperty.resolveWith(
+  (states) => states.contains(WidgetState.selected) ? on : off,
+);
 
 /// "Ponto A", "Ponto B", … "Ponto Z", "Ponto AA", …
 String _placeholder(int index) {
