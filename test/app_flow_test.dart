@@ -1,6 +1,8 @@
 // Journey through the named routes of RouteBreezeApp with real cubits and
 // fake services.
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,8 +12,10 @@ import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/app.dart';
 import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/error/failure.dart';
+import 'package:routebreeze/core/geo/geo_math.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
+import 'package:routebreeze/core/session/session_state.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
@@ -23,11 +27,15 @@ import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
+import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
+import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
+import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_planner.dart';
+import 'package:routebreeze/features/route/domain/route_repository.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
@@ -71,14 +79,50 @@ void main() {
     optimizedIndex: [1, 0],
   );
 
+  late MockLocalAuthService auth;
   late MockLocationService location;
+  late MockConnectivityService connectivity;
+  late MockPlacesApi places;
   late MockRoutesApi routes;
   late MockRouteStorage storage;
   late StreamController<Fix> positions;
   late StreamController<bool> online;
 
-  /// Clock of the lifecycle gate.
+  /// Clock of the lifecycle gate and of the navigation.
   late DateTime clock;
+
+  /// What [storage] holds once [storeAsJson] backs it: the route as JSON
+  /// text, as on the device.
+  String? stored;
+
+  /// Puts the fakes in place of the device and network services; the
+  /// navigation runs on [clock].
+  void registerFakes() {
+    getIt
+      ..unregister<LocalAuthService>()
+      ..registerSingleton<LocalAuthService>(auth)
+      ..unregister<LocationService>()
+      ..registerSingleton<LocationService>(location)
+      ..unregister<ConnectivityService>()
+      ..registerSingleton<ConnectivityService>(connectivity)
+      ..unregister<PlacesApi>()
+      ..registerSingleton<PlacesApi>(places)
+      ..unregister<RoutesApi>()
+      ..registerSingleton<RoutesApi>(routes)
+      ..unregister<RouteStorage>()
+      ..registerSingleton<RouteStorage>(storage)
+      ..unregister<NavigationCubit>()
+      ..registerFactoryParam<NavigationCubit, RoutePlan, void>(
+        (plan, _) => NavigationCubit(
+          plan: plan,
+          location: getIt<LocationService>(),
+          routes: getIt<RouteRepository>(),
+          connectivity: getIt<ConnectivityService>(),
+          session: getIt<SessionState>(),
+          now: () => clock,
+        ),
+      );
+  }
 
   setUpAll(() {
     registerFallbackValue(origin);
@@ -108,8 +152,9 @@ void main() {
     positions = StreamController<Fix>.broadcast();
     online = StreamController<bool>.broadcast();
     clock = DateTime(2026, 9, 22);
+    stored = null;
 
-    final auth = MockLocalAuthService();
+    auth = MockLocalAuthService();
     when(() => auth.authenticate()).thenAnswer((_) async => AuthResult.success);
 
     location = MockLocationService();
@@ -123,11 +168,11 @@ void main() {
       ),
     ).thenAnswer((_) => positions.stream);
 
-    final connectivity = MockConnectivityService();
+    connectivity = MockConnectivityService();
     when(() => connectivity.check()).thenAnswer((_) async => true);
     when(() => connectivity.isOnline).thenAnswer((_) => online.stream);
 
-    final places = MockPlacesApi();
+    places = MockPlacesApi();
     when(
       () => places.autocomplete(
         input: any(named: 'input'),
@@ -157,19 +202,7 @@ void main() {
     when(() => storage.save(any())).thenAnswer((_) async {});
     when(() => storage.clear()).thenAnswer((_) async {});
 
-    getIt
-      ..unregister<LocalAuthService>()
-      ..registerSingleton<LocalAuthService>(auth)
-      ..unregister<LocationService>()
-      ..registerSingleton<LocationService>(location)
-      ..unregister<ConnectivityService>()
-      ..registerSingleton<ConnectivityService>(connectivity)
-      ..unregister<PlacesApi>()
-      ..registerSingleton<PlacesApi>(places)
-      ..unregister<RoutesApi>()
-      ..registerSingleton<RoutesApi>(routes)
-      ..unregister<RouteStorage>()
-      ..registerSingleton<RouteStorage>(storage);
+    registerFakes();
   });
 
   tearDown(() async {
@@ -204,6 +237,87 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('$name, São Paulo'), findsOneWidget);
   }
+
+  /// Backs [storage] with [stored], starting from [plan]: saves write the
+  /// route as JSON text and loads read it back, as on the device.
+  void storeAsJson(RoutePlan plan) {
+    stored = jsonEncode(plan.toJson());
+    when(() => storage.load()).thenAnswer(
+      (_) async => switch (stored) {
+        final json? => RoutePlan.fromJson(
+          jsonDecode(json) as Map<String, dynamic>,
+        ),
+        null => null,
+      },
+    );
+    when(() => storage.save(any())).thenAnswer((invocation) async {
+      final saved = invocation.positionalArguments.single as RoutePlan;
+      stored = jsonEncode(saved.toJson());
+    });
+    when(() => storage.clear()).thenAnswer((_) async {
+      stored = null;
+    });
+  }
+
+  /// Ends the app and opens it again over the same storage, as after the
+  /// system killed it, up to the map.
+  Future<void> restart(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await resetDependencies();
+    await configureDependencies(apiKey: 'test-key');
+    registerFakes();
+    await bootToMap(tester);
+  }
+
+  /// Continues [plan] from the storage and taps "Iniciar" on a precise fix.
+  Future<void> resumeAndStart(WidgetTester tester, RoutePlan plan) async {
+    storeAsJson(plan);
+    await bootToMap(tester);
+    await tester.tap(find.text(MapScreen.resumeAccept));
+    await tester.pumpAndSettle();
+    positions.add(Fix(origin, 8, DateTime.utc(2026, 9, 22, 10, 1)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(NavigationScreen.startLabel));
+    await tester.pumpAndSettle();
+    expect(find.text(NavigationScreen.stopLabel), findsOneWidget);
+  }
+
+  /// [finder] inside the sheet row of the stop [placeId].
+  Finder inRow(String placeId, Finder finder) => find.descendant(
+    of: find.byKey(RouteSheet.stopKey(placeId)),
+    matching: finder,
+  );
+
+  /// Degrees of latitude spanning [meters].
+  double lat(double meters) => meters / earthRadiusMeters * 180 / math.pi;
+
+  // Three stops due east of each other with one polyline segment per leg:
+  // from a fix due north of a stop, the whole next leg is ahead.
+  const stopA = Stop('id-Rua A', 'Rua A, São Paulo', GeoPoint(-23.56, -46.66));
+  const stopB = Stop('id-Rua B', 'Rua B, São Paulo', GeoPoint(-23.56, -46.65));
+  const stopC = Stop('id-Rua C', 'Rua C, São Paulo', GeoPoint(-23.56, -46.64));
+  final threeStops = RoutePlan(
+    origin: const GeoPoint(-23.56, -46.67),
+    stops: const [
+      RouteStop(stop: stopA, order: 1),
+      RouteStop(stop: stopB, order: 2),
+      RouteStop(stop: stopC, order: 3),
+    ],
+    polyline: const [
+      GeoPoint(-23.56, -46.67),
+      GeoPoint(-23.56, -46.66),
+      GeoPoint(-23.56, -46.65),
+      GeoPoint(-23.56, -46.64),
+    ],
+    distanceMeters: 3300,
+    durationSeconds: 720,
+    legs: const [
+      RouteLeg(distanceMeters: 1000, durationSeconds: 180, endIndex: 1),
+      RouteLeg(distanceMeters: 1100, durationSeconds: 240, endIndex: 2),
+      RouteLeg(distanceMeters: 1200, durationSeconds: 300, endIndex: 3),
+    ],
+    computedAt: DateTime.utc(2026, 9, 22, 9),
+  );
 
   testWidgets('unlock, start fix, three addresses, optimized route, live '
       'navigation and "Encerrar" back to the route', (tester) async {
@@ -353,7 +467,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(RouteSheet.deliveredLabel));
     await tester.pumpAndSettle();
-    expect(find.text(NavigationScreen.completedTitle), findsOneWidget);
+    expect(find.text(RouteSummarySheet.title), findsOneWidget);
 
     await setLifecycle(tester, AppLifecycleState.paused);
     clock = clock.add(const Duration(seconds: 31));
@@ -361,9 +475,151 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(NavigationScreen), findsOneWidget);
-    expect(find.text(NavigationScreen.completedTitle), findsOneWidget);
-    expect(find.text(NavigationScreen.newRouteLabel), findsOneWidget);
+    expect(find.text(RouteSummarySheet.title), findsOneWidget);
+    expect(find.text(RouteSummarySheet.newRouteLabel), findsOneWidget);
     expect(find.byType(LockScreen), findsNothing);
     expect(find.byType(MapScreen), findsNothing);
+  });
+
+  testWidgets('a 3-stop route: "Entregue", then "Não entregue" → "Recusado" '
+      'show a check and an "×" with "Recusado" in the list and move the '
+      'card to the third stop; after a restart, "Continuar" shows the same '
+      'results', (tester) async {
+    await resumeAndStart(tester, threeStops);
+
+    await tester.tap(find.text(RouteSheet.deliveredLabel));
+    await tester.pumpAndSettle();
+    clock = clock.add(const Duration(seconds: 2));
+    await tester.tap(find.text(RouteSheet.notDeliveredLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Recusado'));
+    await tester.pumpAndSettle();
+
+    void expectResults() {
+      expect(inRow('id-Rua A', find.byIcon(Icons.check)), findsOneWidget);
+      expect(inRow('id-Rua B', find.byIcon(Icons.close)), findsOneWidget);
+      expect(inRow('id-Rua B', find.text('Recusado')), findsOneWidget);
+      expect(inRow('id-Rua C', find.text('3')), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(Icons.close), findsOneWidget);
+    }
+
+    expectResults();
+    expect(
+      tester.widget<NextStopCard>(find.byType(NextStopCard)).stop,
+      const RouteStop(stop: stopC, order: 3),
+    );
+
+    await restart(tester);
+    expect(find.text(MapScreen.resumeTitle), findsOneWidget);
+    await tester.tap(find.text(MapScreen.resumeAccept));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationScreen), findsOneWidget);
+    expectResults();
+  });
+
+  testWidgets('a fix 30 m from the next stop shows "Você chegou" and records '
+      'nothing; "Entregue" moves the card to the next stop with its distance '
+      'and time', (tester) async {
+    await resumeAndStart(tester, threeStops);
+    clock = DateTime(2026, 9, 22, 14, 28);
+    final card = find.byType(NextStopCard);
+
+    positions.add(
+      Fix(
+        GeoPoint(-23.56 + lat(30), -46.66),
+        8,
+        DateTime.utc(2026, 9, 22, 10, 2),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<NextStopCard>(card).stop,
+      const RouteStop(stop: stopA, order: 1),
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('Você chegou')),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.check), findsNothing);
+    expect(find.byIcon(Icons.close), findsNothing);
+
+    await tester.tap(find.text(RouteSheet.deliveredLabel));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<NextStopCard>(card).stop,
+      const RouteStop(stop: stopB, order: 2),
+    );
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.text('1,1 km · 4 min · chegada às 14:32'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Você chegou'), findsNothing);
+    expect(inRow('id-Rua A', find.byIcon(Icons.check)), findsOneWidget);
+  });
+
+  testWidgets('a 4-stop route finished with one "Não entregue" shows the '
+      'summary; "Nova rota" opens the map with no saved route', (tester) async {
+    final fourStops = RoutePlan(
+      origin: const GeoPoint(-23.56, -46.67),
+      stops: const [
+        RouteStop(stop: stopA, order: 1),
+        RouteStop(stop: stopB, order: 2),
+        RouteStop(stop: stopC, order: 3),
+        RouteStop(
+          stop: Stop('id-Rua D', 'Rua D, São Paulo', GeoPoint(-23.56, -46.63)),
+          order: 4,
+        ),
+      ],
+      polyline: const [
+        GeoPoint(-23.56, -46.67),
+        GeoPoint(-23.56, -46.66),
+        GeoPoint(-23.56, -46.65),
+        GeoPoint(-23.56, -46.64),
+        GeoPoint(-23.56, -46.63),
+      ],
+      distanceMeters: 4600,
+      durationSeconds: 1080,
+      legs: const [],
+      computedAt: DateTime.utc(2026, 9, 22, 8),
+    ).withStart(DateTime(2026, 9, 22, 8, 40)).withTraveled(12430);
+    clock = DateTime(2026, 9, 22, 9, 41);
+    await resumeAndStart(tester, fourStops);
+
+    /// Taps [label] with the clock on [minute] past nine.
+    Future<void> recordAt(int minute, String label) async {
+      clock = DateTime(2026, 9, 22, 9, minute);
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await recordAt(42, RouteSheet.deliveredLabel);
+    await recordAt(43, RouteSheet.deliveredLabel);
+    await recordAt(44, RouteSheet.notDeliveredLabel);
+    await tester.tap(find.text('Endereço não encontrado'));
+    await tester.pumpAndSettle();
+    await recordAt(45, RouteSheet.deliveredLabel);
+
+    expect(find.byType(RouteSheet), findsNothing);
+    expect(find.text('Rota concluída'), findsOneWidget);
+    expect(find.text('3 entregues · 1 não entregue'), findsOneWidget);
+    expect(find.text('12,4 km percorridos · 1 h 05 min'), findsOneWidget);
+    expect(find.text('Início às 08:40 · fim às 09:45'), findsOneWidget);
+    expect(find.text('Parada 3 · Rua C, São Paulo'), findsOneWidget);
+    expect(find.text('Endereço não encontrado'), findsOneWidget);
+
+    await tester.tap(find.text(RouteSummarySheet.newRouteLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MapScreen), findsOneWidget);
+    expect(find.byType(NavigationScreen), findsNothing);
+    expect(find.text(MapScreen.resumeTitle), findsNothing);
+    expect(stored, isNull);
   });
 }

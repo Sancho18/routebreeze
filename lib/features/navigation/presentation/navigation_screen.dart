@@ -7,7 +7,6 @@ import '../../../core/theme/map_style.dart';
 import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/measure_size.dart';
-import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
 import '../../addresses/domain/stop.dart';
 import '../../route/domain/route_plan.dart';
@@ -17,9 +16,11 @@ import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
 import '../data/navigation_app_launcher.dart';
 import '../domain/progress_estimator.dart';
+import 'failure_reason_sheet.dart';
 import 'navigation_cubit.dart';
 import 'next_stop_card.dart';
 import 'open_in_app_sheet.dart';
+import 'route_summary_sheet.dart';
 
 /// What the navigation map draws and where its camera goes.
 class NavigationMapModel {
@@ -51,7 +52,9 @@ typedef NavigationMapBuilder = Widget Function(
 );
 
 /// Live navigation: map following the position, the [NextStopCard] and status
-/// overlays, and the [RouteSheet] in navigation mode with what is left.
+/// overlays, and the [RouteSheet] in navigation mode with what is left and
+/// the result buttons; the [RouteSummarySheet] replaces the sheet once every
+/// stop has a result.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -69,6 +72,7 @@ class NavigationScreen extends StatefulWidget {
   /// Called on "Encerrar" once the stream is stopped.
   final VoidCallback onExit;
 
+  /// "Nova rota" on the summary.
   final VoidCallback onNewRoute;
 
   /// Overrides the cubit from `getIt` (tests).
@@ -87,8 +91,6 @@ class NavigationScreen extends StatefulWidget {
   static const String waitingGpsCaption = 'Aguardando sinal de GPS';
   static const String recenterLabel = 'Recentralizar';
   static const String offlineBanner = 'Sem conexão';
-  static const String completedTitle = 'Rota concluída';
-  static const String newRouteLabel = 'Nova rota';
 
   /// Sheet totals while navigating:
   /// `"Faltam 8,4 km · 22 min · término às 15:10"`.
@@ -230,6 +232,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
     widget.onExit();
   }
 
+  /// "Não entregue": the reason picked records the next stop; closing the
+  /// sheet records nothing.
+  Future<void> _notDelivered() async {
+    final reason = await FailureReasonSheet.show(context);
+    if (reason != null) await _cubit.recordFailed(reason);
+  }
+
   void _openInApp(Stop stop) =>
       OpenInAppSheet.show(context, stop: stop, launcher: _appLauncher);
 
@@ -312,7 +321,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
                               MeasureSize(
                                 onChange: _onBottomMeasured,
                                 child: completed
-                                    ? _Completed(onNewRoute: widget.onNewRoute)
+                                    ? RouteSummarySheet(
+                                        summary: state.summary!,
+                                        onNewRoute: widget.onNewRoute,
+                                      )
                                     : RouteSheet(
                                         plan: state.plan,
                                         startEnabled:
@@ -328,6 +340,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                             : _cubit.start,
                                         onDelivered: navigating
                                             ? _cubit.recordDelivered
+                                            : null,
+                                        onNotDelivered: navigating
+                                            ? _notDelivered
                                             : null,
                                         totals: progress == null
                                             ? null
@@ -471,6 +486,7 @@ class _TopOverlay extends StatelessWidget {
                   child: NextStopCard(
                     stop: next,
                     progress: state.progress,
+                    arrived: state.arrived,
                     onOpenInApp: () => onOpenInApp(next.stop),
                   ),
                 ),
@@ -531,44 +547,6 @@ class _WaitingGps extends StatelessWidget {
         NavigationScreen.waitingGpsCaption,
         textAlign: TextAlign.center,
         style: RbText.caption.copyWith(color: context.rb.inkMuted),
-      ),
-    );
-  }
-}
-
-class _Completed extends StatelessWidget {
-  const _Completed({required this.onNewRoute});
-
-  final VoidCallback onNewRoute;
-
-  @override
-  Widget build(BuildContext context) {
-    final rb = context.rb;
-    return Container(
-      padding: const EdgeInsets.all(RbSpace.s3),
-      decoration: BoxDecoration(
-        color: rb.surface200,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(RbRadius.lg),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              NavigationScreen.completedTitle,
-              style: RbText.heading.copyWith(color: rb.successStrong),
-            ),
-            const SizedBox(height: RbSpace.s3),
-            RbPrimaryButton(
-              label: NavigationScreen.newRouteLabel,
-              onPressed: onNewRoute,
-            ),
-          ],
-        ),
       ),
     );
   }
