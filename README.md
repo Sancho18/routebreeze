@@ -29,6 +29,7 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Resultado da entrega e resumo da rota** (`feature/delivery-outcome`). O entregador registra cada parada como "Entregue" ou "Não entregue", com o motivo ("Destinatário ausente", "Endereço não encontrado", "Recusado" ou "Outro"). Chegar à parada só mostra "Você chegou" no card: nada é registrado sem um toque. No fim, um resumo mostra as entregas, as paradas não entregues com o motivo, a distância percorrida, o tempo total e os horários de início e fim. Resultados, distância e início ficam salvos com a rota. Detalhes em "Resultado da entrega e resumo", nas decisões técnicas.
 - **Avisar o cliente** (`feature/notify-customer`). Um botão "Avisar cliente" no card da próxima parada abre a folha de compartilhamento do sistema com uma mensagem pronta e o horário de chegada que o card mostra ("Olá! Sua entrega chega por volta das 14:32."). O entregador escolhe o app (WhatsApp, SMS) e o contato ali; o app não pede permissão nem guarda telefone. Detalhes em "Avisar o cliente", nas decisões técnicas.
 - **Ida e volta** (`feature/round-trip`). Com "Voltar ao ponto de partida" ligado em Endereços, a rota termina na partida: a ordem de todas as paradas já conta com a volta, e a lista, os totais e a navegação mostram o retorno. Depois da última parada, o card "Retorno" guia de volta, e a rota termina ao chegar à partida ou em "Finalizar rota". O app lembra a escolha. Detalhes em "Ida e volta", nas decisões técnicas.
+- **Acompanhamento em segundo plano** (`feature/background-tracking`). Durante a navegação, o app continua acompanhando a rota com a tela bloqueada ou com outro app na frente, como o Waze aberto por "Abrir em outro app": chegada, desvio, recálculo e progresso seguem funcionando. No Android, a notificação fixa "RouteBreeze · Acompanhando sua rota" fica enquanto a navegação dura; no iOS, aparece o indicador de localização do sistema. A permissão continua a de localização durante o uso, nunca "sempre". Detalhes em "Bateria e GPS", nas decisões técnicas.
 
 ## Demonstração
 
@@ -119,6 +120,15 @@ xcrun simctl location booted set -23.5645,-46.6527
 
 As duas primeiras linhas cadastram um rosto, a terceira reconhece o rosto quando o app pede o Face ID e a última fixa a posição na Av. Paulista. `xcrun simctl location booted start --speed=25 -` lê pontos `lat,lng` da entrada padrão e percorre o caminho, o que serve para ver a navegação andando. Não testei num iPhone físico.
 
+Acompanhamento em segundo plano no Android: os testes conferem as chamadas ao foreground service e as configurações do stream de posição, e o resto se confere num aparelho, com o APK instalado:
+
+1. Calcule uma rota, toque em "Iniciar" e bloqueie a tela. A notificação "RouteBreeze · Acompanhando sua rota" fica no painel.
+2. Com a tela bloqueada, ande até a próxima parada.
+3. Desbloqueie: o card mostra "Você chegou".
+4. Toque em "Encerrar": a notificação some.
+
+No Android 13 ou mais novo, o app ainda não pede a permissão de notificação. Para ver a notificação, ative as notificações do RouteBreeze nas configurações do app antes de começar; sem elas, o acompanhamento funciona igual, só que sem a notificação no painel.
+
 ## Testes e qualidade
 
 ```bash
@@ -127,7 +137,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 983 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura) e, em `permissions_test.dart`, as permissões do Android e as descrições de uso do iOS, fixadas no conjunto de hoje. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 1010 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `POST_NOTIFICATIONS` e `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -140,15 +150,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 450 | 450 | 100,0 % |
+| lib/core | 458 | 458 | 100,0 % |
 | lib (raiz: `app.dart`, `main.dart`) | 82 | 80 | 97,6 % |
 | lib/features/addresses | 349 | 347 | 99,4 % |
-| lib/features/location | 202 | 202 | 100,0 % |
+| lib/features/location | 207 | 207 | 100,0 % |
 | lib/features/lock | 77 | 77 | 100,0 % |
-| lib/features/navigation | 768 | 763 | 99,3 % |
+| lib/features/navigation | 784 | 779 | 99,4 % |
 | lib/features/route | 590 | 588 | 99,7 % |
-| **Total (todos os arquivos)** | 2518 | 2507 | 99,6 % |
-| **Total (sem native-only)** | 2513 | 2504 | 99,6 % |
+| **Total (todos os arquivos)** | 2547 | 2536 | 99,6 % |
+| **Total (sem native-only)** | 2542 | 2533 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -198,7 +208,8 @@ lib/
     route/        data: RoutesApi, RouteStorage (shared_preferences)
                   domain: RoutePlan, StopResult, RoutePlanner, RouteRepository
                   presentation: RouteCubit, RouteScreen, RouteSheet, StopBadge, MapMarkers
-    navigation/   data: NavigationAppLauncher (url_launcher), CustomerNotifier (share_plus)
+    navigation/   data: NavigationAppLauncher (url_launcher), CustomerNotifier (share_plus),
+                        BackgroundTracker (flutter_local_notifications)
                   domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator,
                           NavigationApp, Odometer, RouteSummary
                   presentation: NavigationCubit, NavigationScreen, NextStopCard, OpenInAppSheet,
@@ -210,7 +221,7 @@ assets/brand/    imagens de origem do ícone e da abertura
 docs/            decisions.md
 ```
 
-Fluxo de telas: `/lock` → `/map` → `/addresses` → `/route` → `/navigation`. O `AppLifecycleGate` (em `app.dart`) observa o ciclo de vida: rebloqueia ao voltar do segundo plano e pausa/retoma o stream de posição durante a navegação.
+Fluxo de telas: `/lock` → `/map` → `/addresses` → `/route` → `/navigation`. O `AppLifecycleGate` (em `app.dart`) observa o ciclo de vida: rebloqueia ao voltar do segundo plano e avisa a navegação quando o app sai da tela e quando volta. Antes de "Iniciar", a navegação pausa e retoma o stream de posição; depois, continua acompanhando em segundo plano (veja "Bateria e GPS").
 
 Onde ficam as regras puras (todas com teste de unidade):
 
@@ -264,7 +275,7 @@ A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas so
 - **Links universais.** Google Maps usa o formato Maps URLs (`https://www.google.com/maps/dir/?api=1&destination=<lat,lng>&destination_place_id=<id>&travelmode=driving&dir_action=navigate`); o Waze usa `https://waze.com/ul?ll=<lat,lng>&navigate=yes`. O sistema abre o app quando ele está instalado e o site quando não está, então não precisa de esquema próprio (`comgooglemaps://`, `waze://`), nem de `LSApplicationQueriesSchemes` no iOS, nem de `<queries>` no Android.
 - **Destino.** Coordenadas com seis casas decimais (sem notação exponencial) e, no Google Maps, o `placeId` da parada, para o app mostrar o lugar certo.
 - **Sem checar antes.** O app chama `launchUrl` direto e trata o `false` (ou um erro da plataforma) mostrando "Não foi possível abrir o <app>." no próprio sheet, que continua aberto para tentar o outro app. É o que a documentação do `url_launcher` recomenda no lugar de `canLaunchUrl`.
-- **Na volta.** Sair para o outro app pausa o stream de posição como qualquer ida ao segundo plano, e a volta retoma. Com a navegação ativa não há rebloqueio.
+- **Com o outro app na frente.** O RouteBreeze continua acompanhando a rota em segundo plano (veja "Bateria e GPS"), e a legenda do sheet avisa isso: "O RouteBreeze continua acompanhando a rota em segundo plano.". Na volta, com a navegação ativa, não há rebloqueio.
 
 ### Avisar o cliente
 
@@ -303,7 +314,13 @@ As regras do resumo e da distância ficam em `RouteSummary` e `Odometer` (Dart p
 
 ### Bateria e GPS
 
-O stream de posição só existe durante a navegação: precisão máxima com `distanceFilter` de 5 m (parado, não há eventos). Ele é pausado quando o app vai para segundo plano e retomado na volta, e é encerrado em "Encerrar" ou ao concluir a rota. Não há localização em segundo plano nem foreground service. No mapa inicial uso um único fix, não um stream.
+O stream de posição só existe na tela de navegação, com precisão máxima e `distanceFilter` de 5 m (parado, não há eventos). Ele acaba em "Encerrar", ao concluir a rota ou quando a tela fecha. No mapa inicial uso um único fix, não um stream.
+
+- **Em segundo plano.** De "Iniciar" até o fim da rota, o acompanhamento continua com a tela bloqueada ou com outro app na frente: chegada, desvio, recálculo, progresso e distância percorrida seguem como com o app aberto. Antes de "Iniciar", esperando o GPS, o stream pausa quando o app sai da tela e volta com ele.
+- **Android.** Ao tocar em "Iniciar", o app liga um foreground service do tipo `location` (o do `flutter_local_notifications`), com a notificação fixa "RouteBreeze · Acompanhando sua rota" no canal "Navegação", de importância baixa, sem som. O ícone pequeno é a marca monocromática, em branco sobre transparente. É o caminho que o Android oferece para continuar recebendo a localização "durante o uso" com a tela apagada. O serviço para em "Encerrar", ao concluir a rota ou quando a tela de navegação fecha, e a notificação sai com ele. Com `stopWithTask`, fechar o app pelos recentes encerra o serviço; e, como ele não é sticky, o sistema não o recria depois de matar o app. Nos dois casos, a próxima abertura oferece "Continuar rota?". Se o serviço não conseguir ligar, a navegação segue, mas sem acompanhamento com a tela apagada.
+- **iOS.** O stream da navegação pede atualizações em segundo plano, com o indicador de localização do sistema e sem pausas automáticas, e o `Info.plist` declara o modo de segundo plano `location`.
+- **Permissão.** Só a localização durante o uso, nunca "sempre", nas duas plataformas: as atualizações começam com o app aberto, e isso basta. No Android 13 ou mais novo, o app ainda não pede a permissão de notificação; sem ela, o acompanhamento funciona igual, mas a notificação não aparece no painel.
+- **Bateria.** É a troca: o GPS fica ligado com a tela apagada enquanto a navegação dura. Fora dela, nada roda em segundo plano.
 
 ### Bloqueio
 
@@ -390,7 +407,7 @@ O painel da rota e o card da próxima parada ficam por cima do mapa. As alturas 
 
 ### Ícone e abertura
 
-O ícone é a mesma curva do loading da tela de mapa (`RouteLoaderPainter.route`), com um anel na partida e um ponto na chegada, em branco sobre o `brand`. `tool/brand/brand_mark.dart` desenha a marca e `tool/brand/render_brand_assets_test.dart` grava as imagens de origem em `assets/brand/`. Os arquivos de cada plataforma saem de dois geradores, que são dependências só de desenvolvimento:
+O ícone é a mesma curva do loading da tela de mapa (`RouteLoaderPainter.route`), com um anel na partida e um ponto na chegada, em branco sobre o `brand`. `tool/brand/brand_mark.dart` desenha a marca e `tool/brand/render_brand_assets_test.dart` grava as imagens de origem em `assets/brand/` e o ícone pequeno da notificação da navegação (`ic_stat_routebreeze.png`, de 24 a 96 px) nas pastas `drawable-*` do Android. Os outros arquivos de cada plataforma saem de dois geradores, que são dependências só de desenvolvimento:
 
 ```bash
 flutter test tool/brand/render_brand_assets_test.dart
@@ -402,11 +419,12 @@ git checkout ios/Runner.xcodeproj/project.pbxproj
 O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca no projeto do Xcode (`ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS` vira `AppIcon`, um valor inválido). Com ele, regenerar não muda nenhum arquivo versionado.
 
 - **Android.** Ícone adaptativo (fundo `brand`, a marca como primeiro plano dentro da zona segura de 66 dp), camada monocromática para os ícones temáticos do Android 13+ e PNGs de 48 a 192 px para o Android 7 (minSdk 24).
+- **Notificação.** O ícone pequeno da notificação é a marca em branco sobre transparente: o Android usa só a transparência desse ícone, e um ícone colorido e opaco viraria um quadrado branco.
 - **iOS.** Todos os tamanhos do catálogo, sem canal alfa.
 - **Nome.** "RouteBreeze" no Android e no iOS.
 - **Abertura.** O círculo do ícone no centro, sobre a cor da tela de bloqueio (`surface-200`): #FFFFFF no modo claro e #1A1D23 no escuro. No Android 12+, a abertura do sistema mostra a marca sobre o círculo azul.
 
-`test/tool/` confere as imagens (tamanhos, cores e a zona segura), e os testes de ícone, nome e abertura em `test/platform/` conferem os arquivos gerados (XML do ícone adaptativo, PNGs sem alfa no iOS, nome e cores da abertura).
+`test/tool/` confere as imagens (tamanhos, cores e a zona segura, e o ícone da notificação só em branco), e os testes de ícone, nome e abertura em `test/platform/` conferem os arquivos gerados (XML do ícone adaptativo, PNGs sem alfa no iOS, nome e cores da abertura).
 
 ## Tratamento de erros e casos extremos
 
@@ -446,7 +464,6 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 
 ## Limitações conhecidas
 
-- **Navegação em segundo plano.** Sem permissão "sempre" nem foreground service. O acompanhamento pausa quando o app sai da tela e retoma na volta. O trecho percorrido nesse intervalo entra na distância do resumo como uma linha reta entre a última posição precisa antes e a primeira depois.
 - **iOS só no simulador.** O fluxo completo roda no simulador do iOS (veja "Build"), mas não testei num iPhone físico. A entrega é Android.
 - **Ordem ótima.** Numa rota só de ida, com destino fixo no ponto mais distante, a ordem pode não ser a melhor possível em todos os casos (veja a decisão acima). Numa ida e volta o destino é a partida, e a ordem de todas as paradas é otimizada.
 - **Sem trânsito.** A rota não usa `TRAFFIC_AWARE_OPTIMAL`, que é incompatível com a otimização de waypoints e custa mais.
