@@ -163,7 +163,8 @@ void main() {
       final caption = tester.widget<Text>(find.text('Aguardando sinal de GPS'));
       expect(caption.style!.fontSize, 13);
       expect(caption.style!.color, RbColors.inkMuted);
-      expect(find.text('Marcar como visitado'), findsNothing);
+      expect(find.text('Entregue'), findsNothing);
+      expect(find.text('Não entregue'), findsNothing);
       expect(find.text('Encerrar'), findsNothing);
       expect(find.text('Recentralizar'), findsNothing);
       expect(find.byType(RbBanner), findsNothing);
@@ -195,7 +196,8 @@ void main() {
 
       expect(primary(tester, 'Iniciar').enabled, isTrue);
       expect(fillOf(tester, 'Iniciar'), RbColors.brand);
-      expect(find.text('Marcar como visitado'), findsNothing);
+      expect(find.text('Entregue'), findsNothing);
+      expect(find.text('Não entregue'), findsNothing);
       expect(find.text('Aguardando sinal de GPS'), findsNothing);
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
       verify(() => cubit.start()).called(1);
@@ -209,9 +211,10 @@ void main() {
       expect(model.target, const LatLng(-23.562, -46.656));
     });
 
-    testWidgets('navigating: "Encerrar" stops and exits, "Marcar como '
-        'visitado" records the next stop as delivered, visited stops leave '
-        'the map', (tester) async {
+    testWidgets('navigating: "Encerrar" stops and exits, "Entregue" records '
+        'the next stop as delivered, visited stops leave the map', (
+      tester,
+    ) async {
       final visited = plan.record('pa', delivered);
       await pumpScreen(
         tester,
@@ -230,29 +233,26 @@ void main() {
       expect(find.byIcon(Icons.check), findsOneWidget);
       expect(find.text('Visitado'), findsNothing);
 
-      final markVisited = find.widgetWithText(
-        RbPrimaryButton,
-        'Marcar como visitado',
-      );
+      final deliver = find.widgetWithText(RbPrimaryButton, 'Entregue');
       expect(
         tester
             .widget<Material>(
               find
-                  .descendant(of: markVisited, matching: find.byType(Material))
+                  .descendant(of: deliver, matching: find.byType(Material))
                   .first,
             )
             .color,
         RbColors.brand,
       );
       expect(
-        tester.getBottomLeft(markVisited).dy,
+        tester.getBottomLeft(deliver).dy,
         lessThan(
           tester
               .getTopLeft(find.widgetWithText(RbPrimaryButton, 'Encerrar'))
               .dy,
         ),
       );
-      await tester.tap(markVisited);
+      await tester.tap(deliver);
       verify(() => cubit.recordDelivered()).called(1);
 
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));

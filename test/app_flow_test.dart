@@ -351,7 +351,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text(NavigationScreen.startLabel));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(RouteSheet.markVisitedLabel));
+    await tester.tap(find.text(RouteSheet.deliveredLabel));
     await tester.pumpAndSettle();
     expect(find.text(NavigationScreen.completedTitle), findsOneWidget);
 
