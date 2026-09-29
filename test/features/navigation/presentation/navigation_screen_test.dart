@@ -96,7 +96,7 @@ void main() {
     bool settle = true,
   }) async {
     cubit = MockNavigationCubit();
-    when(() => cubit.markNextVisited()).thenAnswer((_) async {});
+    when(() => cubit.recordDelivered()).thenAnswer((_) async {});
     whenListen(
       cubit,
       const Stream<NavigationState>.empty(),
@@ -210,9 +210,8 @@ void main() {
     });
 
     testWidgets('navigating: "Encerrar" stops and exits, "Marcar como '
-        'visitado" marks the next stop, visited stops leave the map', (
-      tester,
-    ) async {
+        'visitado" records the next stop as delivered, visited stops leave '
+        'the map', (tester) async {
       final visited = plan.record('pa', delivered);
       await pumpScreen(
         tester,
@@ -254,7 +253,7 @@ void main() {
         ),
       );
       await tester.tap(markVisited);
-      verify(() => cubit.markNextVisited()).called(1);
+      verify(() => cubit.recordDelivered()).called(1);
 
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
       verify(() => cubit.stop()).called(1);

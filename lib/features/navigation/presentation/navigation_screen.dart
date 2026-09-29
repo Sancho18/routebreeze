@@ -327,7 +327,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                             ? _stop
                                             : _cubit.start,
                                         onMarkVisited: navigating
-                                            ? _cubit.markNextVisited
+                                            ? _cubit.recordDelivered
                                             : null,
                                         totals: progress == null
                                             ? null

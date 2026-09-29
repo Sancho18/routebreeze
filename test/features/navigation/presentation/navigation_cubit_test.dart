@@ -286,7 +286,7 @@ void main() {
         emitFix(async, atStop(a));
         expect(cubit.state.arrived, isTrue);
 
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
 
         expect(cubit.state.arrived, isFalse);
@@ -295,33 +295,15 @@ void main() {
       });
     });
 
-    test('"Marcar como visitado" marks the next stop exactly like the '
-        'automatic case', () {
-      fakeAsync((async) {
-        final cubit = navigating(async);
-
-        cubit.markNextVisited();
-        async.flushMicrotasks();
-
-        expect(cubit.state.plan.stops[0].visited, isTrue);
-        expect(cubit.state.plan.nextStop!.stop, b);
-        final saved =
-            verify(() => routes.save(captureAny())).captured.single
-                as RoutePlan;
-        expect(saved.stops[0].visited, isTrue);
-        expect(saved.stops[1].visited, isFalse);
-        cubit.close();
-      });
-    });
-
     test('the last stop completes the route: stream stopped, storage '
         'cleared, navigation no longer active', () {
       fakeAsync((async) {
         final cubit = navigating(async);
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
+        async.elapse(NavigationCubit.recordGuard);
 
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
 
         expect(cubit.state.phase, NavigationPhase.completed);
@@ -330,6 +312,120 @@ void main() {
         expect(session.isNavigationActive, isFalse);
         verify(() => routes.clear()).called(1);
         verify(() => routes.save(any())).called(1);
+        cubit.close();
+      });
+    });
+  });
+
+  group('results', () {
+    // A third stop so that two results leave the route unfinished.
+    const c = Stop('pc', 'Rua C, 3', GeoPoint(0, 0.04));
+    final three = RoutePlan(
+      origin: origin,
+      stops: const [
+        RouteStop(stop: a, order: 1),
+        RouteStop(stop: b, order: 2),
+        RouteStop(stop: c, order: 3),
+      ],
+      polyline: const [
+        origin,
+        GeoPoint(0, 0),
+        GeoPoint(0, 0.02),
+        GeoPoint(0, 0.04),
+      ],
+      distanceMeters: 6672,
+      durationSeconds: 600,
+      legs: const [],
+      computedAt: t0,
+    );
+
+    test('"Entregue" records the next stop as delivered at the clock time, '
+        'makes the following one next and saves the plan with it', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, three);
+        async.elapse(const Duration(seconds: 5));
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        final saved =
+            verify(() => routes.save(captureAny())).captured.single
+                as RoutePlan;
+        expect(saved.stops.map((s) => s.result), [
+          StopResult.delivered(at: t0.add(const Duration(seconds: 5))),
+          null,
+          null,
+        ]);
+        expect(cubit.state.plan, saved);
+        expect(cubit.state.plan.nextStop!.stop, b);
+        expect(cubit.state.phase, NavigationPhase.navigating);
+        cubit.close();
+      });
+    });
+
+    test('a reason records the next stop as not delivered with that reason '
+        'at the clock time; the save carries every result so far', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, three);
+        async.elapse(const Duration(seconds: 5));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+
+        cubit.recordFailed(FailureReason.refused);
+        async.flushMicrotasks();
+
+        final results = [
+          StopResult.delivered(at: t0.add(const Duration(seconds: 5))),
+          StopResult.failed(
+            FailureReason.refused,
+            at: t0.add(const Duration(seconds: 7)),
+          ),
+          null,
+        ];
+        final saved = verify(() => routes.save(captureAny())).captured
+            .cast<RoutePlan>();
+        expect(saved, hasLength(2));
+        expect(saved.last.stops.map((s) => s.result), results);
+        expect(cubit.state.plan, saved.last);
+        expect(cubit.state.plan.nextStop!.stop, c);
+        cubit.close();
+      });
+    });
+
+    test('a tap within 1 s of the previous result is ignored: at +999 ms '
+        '"Entregue" and a reason record nothing, at +1000 ms the next stop '
+        'is recorded', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, three);
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        final first = cubit.state.plan;
+
+        async.elapse(const Duration(milliseconds: 999));
+        cubit.recordDelivered();
+        cubit.recordFailed(FailureReason.recipientAbsent);
+        async.flushMicrotasks();
+
+        expect(cubit.state.plan, first);
+        expect(cubit.state.plan.nextStop!.stop, b);
+
+        async.elapse(const Duration(milliseconds: 1));
+        cubit.recordFailed(FailureReason.recipientAbsent);
+        async.flushMicrotasks();
+
+        expect(cubit.state.plan.stops.map((s) => s.result), [
+          StopResult.delivered(at: t0),
+          StopResult.failed(
+            FailureReason.recipientAbsent,
+            at: t0.add(const Duration(seconds: 1)),
+          ),
+          null,
+        ]);
+        expect(cubit.state.plan.nextStop!.stop, c);
+        final saved = verify(() => routes.save(captureAny())).captured
+            .cast<RoutePlan>();
+        expect(saved, [first, cubit.state.plan]);
         cubit.close();
       });
     });
@@ -380,7 +476,7 @@ void main() {
         stubPlan(recalculated);
         fakeAsync((async) {
           final cubit = navigating(async);
-          cubit.markNextVisited();
+          cubit.recordDelivered();
           async.flushMicrotasks();
 
           goOffRoute(async);
@@ -540,7 +636,7 @@ void main() {
         goOffRoute(async);
         expect(cubit.state.recalcInFlight, isTrue);
 
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
         expect(cubit.state.plan.stops[0].visited, isTrue);
 
@@ -572,12 +668,13 @@ void main() {
         final pending = Completer<RoutePlan>();
         stubPlan(pending);
         final cubit = navigating(async);
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
         goOffRoute(async);
         expect(cubit.state.recalcInFlight, isTrue);
+        async.elapse(NavigationCubit.recordGuard);
 
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
         expect(cubit.state.phase, NavigationPhase.completed);
 
@@ -606,9 +703,10 @@ void main() {
         goOffRoute(async);
         expect(cubit.state.recalcPending, isTrue);
 
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
-        cubit.markNextVisited();
+        async.elapse(NavigationCubit.recordGuard);
+        cubit.recordDelivered();
         async.flushMicrotasks();
         expect(cubit.state.phase, NavigationPhase.completed);
         expect(cubit.state.recalcPending, isFalse);
@@ -788,7 +886,7 @@ void main() {
     test('"Encerrar" stops the streams and leaves the route intact', () {
       fakeAsync((async) {
         final cubit = navigating(async);
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
 
         cubit.stop();
@@ -1040,11 +1138,11 @@ void main() {
       });
     });
 
-    test('"Marcar como visitado" measures B from the last precise fix', () {
+    test('"Entregue" measures B from the last precise fix', () {
       fakeAsync((async) {
         final cubit = navigating(async, tracked);
 
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
 
         expect(cubit.state.progress!.next, stopB);
@@ -1056,9 +1154,10 @@ void main() {
     test('completing the route or "Encerrar" clears it', () {
       fakeAsync((async) {
         final completed = navigating(async, tracked);
-        completed.markNextVisited();
+        completed.recordDelivered();
         async.flushMicrotasks();
-        completed.markNextVisited();
+        async.elapse(NavigationCubit.recordGuard);
+        completed.recordDelivered();
         async.flushMicrotasks();
 
         expect(completed.state.phase, NavigationPhase.completed);

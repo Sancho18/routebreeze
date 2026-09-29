@@ -184,6 +184,10 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   static const Duration resubscribeDelay = Duration(seconds: 5);
 
+  /// A result recorded sooner than this after the previous one is a double
+  /// tap and is ignored.
+  static const Duration recordGuard = Duration(seconds: 1);
+
   StreamSubscription<Fix>? _positions;
   StreamSubscription<bool>? _online;
   Timer? _badgeTimer;
@@ -196,6 +200,9 @@ class NavigationCubit extends Cubit<NavigationState> {
   /// Last fix of [maxStartAccuracyMeters] or better; progress is measured
   /// from it.
   Fix? _lastPrecise;
+
+  /// When the last result was recorded; [recordGuard] counts from it.
+  DateTime? _lastRecordAt;
 
   void prepare() {
     emit(state.copyWith(phase: NavigationPhase.waitingGps));
@@ -225,10 +232,14 @@ class NavigationCubit extends Cubit<NavigationState> {
     emit(_measured(state.copyWith(phase: NavigationPhase.idle)));
   }
 
-  Future<void> markNextVisited() async {
-    final next = state.plan.nextStop;
-    if (next != null) await _visit(next);
-  }
+  /// "Entregue": the next stop delivered at the clock time.
+  Future<void> recordDelivered() =>
+      _record((at) => StopResult.delivered(at: at));
+
+  /// A reason picked after "Não entregue": the next stop not delivered at
+  /// the clock time.
+  Future<void> recordFailed(FailureReason reason) =>
+      _record((at) => StopResult.failed(reason, at: at));
 
   void recenter() => emit(state.copyWith(following: true));
 
@@ -365,12 +376,18 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
-  /// Once every stop is visited the stream stops and storage is cleared.
-  Future<void> _visit(RouteStop next) async {
-    final plan = state.plan.record(
-      next.stop.placeId,
-      StopResult.delivered(at: _now()),
-    );
+  /// Gives the next stop the [result] built for the clock time, unless the
+  /// previous result is less than [recordGuard] old. Once every stop has a
+  /// result the stream stops and storage is cleared.
+  Future<void> _record(StopResult Function(DateTime at) result) async {
+    final next = state.plan.nextStop;
+    final now = _now();
+    final last = _lastRecordAt;
+    if (next == null || (last != null && now.difference(last) < recordGuard)) {
+      return;
+    }
+    _lastRecordAt = now;
+    final plan = state.plan.record(next.stop.placeId, result(now));
     _deviation.reset();
     if (plan.isComplete) {
       _positions?.cancel();
