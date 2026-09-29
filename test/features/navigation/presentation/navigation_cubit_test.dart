@@ -13,6 +13,7 @@ import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
+import 'package:routebreeze/features/navigation/domain/route_summary.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
@@ -294,27 +295,6 @@ void main() {
         cubit.close();
       });
     });
-
-    test('the last stop completes the route: stream stopped, storage '
-        'cleared, navigation no longer active', () {
-      fakeAsync((async) {
-        final cubit = navigating(async);
-        cubit.recordDelivered();
-        async.flushMicrotasks();
-        async.elapse(NavigationCubit.recordGuard);
-
-        cubit.recordDelivered();
-        async.flushMicrotasks();
-
-        expect(cubit.state.phase, NavigationPhase.completed);
-        expect(cubit.state.plan.isComplete, isTrue);
-        expect(fixes.hasListener, isFalse);
-        expect(session.isNavigationActive, isFalse);
-        verify(() => routes.clear()).called(1);
-        verify(() => routes.save(any())).called(1);
-        cubit.close();
-      });
-    });
   });
 
   group('results', () {
@@ -427,6 +407,55 @@ void main() {
             .cast<RoutePlan>();
         expect(saved, [first, cubit.state.plan]);
         cubit.close();
+      });
+    });
+
+    test('the last result completes the route with its summary (counts, '
+        'failed stops, meters, start, end at the last result): stream '
+        'stopped, storage cleared, navigation active until close', () {
+      final start = t0.subtract(const Duration(minutes: 30));
+      final resumed = plan.withStart(start).withTraveled(850);
+      fakeAsync((async) {
+        final cubit = navigating(async, resumed);
+        async.elapse(const Duration(seconds: 5));
+        cubit.recordFailed(FailureReason.recipientAbsent);
+        async.flushMicrotasks();
+        expect(cubit.state.summary, isNull);
+        async.elapse(const Duration(seconds: 5));
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        expect(cubit.state.phase, NavigationPhase.completed);
+        expect(cubit.state.plan.isComplete, isTrue);
+        expect(
+          cubit.state.summary,
+          RouteSummary(
+            delivered: 1,
+            failed: [
+              RouteStop(
+                stop: a,
+                order: 1,
+                result: StopResult.failed(
+                  FailureReason.recipientAbsent,
+                  at: t0.add(const Duration(seconds: 5)),
+                ),
+              ),
+            ],
+            traveledMeters: 850,
+            start: start,
+            end: t0.add(const Duration(seconds: 10)),
+          ),
+        );
+        expect(fixes.hasListener, isFalse);
+        verify(() => routes.clear()).called(1);
+        verify(() => routes.save(any())).called(1);
+        expect(session.isNavigationActive, isTrue);
+
+        cubit.close();
+        async.flushMicrotasks();
+
+        expect(session.isNavigationActive, isFalse);
       });
     });
   });

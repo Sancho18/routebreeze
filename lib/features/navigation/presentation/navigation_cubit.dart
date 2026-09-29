@@ -14,6 +14,7 @@ import '../../route/domain/stop_result.dart';
 import '../domain/deviation_detector.dart';
 import '../domain/progress_estimator.dart';
 import '../domain/recalc_policy.dart';
+import '../domain/route_summary.dart';
 
 enum NavigationPhase { idle, waitingGps, navigating, completed }
 
@@ -57,6 +58,7 @@ class NavigationState extends Equatable {
     this.lastRecalcAt,
     this.progress,
     this.arrived = false,
+    this.summary,
   });
 
   final NavigationPhase phase;
@@ -86,6 +88,10 @@ class NavigationState extends Equatable {
   /// a result is recorded.
   final bool arrived;
 
+  /// The numbers of the finished route; set when the last stop gets its
+  /// result.
+  final RouteSummary? summary;
+
   /// "Iniciar" is enabled only on a fix of 50 m or better.
   bool get canStart =>
       phase == NavigationPhase.waitingGps &&
@@ -108,6 +114,7 @@ class NavigationState extends Equatable {
     RouteProgress? progress,
     bool clearProgress = false,
     bool? arrived,
+    RouteSummary? summary,
   }) => NavigationState(
     phase: phase ?? this.phase,
     plan: plan ?? this.plan,
@@ -121,6 +128,7 @@ class NavigationState extends Equatable {
     lastRecalcAt: lastRecalcAt ?? this.lastRecalcAt,
     progress: clearProgress ? null : progress ?? this.progress,
     arrived: arrived ?? this.arrived,
+    summary: summary ?? this.summary,
   );
 
   @override
@@ -137,6 +145,7 @@ class NavigationState extends Equatable {
     lastRecalcAt,
     progress,
     arrived,
+    summary,
   ];
 
   @override
@@ -378,7 +387,9 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   /// Gives the next stop the [result] built for the clock time, unless the
   /// previous result is less than [recordGuard] old. Once every stop has a
-  /// result the stream stops and storage is cleared.
+  /// result the stream stops, storage is cleared and the summary is built;
+  /// the navigation stays active, so no re-lock hides the summary, until
+  /// [close] or [stop].
   Future<void> _record(StopResult Function(DateTime at) result) async {
     final next = state.plan.nextStop;
     final now = _now();
@@ -393,7 +404,6 @@ class NavigationCubit extends Cubit<NavigationState> {
       _positions?.cancel();
       _positions = null;
       _badgeTimer?.cancel();
-      _session.isNavigationActive = false;
       emit(
         _measured(
           state.copyWith(
@@ -402,6 +412,11 @@ class NavigationCubit extends Cubit<NavigationState> {
             recalcPending: false,
             clearBadge: true,
             arrived: false,
+            summary: RouteSummary.of(
+              plan,
+              traveledMeters: plan.traveledMeters,
+              end: now,
+            ),
           ),
         ),
       );

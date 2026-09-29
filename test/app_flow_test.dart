@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -29,6 +30,7 @@ import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_planner.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
+import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 import 'helpers/fake_google_map.dart';
 
@@ -75,6 +77,9 @@ void main() {
   late StreamController<Fix> positions;
   late StreamController<bool> online;
 
+  /// Clock of the lifecycle gate.
+  late DateTime clock;
+
   setUpAll(() {
     registerFallbackValue(origin);
     registerFallbackValue(Duration.zero);
@@ -102,6 +107,7 @@ void main() {
     await configureDependencies(apiKey: 'test-key');
     positions = StreamController<Fix>.broadcast();
     online = StreamController<bool>.broadcast();
+    clock = DateTime(2026, 9, 22);
 
     final auth = MockLocalAuthService();
     when(() => auth.authenticate()).thenAnswer((_) async => AuthResult.success);
@@ -174,12 +180,19 @@ void main() {
 
   Future<FakeGoogleMapPlatform> bootToMap(WidgetTester tester) async {
     final platform = FakeGoogleMapPlatform.install(tester);
-    await tester.pumpWidget(RouteBreezeApp(now: () => DateTime(2026, 9, 22)));
+    await tester.pumpWidget(RouteBreezeApp(now: () => clock));
     expect(find.byType(LockScreen), findsOneWidget);
     await tester.pumpAndSettle();
     expect(find.byType(MapScreen), findsOneWidget);
     return platform;
   }
+
+  Future<void> setLifecycle(WidgetTester tester, AppLifecycleState state) =>
+      tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        SystemChannels.lifecycle.name,
+        const StringCodec().encodeMessage(state.toString()),
+        (_) {},
+      );
 
   /// Types [name] in field [index], waits the debounce and picks the
   /// suggestion.
@@ -312,5 +325,45 @@ void main() {
     expect(find.text('Rua B, São Paulo'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.byType(AddressesScreen), findsNothing);
+  });
+
+  testWidgets('a completed route stays on screen after 31 s in background: '
+      'no lock screen over it', (tester) async {
+    final persisted = RoutePlan(
+      origin: origin,
+      stops: const [
+        RouteStop(
+          stop: Stop('id-Rua A', 'Rua A, São Paulo', GeoPoint(-23.565, -46.66)),
+          order: 1,
+        ),
+      ],
+      polyline: const [origin, GeoPoint(-23.565, -46.66)],
+      distanceMeters: 600,
+      durationSeconds: 90,
+      legs: const [],
+      computedAt: DateTime.utc(2026, 9, 22, 9),
+    );
+    when(() => storage.load()).thenAnswer((_) async => persisted);
+    await bootToMap(tester);
+    await tester.tap(find.text(MapScreen.resumeAccept));
+    await tester.pumpAndSettle();
+    positions.add(Fix(origin, 8, DateTime.utc(2026, 9, 22, 10, 1)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(NavigationScreen.startLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(RouteSheet.markVisitedLabel));
+    await tester.pumpAndSettle();
+    expect(find.text(NavigationScreen.completedTitle), findsOneWidget);
+
+    await setLifecycle(tester, AppLifecycleState.paused);
+    clock = clock.add(const Duration(seconds: 31));
+    await setLifecycle(tester, AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationScreen), findsOneWidget);
+    expect(find.text(NavigationScreen.completedTitle), findsOneWidget);
+    expect(find.text(NavigationScreen.newRouteLabel), findsOneWidget);
+    expect(find.byType(LockScreen), findsNothing);
+    expect(find.byType(MapScreen), findsNothing);
   });
 }
