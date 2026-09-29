@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart' hide LockState;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
@@ -175,5 +176,37 @@ void main() {
         expectNoClippedText(tester);
       });
     }
+
+    /// The distinct line tops of "RouteBreeze": one per line.
+    Set<double> titleLineTops(WidgetTester tester) => tester
+        .renderObject<RenderParagraph>(find.text('RouteBreeze'))
+        .getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 11),
+        )
+        .map((box) => box.top)
+        .toSet();
+
+    testWidgets('keeps "RouteBreeze" on one line within the screen at 200% '
+        'text', (tester) async {
+      await setLargeTextPhone(tester);
+      await pumpLock(tester, initial: const LockState(), mode: ThemeMode.light);
+
+      expect(titleLineTops(tester), hasLength(1));
+      final title = tester.getRect(find.text('RouteBreeze'));
+      expect(title.left, greaterThanOrEqualTo(0));
+      expect(title.right, lessThanOrEqualTo(360));
+    });
+
+    testWidgets('draws "RouteBreeze" at its own size at 100% text', (
+      tester,
+    ) async {
+      await pumpLock(tester, initial: const LockState(), mode: ThemeMode.light);
+
+      expect(titleLineTops(tester), hasLength(1));
+      expect(
+        tester.getRect(find.text('RouteBreeze')).size,
+        tester.renderObject<RenderParagraph>(find.text('RouteBreeze')).size,
+      );
+    });
   });
 }

@@ -57,10 +57,14 @@ class _LockScreenState extends State<LockScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Spacer(),
-                        Text(
-                          'RouteBreeze',
-                          textAlign: TextAlign.center,
-                          style: RbText.display.copyWith(color: rb.ink),
+                        // One word: with large text it shrinks to the width
+                        // instead of breaking inside the name.
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'RouteBreeze',
+                            style: RbText.display.copyWith(color: rb.ink),
+                          ),
                         ),
                         const Spacer(),
                         if (message != null) ...[
