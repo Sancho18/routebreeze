@@ -42,6 +42,7 @@ import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/domain/relock_policy.dart';
 import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
+import 'package:routebreeze/features/navigation/data/customer_notifier.dart';
 import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
 import 'package:routebreeze/features/navigation/domain/deviation_detector.dart';
 import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
