@@ -489,14 +489,15 @@ class NavigationCubit extends Cubit<NavigationState> {
     await _routes.clear();
   }
 
-  /// One request from [origin] through the unvisited stops; the visited
-  /// ones keep their numbers. The answer takes the results recorded while
-  /// the request was in flight, the start and the current distance, and
-  /// clears the arrival when it makes another stop next; an answer that
+  /// One request from [origin] through the unvisited stops, and back to the
+  /// start of a round trip, also on its way back with no stop left; the
+  /// visited ones keep their numbers. The answer takes the results recorded
+  /// while the request was in flight, the start and the current distance,
+  /// and clears the arrival when it makes another stop next; an answer that
   /// arrives after the route completed is dropped and storage cleared again.
   Future<void> _recalculate(GeoPoint origin) async {
     final plan = state.plan;
-    if (plan.unvisited.isEmpty) return;
+    if (plan.unvisited.isEmpty && !plan.isReturning) return;
     emit(state.copyWith(recalcInFlight: true, recalcPending: false));
     NavigationBadge badge;
     RoutePlan? replaced;
@@ -508,6 +509,7 @@ class NavigationCubit extends Cubit<NavigationState> {
           for (final stop in plan.stops)
             if (stop.visited) stop,
         ],
+        returnTo: plan.returnTo,
       );
       badge = NavigationBadge.recalculated;
     } on Object {

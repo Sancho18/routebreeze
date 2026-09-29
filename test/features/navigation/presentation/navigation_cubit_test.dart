@@ -1841,5 +1841,204 @@ void main() {
         });
       });
     });
+
+    group('recalculation', () {
+      /// Every recalculation answers [answer], whatever its point of return.
+      void stubReturn(RoutePlan answer) => when(
+        () => routes.plan(
+          any(),
+          any(),
+          keepVisited: any(named: 'keepVisited'),
+          returnTo: any(named: 'returnTo'),
+        ),
+      ).thenAnswer((_) async => answer);
+
+      test('off route with a stop left: one request from the current '
+          'position through the stop left and back to the start; the plan '
+          'is replaced and the next recalculation still ends at the start', () {
+        final delivered = RouteStop(
+          stop: a,
+          order: 1,
+          result: StopResult.delivered(at: t0),
+        );
+        final answer = RoutePlan(
+          origin: farPoint,
+          stops: [
+            delivered,
+            const RouteStop(stop: b, order: 2),
+          ],
+          polyline: [farPoint, const GeoPoint(0, 0.02), origin],
+          distanceMeters: 7200,
+          durationSeconds: 640,
+          legs: const [
+            RouteLeg(distanceMeters: 2750, durationSeconds: 240, endIndex: 1),
+          ],
+          computedAt: t0.add(const Duration(minutes: 1)),
+          returnTo: origin,
+          returnLeg: const RouteLeg(
+            distanceMeters: 4450,
+            durationSeconds: 400,
+            endIndex: 2,
+          ),
+        );
+        stubReturn(answer);
+        fakeAsync((async) {
+          final cubit = navigating(async, roundTrip);
+          cubit.recordDelivered();
+          async.flushMicrotasks();
+
+          goOffRoute(async);
+
+          verify(
+            () => routes.plan(
+              farPoint,
+              [b],
+              keepVisited: [delivered],
+              returnTo: origin,
+            ),
+          ).called(1);
+          expect(cubit.state.plan, answer.withStart(t0));
+          expect(cubit.state.plan.origin, farPoint);
+          expect(cubit.state.plan.returnTo, origin);
+          expect(cubit.state.plan.nextStop!.stop, b);
+          expect(cubit.state.badge, NavigationBadge.recalculated);
+
+          async.elapse(const Duration(seconds: 20));
+          goOffRoute(async, farPoint2);
+
+          verify(
+            () => routes.plan(
+              farPoint2,
+              [b],
+              keepVisited: [delivered],
+              returnTo: origin,
+            ),
+          ).called(1);
+          cubit.close();
+        });
+      });
+
+      test('off route on the way back: one request from the current position '
+          'with no stop, back to the start; the plan stays on its way back, '
+          'and arriving at the start, not at the new origin, completes', () {
+        final answer = RoutePlan(
+          origin: farPoint,
+          stops: [
+            RouteStop(stop: a, order: 1, result: deliveredA),
+            RouteStop(stop: b, order: 2, result: refusedB),
+          ],
+          polyline: [farPoint, origin],
+          distanceMeters: 1200,
+          durationSeconds: 150,
+          legs: const [],
+          computedAt: t0.add(const Duration(minutes: 1)),
+          returnTo: origin,
+          returnLeg: const RouteLeg(
+            distanceMeters: 1200,
+            durationSeconds: 150,
+            endIndex: 1,
+          ),
+        );
+        stubReturn(answer);
+        fakeAsync((async) {
+          final cubit = returning(async);
+
+          goOffRoute(async);
+
+          verify(
+            () => routes.plan(
+              farPoint,
+              const <Stop>[],
+              keepVisited: [
+                RouteStop(stop: a, order: 1, result: deliveredA),
+                RouteStop(stop: b, order: 2, result: refusedB),
+              ],
+              returnTo: origin,
+            ),
+          ).called(1);
+          expect(cubit.state.plan, answer.withStart(started).withTraveled(850));
+          expect(cubit.state.plan.isReturning, isTrue);
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          expect(cubit.state.badge, NavigationBadge.recalculated);
+          expect(
+            cubit.state.progress,
+            RouteProgress(
+              next: null,
+              toNextMeters: 1200,
+              toNextSeconds: 150,
+              remainingMeters: 1200,
+              remainingSeconds: 150,
+              at: t0.add(const Duration(seconds: 10)),
+            ),
+          );
+
+          emitFix(async, far());
+          expect(cubit.state.phase, NavigationPhase.navigating);
+
+          emitFix(async, atStart());
+          expect(cubit.state.phase, NavigationPhase.completed);
+          cubit.close();
+        });
+      });
+
+      test('offline on the way back: "Recálculo pendente (sem conexão)" '
+          'without a request, then the request with no stop runs on '
+          'reconnect', () {
+        final answer = RoutePlan(
+          origin: farPoint,
+          stops: [
+            RouteStop(stop: a, order: 1, result: deliveredA),
+            RouteStop(stop: b, order: 2, result: refusedB),
+          ],
+          polyline: [farPoint, origin],
+          distanceMeters: 1200,
+          durationSeconds: 150,
+          legs: const [],
+          computedAt: t0.add(const Duration(minutes: 1)),
+          returnTo: origin,
+          returnLeg: const RouteLeg(
+            distanceMeters: 1200,
+            durationSeconds: 150,
+            endIndex: 1,
+          ),
+        );
+        stubReturn(answer);
+        fakeAsync((async) {
+          final cubit = returning(async);
+          online.add(false);
+          async.flushMicrotasks();
+
+          goOffRoute(async);
+
+          verifyNever(
+            () => routes.plan(
+              any(),
+              any(),
+              keepVisited: any(named: 'keepVisited'),
+              returnTo: any(named: 'returnTo'),
+            ),
+          );
+          expect(cubit.state.recalcPending, isTrue);
+          expect(cubit.state.badge, NavigationBadge.recalcPending);
+
+          online.add(true);
+          async.flushMicrotasks();
+
+          verify(
+            () => routes.plan(
+              farPoint,
+              const <Stop>[],
+              keepVisited: any(named: 'keepVisited'),
+              returnTo: origin,
+            ),
+          ).called(1);
+          expect(cubit.state.recalcPending, isFalse);
+          expect(cubit.state.badge, NavigationBadge.recalculated);
+          expect(cubit.state.plan.polyline, answer.polyline);
+          expect(cubit.state.plan.isReturning, isTrue);
+          cubit.close();
+        });
+      });
+    });
   });
 }
