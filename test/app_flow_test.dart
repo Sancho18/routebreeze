@@ -111,6 +111,7 @@ void main() {
   late MockRouteStorage storage;
   late StreamController<Fix> positions;
   late StreamController<bool> online;
+  late FakeLocalNotifications notifications;
 
   /// Clock of the lifecycle gate and of the navigation.
   late DateTime clock;
@@ -175,7 +176,7 @@ void main() {
   setUp(() async {
     // First use: no round-trip choice saved.
     SharedPreferences.setMockInitialValues({});
-    FakeLocalNotifications.install();
+    notifications = FakeLocalNotifications.install();
     await configureDependencies(apiKey: 'test-key');
     positions = StreamController<Fix>.broadcast();
     online = StreamController<bool>.broadcast();
@@ -439,6 +440,34 @@ void main() {
     expect(find.text('Ordem otimizada'), findsOneWidget);
     expect(find.text('12,3 km · 10 min'), findsOneWidget);
     expect(find.byType(GoogleMap), findsNothing);
+  });
+
+  testWidgets('the first "Iniciar" asks for the notification permission '
+      'before the navigation starts, and the navigation notification then '
+      'shows the next stop card\'s stop and times', (tester) async {
+    await openRoute(tester);
+
+    await navigateFromRoute(tester);
+
+    expect(
+      [for (final call in notifications.calls) call.method],
+      [
+        'initialize',
+        'requestNotificationsPermission',
+        'startForegroundService',
+        'startForegroundService',
+      ],
+    );
+    final shown =
+        (notifications.calls.last.arguments as Map)['notificationData'] as Map;
+    expect(shown['title'], 'Próxima parada 1 · Rua C, São Paulo');
+    expect(
+      find.descendant(
+        of: find.byType(NextStopCard),
+        matching: find.text(shown['body'] as String),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('with "Voltar ao ponto de partida" on, the route screen asks '

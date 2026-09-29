@@ -11,6 +11,8 @@ import 'package:routebreeze/core/theme/map_style.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
+import 'package:routebreeze/features/navigation/data/background_tracker.dart';
+import 'package:routebreeze/features/navigation/data/route_alerts.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
@@ -23,6 +25,15 @@ import '../../../helpers/themed_app.dart';
 
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
+
+/// The map tests do not look at the alerts.
+class FakeRouteAlerts implements RouteAlerts {
+  @override
+  Future<void> show(RouteAlert kind, String title, String body) async {}
+
+  @override
+  Future<void> clear() async {}
+}
 
 class FakeMapMarkers extends MapMarkers {
   @override
@@ -93,6 +104,8 @@ void main() {
       plan: plan,
       cubit: cubit,
       markers: FakeMapMarkers(),
+      routeAlerts: FakeRouteAlerts(),
+      tracker: NoopBackgroundTracker(),
       onExit: () {},
       onNewRoute: () {},
     );

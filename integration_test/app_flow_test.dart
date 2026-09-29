@@ -2,9 +2,9 @@
 // addresses picked from suggestions → optimized route with three numbered
 // stops → navigation: arrival at the first stop, "Entregue", "Não entregue"
 // with a reason and the summary. Device and network boundaries
-// (biometrics, GPS, connectivity, Places, Routes) are fakes registered over
-// the production wiring; the `GoogleMap` widgets are real, so the run needs
-// the API key:
+// (biometrics, GPS, the notification permission, connectivity, Places,
+// Routes) are fakes registered over the production wiring; the `GoogleMap`
+// widgets are real, so the run needs the API key:
 //
 //   flutter test integration_test -d <deviceId> --dart-define-from-file=env.json
 import 'dart:async';
@@ -30,6 +30,7 @@ import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/domain/auth_result.dart';
+import 'package:routebreeze/features/navigation/data/notification_permission.dart';
 import 'package:routebreeze/features/navigation/presentation/failure_reason_sheet.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
@@ -98,6 +99,13 @@ class FakeLocationService implements LocationService {
 
   @override
   Future<void> openLocationSettings() async {}
+}
+
+/// The system prompt cannot be answered from a test: the permission counts
+/// as asked.
+class FakeNotificationPermission implements NotificationPermission {
+  @override
+  Future<void> requestOnce() async {}
 }
 
 class FakeConnectivityService implements ConnectivityService {
@@ -266,6 +274,7 @@ void main() {
     location = FakeLocationService();
     _replace<LocalAuthService>(FakeLocalAuthService());
     _replace<LocationService>(location);
+    _replace<NotificationPermission>(FakeNotificationPermission());
     _replace<ConnectivityService>(FakeConnectivityService());
     _replace<PlacesApi>(FakePlacesApi());
     _replace<RoutesApi>(routesApi);

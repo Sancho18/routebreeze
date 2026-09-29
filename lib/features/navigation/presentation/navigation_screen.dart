@@ -16,12 +16,16 @@ import '../../route/presentation/map_markers.dart';
 import '../../route/presentation/route_format.dart';
 import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
+import '../data/background_tracker.dart';
 import '../data/customer_notifier.dart';
 import '../data/navigation_app_launcher.dart';
+import '../data/notification_permission.dart';
+import '../data/route_alerts.dart';
 import '../domain/progress_estimator.dart';
 import 'customer_message.dart';
 import 'failure_reason_sheet.dart';
 import 'navigation_cubit.dart';
+import 'navigation_notifier.dart';
 import 'next_stop_card.dart';
 import 'open_in_app_sheet.dart';
 import 'return_card.dart';
@@ -73,6 +77,9 @@ class NavigationScreen extends StatefulWidget {
     this.markers,
     this.appLauncher,
     this.customerNotifier,
+    this.notificationPermission,
+    this.routeAlerts,
+    this.tracker,
   });
 
   final RoutePlan plan;
@@ -95,6 +102,15 @@ class NavigationScreen extends StatefulWidget {
 
   /// Overrides the notifier from `getIt` (tests).
   final CustomerNotifier? customerNotifier;
+
+  /// Overrides the notification permission from `getIt` (tests).
+  final NotificationPermission? notificationPermission;
+
+  /// Overrides the route alerts from `getIt` (tests).
+  final RouteAlerts? routeAlerts;
+
+  /// Overrides the tracker from `getIt`, the one the cubit starts (tests).
+  final BackgroundTracker? tracker;
 
   static const String title = 'Navegação';
   static const String startLabel = 'Iniciar';
@@ -136,6 +152,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
       widget.appLauncher ?? getIt<NavigationAppLauncher>();
   late final CustomerNotifier _customerNotifier =
       widget.customerNotifier ?? getIt<CustomerNotifier>();
+  late final NotificationPermission _permission =
+      widget.notificationPermission ?? getIt<NotificationPermission>();
+  late final NavigationNotifier _notifier;
+  late final AppLifecycleListener _lifecycle;
+
+  /// Hidden or paused: only then does the notifier alert events.
+  bool _inBackground = false;
 
   RoutePlan? _iconsPlan;
   Future<_Icons>? _icons;
@@ -151,11 +174,26 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   void initState() {
     super.initState();
+    _notifier = NavigationNotifier(
+      states: _cubit.stream,
+      initial: _cubit.state,
+      tracker: widget.tracker ?? getIt<BackgroundTracker>(),
+      alerts: widget.routeAlerts ?? getIt<RouteAlerts>(),
+      inBackground: () => _inBackground,
+    );
+    _lifecycle = AppLifecycleListener(
+      onStateChange: (state) => _inBackground =
+          state == AppLifecycleState.hidden ||
+          state == AppLifecycleState.paused,
+      onResume: _notifier.onForeground,
+    );
     _cubit.prepare();
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
+    unawaited(_notifier.dispose());
     if (widget.cubit == null) _cubit.close();
     super.dispose();
   }
@@ -242,6 +280,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
     if ((event.position - down).distance <= dragSlop) return;
     _pointerDown = null;
     _cubit.onMapDragged();
+  }
+
+  /// "Iniciar": the first time, the notification permission is asked, and
+  /// the navigation starts after the answer, whatever it is.
+  Future<void> _start() async {
+    await _permission.requestOnce();
+    if (mounted) _cubit.start();
   }
 
   /// Set by the first exit: a second one while the save runs would pop the
@@ -392,9 +437,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                           startColor: navigating
                                               ? rb.dangerStrong
                                               : null,
-                                          onStart: navigating
-                                              ? _stop
-                                              : _cubit.start,
+                                          onStart: navigating ? _stop : _start,
                                           onDelivered: navigating
                                               ? _cubit.recordDelivered
                                               : null,

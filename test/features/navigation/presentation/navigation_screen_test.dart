@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mocktail/mocktail.dart';
@@ -11,13 +13,17 @@ import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
+import 'package:routebreeze/features/navigation/data/background_tracker.dart';
 import 'package:routebreeze/features/navigation/data/customer_notifier.dart';
 import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
+import 'package:routebreeze/features/navigation/data/notification_permission.dart';
+import 'package:routebreeze/features/navigation/data/route_alerts.dart';
 import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/domain/route_summary.dart';
 import 'package:routebreeze/features/navigation/presentation/failure_reason_sheet.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
+import 'package:routebreeze/features/navigation/presentation/navigation_notifier.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
 import 'package:routebreeze/features/navigation/presentation/open_in_app_sheet.dart';
@@ -27,8 +33,10 @@ import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../helpers/accessibility.dart';
+import '../../../helpers/fake_local_notifications.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockNavigationCubit extends MockCubit<NavigationState>
@@ -37,6 +45,13 @@ class MockNavigationCubit extends MockCubit<NavigationState>
 class MockNavigationAppLauncher extends Mock implements NavigationAppLauncher {}
 
 class MockCustomerNotifier extends Mock implements CustomerNotifier {}
+
+class MockNotificationPermission extends Mock
+    implements NotificationPermission {}
+
+class MockRouteAlerts extends Mock implements RouteAlerts {}
+
+class MockBackgroundTracker extends Mock implements BackgroundTracker {}
 
 /// Canvas drawing needs real async; the fake answers with a hue per number
 /// and a fixed hue for the position dot.
@@ -134,6 +149,9 @@ void main() {
   late MockNavigationCubit cubit;
   late MockNavigationAppLauncher launcher;
   late MockCustomerNotifier notifier;
+  late NotificationPermission permission;
+  late MockRouteAlerts alerts;
+  late MockBackgroundTracker tracker;
   late List<NavigationMapModel> mapsBuilt;
   late int exits;
   late int newRoutes;
@@ -143,6 +161,7 @@ void main() {
     registerFallbackValue(a);
     registerFallbackValue(FailureReason.other);
     registerFallbackValue(Rect.zero);
+    registerFallbackValue(RouteAlert.arrival);
   });
 
   setUp(() {
@@ -150,18 +169,27 @@ void main() {
     notifier = MockCustomerNotifier();
     when(() => notifier.notify(any(), origin: any(named: 'origin')))
         .thenAnswer((_) async => true);
+    final asked = MockNotificationPermission();
+    when(asked.requestOnce).thenAnswer((_) async {});
+    permission = asked;
+    alerts = MockRouteAlerts();
+    when(() => alerts.show(any(), any(), any())).thenAnswer((_) async {});
+    when(alerts.clear).thenAnswer((_) async {});
+    tracker = MockBackgroundTracker();
+    when(() => tracker.update(any(), any())).thenAnswer((_) async {});
     mapsBuilt = [];
     exits = 0;
     newRoutes = 0;
   });
 
   /// A fresh mock and screen key per pump: a kept `State` would keep the
-  /// previous cubit and state. The screen is in a bare `MaterialApp`, or in
-  /// the app themes when [mode] is given; [settle] waits for the marker
-  /// icons and the map.
+  /// previous cubit and state. The cubit emits [states] after [state]. The
+  /// screen is in a bare `MaterialApp`, or in the app themes when [mode] is
+  /// given; [settle] waits for the marker icons and the map.
   Future<void> pumpScreen(
     WidgetTester tester,
     NavigationState state, {
+    Stream<NavigationState> states = const Stream.empty(),
     ThemeMode? mode,
     bool settle = true,
   }) async {
@@ -170,11 +198,7 @@ void main() {
     when(() => cubit.recordDelivered()).thenAnswer((_) async {});
     when(() => cubit.recordFailed(any())).thenAnswer((_) async {});
     when(() => cubit.finishRoute()).thenAnswer((_) async {});
-    whenListen(
-      cubit,
-      const Stream<NavigationState>.empty(),
-      initialState: state,
-    );
+    whenListen(cubit, states, initialState: state);
     final screen = NavigationScreen(
       key: UniqueKey(),
       plan: plan,
@@ -182,6 +206,9 @@ void main() {
       markers: FakeMapMarkers(),
       appLauncher: launcher,
       customerNotifier: notifier,
+      notificationPermission: permission,
+      routeAlerts: alerts,
+      tracker: tracker,
       mapBuilder: (_, model) {
         mapsBuilt.add(model);
         return const SizedBox.expand(key: mapKey);
@@ -197,6 +224,14 @@ void main() {
 
   RbPrimaryButton primary(WidgetTester tester, String label) => tester
       .widget<RbPrimaryButton>(find.widgetWithText(RbPrimaryButton, label));
+
+  /// Hands [state] to the app lifecycle as the platform does.
+  Future<void> setLifecycle(WidgetTester tester, AppLifecycleState state) =>
+      tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        SystemChannels.lifecycle.name,
+        const StringCodec().encodeMessage(state.toString()),
+        (_) {},
+      );
 
   /// The painted fill of the primary button labeled [label].
   Color? fillOf(WidgetTester tester, String label) => tester
@@ -1345,6 +1380,178 @@ void main() {
       );
 
       expect(startPin(), const LatLng(-23.58, -46.62));
+    });
+  });
+
+  group('NavigationScreen notifications', () {
+    final waiting = NavigationState(
+      plan: plan,
+      phase: NavigationPhase.waitingGps,
+      fix: fix,
+    );
+
+    /// 1234 m and 250 s from 14:28 to stop 1: "1,2 km · 4 min · chegada às
+    /// 14:32".
+    final toA = RouteProgress(
+      next: const RouteStop(stop: a, order: 1),
+      toNextMeters: 1234,
+      toNextSeconds: 250,
+      remainingMeters: 8400,
+      remainingSeconds: 1320,
+      at: DateTime.utc(2026, 9, 22, 14, 28),
+    );
+
+    NavigationState navigating(
+      RoutePlan plan, {
+      RouteProgress? progress,
+      bool arrived = false,
+      NavigationBadge? badge,
+    }) => NavigationState(
+      plan: plan,
+      phase: NavigationPhase.navigating,
+      fix: fix,
+      progress: progress,
+      arrived: arrived,
+      badge: badge,
+    );
+
+    testWidgets('"Iniciar" asks for the notification permission first and '
+        'starts the navigation once it is answered', (tester) async {
+      final answer = Completer<void>();
+      final asked = MockNotificationPermission();
+      when(asked.requestOnce).thenAnswer((_) => answer.future);
+      permission = asked;
+      await pumpScreen(tester, waiting);
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pump();
+
+      verify(asked.requestOnce).called(1);
+      verifyNever(() => cubit.start());
+
+      answer.complete();
+      await tester.pump();
+
+      verify(() => cubit.start()).called(1);
+    });
+
+    testWidgets('a screen closed while the permission is asked does not '
+        'start the navigation', (tester) async {
+      final answer = Completer<void>();
+      final asked = MockNotificationPermission();
+      when(asked.requestOnce).thenAnswer((_) => answer.future);
+      permission = asked;
+      await pumpScreen(tester, waiting);
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pump();
+
+      await tester.pumpWidget(const SizedBox());
+      answer.complete();
+      await tester.pump();
+
+      verifyNever(() => cubit.start());
+    });
+
+    testWidgets('a denied notification permission still starts the '
+        'navigation', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final notifications = FakeLocalNotifications.install(
+        answers: {'requestNotificationsPermission': false},
+      );
+      permission = PluginNotificationPermission(
+        FlutterLocalNotificationsPlugin(),
+      );
+      await pumpScreen(tester, waiting);
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pump();
+
+      expect(
+        [for (final call in notifications.calls) call.method],
+        ['requestNotificationsPermission'],
+      );
+      verify(() => cubit.start()).called(1);
+    });
+
+    testWidgets('the screen feeds the notifier the navigation and the app '
+        'lifecycle: the next stop reaches the ongoing notification, events '
+        'alert only while hidden or paused, and coming back removes the '
+        'alerts', (tester) async {
+      final states = StreamController<NavigationState>();
+      addTearDown(states.close);
+      await pumpScreen(tester, waiting, states: states.stream);
+      Future<void> emit(NavigationState state) async {
+        states.add(state);
+        await tester.pump();
+      }
+
+      await emit(navigating(plan, progress: toA));
+      verify(
+        () => tracker.update(
+          'Próxima parada 1 · Rua A, 1',
+          '1,2 km · 4 min · chegada às 14:32',
+        ),
+      ).called(1);
+
+      // Inactive, the app is still on screen.
+      await setLifecycle(tester, AppLifecycleState.inactive);
+      await emit(navigating(plan, progress: toA, arrived: true));
+      verifyNever(() => alerts.show(any(), any(), any()));
+
+      final toB = plan.record('pa', delivered);
+      await emit(navigating(toB));
+      await setLifecycle(tester, AppLifecycleState.hidden);
+      await emit(navigating(toB, arrived: true));
+      verify(
+        () => alerts.show(
+          RouteAlert.arrival,
+          'Você chegou à parada 2',
+          'Rua B, 2. Registre a entrega.',
+        ),
+      ).called(1);
+
+      await setLifecycle(tester, AppLifecycleState.paused);
+      await emit(
+        navigating(toB, arrived: true, badge: NavigationBadge.recalculated),
+      );
+      verify(
+        () => alerts.show(
+          RouteAlert.recalculated,
+          'Rota recalculada',
+          'Próxima parada 2 · Rua B, 2',
+        ),
+      ).called(1);
+      verifyNever(alerts.clear);
+
+      await setLifecycle(tester, AppLifecycleState.resumed);
+
+      verify(alerts.clear).called(1);
+    });
+
+    testWidgets('leaving the screen stops the notifier: the update the 15 s '
+        'throttle held back is dropped and the app lifecycle no longer '
+        'reaches it', (tester) async {
+      final states = StreamController<NavigationState>();
+      addTearDown(states.close);
+      await pumpScreen(tester, waiting, states: states.stream);
+      states.add(navigating(plan, progress: toA));
+      await tester.pump(const Duration(seconds: 5));
+      states.add(navigating(plan));
+      await tester.pump();
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(NavigationNotifier.throttle * 2);
+      await setLifecycle(tester, AppLifecycleState.paused);
+      await setLifecycle(tester, AppLifecycleState.resumed);
+
+      verify(
+        () => tracker.update(
+          'Próxima parada 1 · Rua A, 1',
+          '1,2 km · 4 min · chegada às 14:32',
+        ),
+      ).called(1);
+      verifyNoMoreInteractions(tracker);
+      verifyNever(alerts.clear);
     });
   });
 
