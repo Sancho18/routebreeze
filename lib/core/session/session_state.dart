@@ -1,6 +1,7 @@
 /// Process-wide flags shared across features.
 class SessionState {
-  /// True while a navigation is running; blocks re-lock on foreground.
+  /// True from "Iniciar" until the navigation screen closes, also after the
+  /// route completes, so the summary stays; blocks re-lock on foreground.
   bool isNavigationActive = false;
 
   /// Set by the live navigation while its position stream exists: the
