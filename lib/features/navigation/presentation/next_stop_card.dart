@@ -5,6 +5,7 @@ import '../../../core/theme/rb_tokens.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/presentation/route_format.dart';
 import '../../route/presentation/stop_badge.dart';
+import '../domain/notification_copy.dart';
 import '../domain/progress_estimator.dart';
 
 /// The stop the driver is heading to, over the navigation map: its number and
@@ -42,11 +43,8 @@ class NextStopCard extends StatelessWidget {
   /// Tap target of the card's buttons.
   static const double actionSize = 48;
 
-  /// `"1,2 km · 4 min · chegada às 14:32"`.
-  static String summary(RouteProgress progress) =>
-      '${formatDistance(progress.toNextMeters)} · '
-      '${formatDuration(progress.toNextSeconds)} · '
-      'chegada às ${formatClock(progress.nextArrival)}';
+  /// `"1,2 km · 4 min · chegada às 14:32"`, as in the ongoing notification.
+  static String summary(RouteProgress progress) => progressSummary(progress);
 
   /// The card's merged reading: `"Próxima parada {n}: {address}."`, plus
   /// `" {distance}, {duration}, chegada às {HH:mm}"` once measured, or
