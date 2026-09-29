@@ -81,6 +81,7 @@ Future<void> configureDependencies({String? apiKey}) async {
         routes: getIt<RouteRepository>(),
         connectivity: getIt<ConnectivityService>(),
         session: getIt<SessionState>(),
+        tracker: getIt<BackgroundTracker>(),
       ),
     )
     ..registerLazySingleton<LockCubit>(
