@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mocktail/mocktail.dart';
@@ -30,6 +31,51 @@ Position position({
   speed: 0,
   speedAccuracy: 0,
 );
+
+/// iOS navigation settings: best accuracy every [meters], updates in
+/// background with the location indicator, no automatic pauses, automotive
+/// navigation.
+Matcher appleBackground(int meters) => isA<AppleSettings>()
+    .having((s) => s.accuracy, 'accuracy', LocationAccuracy.best)
+    .having((s) => s.distanceFilter, 'distanceFilter', meters)
+    .having(
+      (s) => s.allowBackgroundLocationUpdates,
+      'allowBackgroundLocationUpdates',
+      isTrue,
+    )
+    .having(
+      (s) => s.showBackgroundLocationIndicator,
+      'showBackgroundLocationIndicator',
+      isTrue,
+    )
+    .having(
+      (s) => s.pauseLocationUpdatesAutomatically,
+      'pauseLocationUpdatesAutomatically',
+      isFalse,
+    )
+    .having(
+      (s) => s.activityType,
+      'activityType',
+      ActivityType.automotiveNavigation,
+    );
+
+/// Android settings: best accuracy every [meters], without the geolocator
+/// foreground notification.
+Matcher android(int meters) => isA<AndroidSettings>()
+    .having((s) => s.accuracy, 'accuracy', LocationAccuracy.best)
+    .having((s) => s.distanceFilter, 'distanceFilter', meters)
+    .having(
+      (s) => s.foregroundNotificationConfig,
+      'foregroundNotificationConfig',
+      isNull,
+    );
+
+/// Plain [LocationSettings], no platform subclass: best accuracy every
+/// [meters].
+Matcher plain(int meters) => isA<LocationSettings>()
+    .having((s) => s.runtimeType, 'runtimeType', LocationSettings)
+    .having((s) => s.accuracy, 'accuracy', LocationAccuracy.best)
+    .having((s) => s.distanceFilter, 'distanceFilter', meters);
 
 void main() {
   late MockGeolocatorPlatform platform;
@@ -157,6 +203,92 @@ void main() {
               as LocationSettings;
       expect(settings.accuracy, LocationAccuracy.best);
       expect(settings.distanceFilter, 5);
+    });
+
+    group('with the platform settings', () {
+      LocationSettings captured() =>
+          verify(
+                () => platform.getPositionStream(
+                  locationSettings: captureAny(named: 'locationSettings'),
+                ),
+              ).captured.single
+              as LocationSettings;
+
+      setUp(() {
+        when(
+          () => platform.getPositionStream(
+            locationSettings: any(named: 'locationSettings'),
+          ),
+        ).thenAnswer((_) => const Stream.empty());
+      });
+
+      tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+      test('on iOS, the distance filter and the background mode reach the '
+          'settings', () {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        service.watch(distanceFilterMeters: 12, background: true);
+
+        expect(captured(), appleBackground(12));
+      });
+
+      test('on Android, the Android settings', () {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+        service.watch(distanceFilterMeters: 12, background: true);
+
+        expect(captured(), android(12));
+      });
+
+      test('in foreground unless asked for background', () {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+        service.watch();
+
+        expect(captured(), plain(5));
+      });
+    });
+  });
+
+  group('settingsFor', () {
+    test('iOS in background: AppleSettings with background updates, the '
+        'indicator on, no automatic pauses, automotive navigation, best '
+        'accuracy, 5 m', () {
+      expect(
+        GeolocatorLocationService.settingsFor(
+          platform: TargetPlatform.iOS,
+          distanceFilterMeters: 5,
+          background: true,
+        ),
+        appleBackground(5),
+      );
+    });
+
+    test('iOS in foreground: plain LocationSettings, best accuracy, 5 m', () {
+      expect(
+        GeolocatorLocationService.settingsFor(
+          platform: TargetPlatform.iOS,
+          distanceFilterMeters: 5,
+          background: false,
+        ),
+        plain(5),
+      );
+    });
+
+    test('Android in background and in foreground: AndroidSettings, best '
+        'accuracy, 5 m, no foreground notification config', () {
+      for (final background in [true, false]) {
+        expect(
+          GeolocatorLocationService.settingsFor(
+            platform: TargetPlatform.android,
+            distanceFilterMeters: 5,
+            background: background,
+          ),
+          android(5),
+          reason: 'background: $background',
+        );
+      }
     });
   });
 

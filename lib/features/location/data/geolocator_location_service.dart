@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../core/geo/geo_point.dart';
@@ -38,14 +39,43 @@ class GeolocatorLocationService implements LocationService {
   }
 
   @override
-  Stream<Fix> watch({int distanceFilterMeters = 5}) => _platform
-      .getPositionStream(
-        locationSettings: LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: distanceFilterMeters,
-        ),
-      )
-      .map(_toFix);
+  Stream<Fix> watch({int distanceFilterMeters = 5, bool background = false}) =>
+      _platform
+          .getPositionStream(
+            locationSettings: settingsFor(
+              platform: defaultTargetPlatform,
+              distanceFilterMeters: distanceFilterMeters,
+              background: background,
+            ),
+          )
+          .map(_toFix);
+
+  /// Stream settings for [platform]. On iOS in [background], updates keep
+  /// coming with the location indicator and without automatic pauses. On
+  /// Android the navigation's foreground service keeps them coming, so the
+  /// geolocator notification stays off.
+  static LocationSettings settingsFor({
+    required TargetPlatform platform,
+    required int distanceFilterMeters,
+    required bool background,
+  }) => switch (platform) {
+    TargetPlatform.iOS when background => AppleSettings(
+      accuracy: LocationAccuracy.best,
+      activityType: ActivityType.automotiveNavigation,
+      distanceFilter: distanceFilterMeters,
+      pauseLocationUpdatesAutomatically: false,
+      showBackgroundLocationIndicator: true,
+      allowBackgroundLocationUpdates: true,
+    ),
+    TargetPlatform.android => AndroidSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: distanceFilterMeters,
+    ),
+    _ => LocationSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: distanceFilterMeters,
+    ),
+  };
 
   @override
   Future<void> openAppSettings() => _platform.openAppSettings();

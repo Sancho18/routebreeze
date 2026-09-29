@@ -14,7 +14,9 @@ abstract class LocationService {
   Future<Fix> currentFix({Duration timeout = const Duration(seconds: 15)});
 
   /// Best-accuracy stream with one event per [distanceFilterMeters] moved.
-  Stream<Fix> watch({int distanceFilterMeters = 5});
+  /// With [background], positions keep coming while the app is in
+  /// background.
+  Stream<Fix> watch({int distanceFilterMeters = 5, bool background = false});
 
   Future<void> openAppSettings();
 
