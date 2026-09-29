@@ -455,9 +455,10 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   /// One request from [origin] through the unvisited stops; the visited
-  /// ones keep their numbers. Stops visited while the request is in flight
-  /// stay visited in the answer; an answer that arrives after the route
-  /// completed is dropped and storage cleared again.
+  /// ones keep their numbers. The answer takes the results recorded while
+  /// the request was in flight, the start and the current distance; an
+  /// answer that arrives after the route completed is dropped and storage
+  /// cleared again.
   Future<void> _recalculate(GeoPoint origin) async {
     final plan = state.plan;
     if (plan.unvisited.isEmpty) return;
@@ -485,14 +486,7 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
     if (replaced != null) {
       _deviation.reset();
-      final visitedNow = [
-        for (final stop in state.plan.stops)
-          if (stop.visited) stop,
-      ];
-      final merged = visitedNow.fold(
-        replaced,
-        (p, stop) => p.record(stop.stop.placeId, stop.result!),
-      );
+      final merged = _traveled(replaced.withProgressFrom(state.plan));
       if (merged != replaced) {
         await _routes.save(merged);
         if (isClosed) return;

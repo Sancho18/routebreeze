@@ -612,7 +612,7 @@ void main() {
         verify(
           () => routes.plan(farPoint, [a, b], keepVisited: const <RouteStop>[]),
         ).called(1);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         expect(cubit.state.plan.polyline, recalculated.polyline);
         expect(cubit.state.plan.stops.map((s) => s.stop), [b, a]);
         expect(cubit.state.recalcInFlight, isFalse);
@@ -625,7 +625,7 @@ void main() {
         expect(cubit.state.badge, NavigationBadge.recalculated);
         async.elapse(const Duration(seconds: 1));
         expect(cubit.state.badge, isNull);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         cubit.close();
       });
     });
@@ -745,7 +745,7 @@ void main() {
         pending.complete(recalculated);
         async.flushMicrotasks();
         expect(cubit.state.recalcInFlight, isFalse);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         cubit.close();
       });
     });
@@ -781,29 +781,48 @@ void main() {
           () => routes.plan(farPoint, [a, b], keepVisited: const <RouteStop>[]),
         ).called(1);
         expect(cubit.state.recalcPending, isFalse);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         expect(cubit.state.badge, NavigationBadge.recalculated);
         cubit.close();
       });
     });
 
     test('a stop visited while a recalculation is in flight stays visited '
-        'in the replaced plan', () {
+        'in the replaced plan with its reason, the start and the current '
+        'distance; "Encerrar" then saves them', () {
+      final first = t0.subtract(const Duration(hours: 1));
       fakeAsync((async) {
         final pending = Completer<RoutePlan>();
         stubPlan(pending);
-        final cubit = navigating(async);
+        final cubit = navigating(
+          async,
+          plan.withStart(first).withTraveled(850),
+        );
         goOffRoute(async);
         expect(cubit.state.recalcInFlight, isTrue);
 
-        cubit.recordDelivered();
+        async.elapse(const Duration(seconds: 5));
+        cubit.recordFailed(FailureReason.addressNotFound);
         async.flushMicrotasks();
         expect(cubit.state.plan.stops[0].visited, isTrue);
+        // 111 m after the result, still waiting for the answer.
+        emitFix(async, fix(GeoPoint(lat(120), -0.009)));
 
         pending.complete(recalculated);
         async.flushMicrotasks();
 
+        final kept = recalculated
+            .record(
+              'pa',
+              StopResult.failed(
+                FailureReason.addressNotFound,
+                at: t0.add(const Duration(seconds: 5)),
+              ),
+            )
+            .withStart(first)
+            .withTraveled(961);
         expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.plan, kept);
         expect(cubit.state.plan.polyline, recalculated.polyline);
         expect(
           cubit.state.plan.stops.singleWhere((s) => s.stop == a).visited,
@@ -818,6 +837,11 @@ void main() {
           saved.last.stops.singleWhere((s) => s.stop == a).visited,
           isTrue,
         );
+
+        cubit.stop();
+        async.flushMicrotasks();
+
+        expect(verify(() => routes.save(captureAny())).captured.single, kept);
         cubit.close();
       });
     });
@@ -1359,7 +1383,7 @@ void main() {
 
         goOffRoute(async);
 
-        expect(cubit.state.plan, replaced);
+        expect(cubit.state.plan, replaced.withStart(t0));
         expect(
           cubit.state.progress,
           RouteProgress(
