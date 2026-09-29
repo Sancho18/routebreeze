@@ -1595,4 +1595,251 @@ void main() {
       });
     });
   });
+
+  group('round trip', () {
+    // The same route back to its origin: after B the line runs back along
+    // the equator (leg ends on A, B, and the origin for the way back).
+    final roundTrip = RoutePlan(
+      origin: origin,
+      stops: plan.stops,
+      polyline: const [origin, GeoPoint(0, 0), GeoPoint(0, 0.02), origin],
+      distanceMeters: 8896,
+      durationSeconds: 800,
+      legs: const [
+        RouteLeg(distanceMeters: 2224, durationSeconds: 200, endIndex: 1),
+        RouteLeg(distanceMeters: 2224, durationSeconds: 200, endIndex: 2),
+      ],
+      computedAt: t0,
+      returnTo: origin,
+      returnLeg: const RouteLeg(
+        distanceMeters: 4448,
+        durationSeconds: 400,
+        endIndex: 3,
+      ),
+    );
+    final started = t0.subtract(const Duration(minutes: 30));
+    final deliveredA = StopResult.delivered(
+      at: t0.add(const Duration(seconds: 5)),
+    );
+    final refusedB = StopResult.failed(
+      FailureReason.refused,
+      at: t0.add(const Duration(seconds: 10)),
+    );
+
+    /// A fix 30 m from the start of the route.
+    Fix atStart({double accuracy = 10}) =>
+        fix(GeoPoint(lat(30), origin.lng), accuracy: accuracy);
+
+    /// [roundTrip], started 30 min before t0 with 850 m traveled, with A
+    /// delivered at t0 + 5 s and B refused at t0 + 10 s: on its way back.
+    NavigationCubit returning(FakeAsync async) {
+      final cubit = navigating(
+        async,
+        roundTrip.withStart(started).withTraveled(850),
+      );
+      async.elapse(const Duration(seconds: 5));
+      cubit.recordDelivered();
+      async.flushMicrotasks();
+      async.elapse(const Duration(seconds: 5));
+      cubit.recordFailed(FailureReason.refused);
+      async.flushMicrotasks();
+      return cubit;
+    }
+
+    /// The summary of [returning] ended at [end], [traveled] meters.
+    RouteSummary summaryAt(DateTime end, {int traveled = 850}) => RouteSummary(
+      delivered: 1,
+      failed: [RouteStop(stop: b, order: 2, result: refusedB)],
+      traveledMeters: traveled,
+      start: started,
+      end: end,
+    );
+
+    group('way back and completion', () {
+      test('the last result leaves it navigating on the way back: no '
+          'summary, the stream kept and the plan saved with every result and '
+          'the way back, measured from the last precise fix', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          expect(cubit.state.plan.isReturning, isTrue);
+          expect(cubit.state.summary, isNull);
+          expect(cubit.state.arrived, isFalse);
+          expect(fixes.hasListener, isTrue);
+          expect(session.isNavigationActive, isTrue);
+          verifyNever(() => routes.clear());
+          final saved = verify(() => routes.save(captureAny())).captured
+              .cast<RoutePlan>();
+          expect(saved, hasLength(2));
+          expect(saved.last, cubit.state.plan);
+          expect(saved.last.stops.map((s) => s.result), [deliveredA, refusedB]);
+          expect(saved.last.returnTo, origin);
+          expect(saved.last.returnLeg, roundTrip.returnLeg);
+          // The start fix, 3/4 of the way back from B: a quarter is left.
+          expect(
+            cubit.state.progress,
+            RouteProgress(
+              next: null,
+              toNextMeters: 1112,
+              toNextSeconds: 100,
+              remainingMeters: 1112,
+              remainingSeconds: 100,
+              at: t0.add(const Duration(seconds: 10)),
+            ),
+          );
+          cubit.close();
+        });
+      });
+
+      test('on the way back, a fix of 10 m accuracy 30 m from the start '
+          'completes the route with its summary, ended at the clock time of '
+          'that fix and with its distance: stream stopped, storage cleared, '
+          'navigation active until close', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          async.elapse(const Duration(minutes: 12));
+          // 111 m before the start, then at the start.
+          emitFix(async, fix(GeoPoint(lat(30), origin.lng + 0.001)));
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          async.elapse(const Duration(minutes: 1));
+
+          emitFix(async, atStart());
+
+          final end = t0.add(const Duration(minutes: 13, seconds: 10));
+          expect(cubit.state.phase, NavigationPhase.completed);
+          expect(cubit.state.summary, summaryAt(end, traveled: 961));
+          expect(
+            cubit.state.summary!.duration,
+            const Duration(minutes: 43, seconds: 10),
+          );
+          expect(cubit.state.progress, isNull);
+          expect(fixes.hasListener, isFalse);
+          verify(() => routes.clear()).called(1);
+          expect(session.isNavigationActive, isTrue);
+
+          cubit.close();
+          async.flushMicrotasks();
+
+          expect(session.isNavigationActive, isFalse);
+        });
+      });
+
+      test('on the way back, a fix 30 m from the start with 60 m accuracy '
+          'or a precise one 100 m away keeps it navigating', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          final before = cubit.state.plan;
+
+          emitFix(async, atStart(accuracy: 60));
+          emitFix(async, fix(GeoPoint(lat(100), origin.lng)));
+
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          expect(cubit.state.summary, isNull);
+          expect(cubit.state.plan, before);
+          expect(fixes.hasListener, isTrue);
+          verifyNever(() => routes.clear());
+          cubit.close();
+        });
+      });
+
+      test('a fix at the start while a stop has no result (leaving the '
+          'depot, or with one stop left) neither arrives nor completes', () {
+        fakeAsync((async) {
+          final cubit = navigating(async, roundTrip);
+
+          emitFix(async, atStart());
+
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          expect(cubit.state.arrived, isFalse);
+          expect(cubit.state.summary, isNull);
+
+          cubit.recordDelivered();
+          async.flushMicrotasks();
+          emitFix(async, atStart());
+
+          expect(cubit.state.phase, NavigationPhase.navigating);
+          expect(cubit.state.arrived, isFalse);
+          expect(cubit.state.summary, isNull);
+          expect(cubit.state.plan.nextStop!.stop, b);
+          verifyNever(() => routes.clear());
+          cubit.close();
+        });
+      });
+
+      test('"Finalizar rota" on the way back completes the route with its '
+          'summary, ended at the clock time of the tap; a second tap does '
+          'nothing', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          async.elapse(const Duration(minutes: 20));
+
+          cubit.finishRoute();
+          async.flushMicrotasks();
+
+          final end = t0.add(const Duration(minutes: 20, seconds: 10));
+          expect(cubit.state.phase, NavigationPhase.completed);
+          expect(cubit.state.summary, summaryAt(end));
+          expect(
+            cubit.state.summary!.duration,
+            const Duration(minutes: 50, seconds: 10),
+          );
+          expect(cubit.state.progress, isNull);
+          expect(fixes.hasListener, isFalse);
+          verify(() => routes.clear()).called(1);
+          expect(session.isNavigationActive, isTrue);
+
+          async.elapse(const Duration(seconds: 5));
+          cubit.finishRoute();
+          async.flushMicrotasks();
+
+          expect(cubit.state.summary, summaryAt(end));
+          verifyNever(() => routes.clear());
+          cubit.close();
+        });
+      });
+
+      test('"Finalizar rota" is ignored before the way back: with a stop '
+          'left, on a one-way route and while waiting for GPS', () {
+        fakeAsync((async) {
+          final oneLeft = navigating(async, roundTrip);
+          oneLeft.recordDelivered();
+          async.flushMicrotasks();
+          final withStopLeft = oneLeft.state;
+
+          oneLeft.finishRoute();
+          async.flushMicrotasks();
+
+          expect(oneLeft.state, withStopLeft);
+          expect(oneLeft.state.phase, NavigationPhase.navigating);
+          oneLeft.close();
+
+          final oneWay = navigating(async);
+          final oneWayBefore = oneWay.state;
+
+          oneWay.finishRoute();
+          async.flushMicrotasks();
+
+          expect(oneWay.state, oneWayBefore);
+          oneWay.close();
+
+          final waiting = build(
+            async,
+            roundTrip
+                .record('pa', StopResult.delivered(at: t0))
+                .record('pb', StopResult.delivered(at: t0)),
+          )..prepare();
+          async.flushMicrotasks();
+
+          waiting.finishRoute();
+          async.flushMicrotasks();
+
+          expect(waiting.state.phase, NavigationPhase.waitingGps);
+          expect(waiting.state.summary, isNull);
+          verifyNever(() => routes.clear());
+          waiting.close();
+        });
+      });
+    });
+  });
 }

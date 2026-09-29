@@ -90,8 +90,9 @@ class NavigationState extends Equatable {
   /// a result is recorded.
   final bool arrived;
 
-  /// The numbers of the finished route; set when the last stop gets its
-  /// result.
+  /// The numbers of the finished route; set when it completes: at the last
+  /// result of a one-way route, and back at the start or on "Finalizar rota"
+  /// for a round trip.
   final RouteSummary? summary;
 
   /// "Iniciar" is enabled only on a fix of 50 m or better.
@@ -155,8 +156,8 @@ class NavigationState extends Equatable {
 }
 
 /// Live navigation over one [RoutePlan]: position stream, arrival,
-/// results, off-route recalculation, offline deferral, progress to the next
-/// stop and the distance traveled.
+/// results, the way back of a round trip, off-route recalculation, offline
+/// deferral, progress to the next stop and the distance traveled.
 class NavigationCubit extends Cubit<NavigationState> {
   NavigationCubit({
     required RoutePlan plan,
@@ -272,6 +273,15 @@ class NavigationCubit extends Cubit<NavigationState> {
   Future<void> recordFailed(FailureReason reason) =>
       _record((at) => StopResult.failed(reason, at: at));
 
+  /// "Finalizar rota": on the way back of a round trip, completes the route
+  /// at the clock time; ignored otherwise.
+  Future<void> finishRoute() async {
+    if (state.phase != NavigationPhase.navigating || !state.plan.isReturning) {
+      return;
+    }
+    await _complete(_traveled(state.plan), end: _now());
+  }
+
   void recenter() => emit(state.copyWith(following: true));
 
   void onMapDragged() => emit(state.copyWith(following: false));
@@ -386,11 +396,17 @@ class NavigationCubit extends Cubit<NavigationState> {
   /// While arrived the driver may walk away from the road to deliver, so no
   /// fix is checked for a deviation until a result is recorded. Arrival
   /// drops a recalculation deferred offline, with its badge: the deviation
-  /// it answered is over.
+  /// it answered is over. On the way back of a round trip, arriving at its
+  /// start completes the route.
   Future<void> _navigate(Fix fix) async {
     _odometer.add(fix);
     if (fix.accuracyMeters <= _deviation.maxAccuracyMeters) _lastAccepted = fix;
-    final next = state.plan.nextStop;
+    final plan = state.plan;
+    if (plan.isReturning && _arrival.isNear(fix, plan.returnTo!)) {
+      await _complete(_traveled(plan), end: _now());
+      return;
+    }
+    final next = plan.nextStop;
     if (next != null && _arrival.isArrived(fix, next.stop)) {
       emit(
         state.copyWith(
@@ -427,10 +443,8 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   /// Gives the next stop the [result] built for the clock time, unless the
-  /// previous result is less than [recordGuard] old. Once every stop has a
-  /// result the stream stops, storage is cleared and the summary is built;
-  /// the navigation stays active, so no re-lock hides the summary, until
-  /// [close] or [stop].
+  /// previous result is less than [recordGuard] old. The last result
+  /// completes a one-way route; a round trip goes on, back to its start.
   Future<void> _record(StopResult Function(DateTime at) result) async {
     final next = state.plan.nextStop;
     final now = _now();
@@ -441,31 +455,38 @@ class NavigationCubit extends Cubit<NavigationState> {
     _lastRecordAt = now;
     final plan = _traveled(state.plan.record(next.stop.placeId, result(now)));
     _deviation.reset();
-    if (plan.isComplete) {
-      _positions?.cancel();
-      _positions = null;
-      _badgeTimer?.cancel();
-      emit(
-        _measured(
-          state.copyWith(
-            plan: plan,
-            phase: NavigationPhase.completed,
-            recalcPending: false,
-            clearBadge: true,
-            arrived: false,
-            summary: RouteSummary.of(
-              plan,
-              traveledMeters: _odometer.meters,
-              end: now,
-            ),
-          ),
-        ),
-      );
-      await _routes.clear();
+    if (plan.isComplete && !plan.isRoundTrip) {
+      await _complete(plan, end: now);
     } else {
       emit(_measured(state.copyWith(plan: plan, arrived: false)));
       await _routes.save(plan);
     }
+  }
+
+  /// Ends the route as [plan] at [end]: the stream stops, storage is
+  /// cleared and the summary is built; the navigation stays active, so no
+  /// re-lock hides the summary, until [close] or [stop].
+  Future<void> _complete(RoutePlan plan, {required DateTime end}) async {
+    _positions?.cancel();
+    _positions = null;
+    _badgeTimer?.cancel();
+    emit(
+      _measured(
+        state.copyWith(
+          plan: plan,
+          phase: NavigationPhase.completed,
+          recalcPending: false,
+          clearBadge: true,
+          arrived: false,
+          summary: RouteSummary.of(
+            plan,
+            traveledMeters: _odometer.meters,
+            end: end,
+          ),
+        ),
+      ),
+    );
+    await _routes.clear();
   }
 
   /// One request from [origin] through the unvisited stops; the visited
