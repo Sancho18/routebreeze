@@ -208,6 +208,162 @@ void main() {
     });
   });
 
+  group('plan with a return to the start', () {
+    // Where a recalculation starts.
+    const current = GeoPoint(-23.61, -46.71);
+    const delivered = StopResult.delivered();
+
+    test('3 stops: one request back to the start; the stops in the optimized '
+        'order with their 3 legs and the last leg as the way back, '
+        'saved', () async {
+      when(() => api.computeRoutes(any())).thenAnswer(
+        (_) async => const RouteResponse(
+          polyline: [...decoded, GeoPoint(38.5, -120.2)],
+          distanceMeters: 15545,
+          durationSeconds: 1145,
+          legs: [
+            ...legs,
+            RouteLeg(distanceMeters: 3200, durationSeconds: 540, endIndex: 4),
+          ],
+          optimizedIndex: [2, 0, 1],
+        ),
+      );
+
+      final plan = await repository.plan(origin, const [
+        mid,
+        far,
+        near,
+      ], returnTo: origin);
+
+      final expected = RoutePlan(
+        origin: origin,
+        stops: const [
+          RouteStop(stop: near, order: 1),
+          RouteStop(stop: mid, order: 2),
+          RouteStop(stop: far, order: 3),
+        ],
+        polyline: const [...decoded, GeoPoint(38.5, -120.2)],
+        distanceMeters: 15545,
+        durationSeconds: 1145,
+        legs: legs,
+        computedAt: now,
+        returnTo: origin,
+        returnLeg: const RouteLeg(
+          distanceMeters: 3200,
+          durationSeconds: 540,
+          endIndex: 4,
+        ),
+      );
+      expect(plan, expected);
+      expect(verify(() => api.computeRoutes(captureAny())).captured, [
+        const RouteRequest(
+          origin: origin,
+          intermediates: [mid, far, near],
+          destination: origin,
+        ),
+      ]);
+      expect(verify(() => storage.save(captureAny())).captured, [expected]);
+    });
+
+    test('recalculation with 2 visited kept and 1 left: from the current '
+        'position through the stop left back to the start, with its leg and '
+        'the way back', () async {
+      when(() => api.computeRoutes(any())).thenAnswer(
+        (_) async => const RouteResponse(
+          polyline: [
+            GeoPoint(40.7, -120.95),
+            GeoPoint(43.252, -126.453),
+            GeoPoint(38.5, -120.2),
+          ],
+          distanceMeters: 7200,
+          durationSeconds: 740,
+          legs: [
+            RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 1),
+            RouteLeg(distanceMeters: 3200, durationSeconds: 540, endIndex: 2),
+          ],
+          optimizedIndex: [0],
+        ),
+      );
+      const visited = [
+        RouteStop(stop: near, order: 1, result: delivered),
+        RouteStop(stop: mid, order: 2, result: delivered),
+      ];
+
+      final plan = await repository.plan(
+        current,
+        const [far],
+        keepVisited: visited,
+        returnTo: origin,
+      );
+
+      expect(plan.stops, const [...visited, RouteStop(stop: far, order: 3)]);
+      expect(plan.origin, current);
+      expect(plan.returnTo, origin);
+      expect(plan.legs, const [
+        RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 1),
+      ]);
+      expect(
+        plan.returnLeg,
+        const RouteLeg(distanceMeters: 3200, durationSeconds: 540, endIndex: 2),
+      );
+      expect(plan.distanceMeters, 7200);
+      expect(plan.durationSeconds, 740);
+      expect(verify(() => api.computeRoutes(captureAny())).captured, [
+        const RouteRequest(
+          origin: current,
+          intermediates: [far],
+          destination: origin,
+        ),
+      ]);
+      expect(verify(() => storage.save(captureAny())).captured, [plan]);
+    });
+
+    test('returning with no stop left: straight back to the start, the only '
+        'leg is the way back', () async {
+      when(() => api.computeRoutes(any())).thenAnswer(
+        (_) async => const RouteResponse(
+          polyline: [GeoPoint(43.252, -126.453), GeoPoint(38.5, -120.2)],
+          distanceMeters: 3100,
+          durationSeconds: 520,
+          legs: [
+            RouteLeg(distanceMeters: 3100, durationSeconds: 520, endIndex: 1),
+          ],
+          optimizedIndex: null,
+        ),
+      );
+      const visited = [
+        RouteStop(stop: near, order: 1, result: delivered),
+        RouteStop(stop: mid, order: 2, result: delivered),
+        RouteStop(stop: far, order: 3, result: delivered),
+      ];
+
+      final plan = await repository.plan(
+        current,
+        const [],
+        keepVisited: visited,
+        returnTo: origin,
+      );
+
+      expect(plan.stops, visited);
+      expect(plan.origin, current);
+      expect(plan.returnTo, origin);
+      expect(plan.legs, isEmpty);
+      expect(
+        plan.returnLeg,
+        const RouteLeg(distanceMeters: 3100, durationSeconds: 520, endIndex: 1),
+      );
+      expect(plan.isReturning, isTrue);
+      expect(verify(() => api.computeRoutes(captureAny())).captured, [
+        const RouteRequest(
+          origin: current,
+          intermediates: [],
+          destination: origin,
+        ),
+      ]);
+      expect(verify(() => storage.save(captureAny())).captured, [plan]);
+    });
+  });
+
   group('persistence', () {
     final plan = RoutePlan(
       origin: origin,
