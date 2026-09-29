@@ -131,8 +131,9 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
 }
 
 /// Records when the app leaves the foreground and, on return, re-locks
-/// per [RelockPolicy]. Pauses the live navigation while in background and
-/// resumes it on return.
+/// per [RelockPolicy]. Tells the live navigation when the app goes to
+/// background and comes back; the navigation keeps its position stream
+/// while navigating and pauses it while waiting for GPS.
 class AppLifecycleGate extends StatefulWidget {
   const AppLifecycleGate({
     super.key,
