@@ -124,7 +124,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 733 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 738 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -141,11 +141,11 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 | lib (raiz: `app.dart`, `main.dart`) | 83 | 81 | 97,6 % |
 | lib/features/addresses | 313 | 311 | 99,4 % |
 | lib/features/location | 202 | 202 | 100,0 % |
-| lib/features/lock | 76 | 76 | 100,0 % |
+| lib/features/lock | 77 | 77 | 100,0 % |
 | lib/features/navigation | 551 | 547 | 99,3 % |
 | lib/features/route | 472 | 470 | 99,6 % |
-| **Total (todos os arquivos)** | 2125 | 2115 | 99,5 % |
-| **Total (sem native-only)** | 2120 | 2112 | 99,6 % |
+| **Total (todos os arquivos)** | 2126 | 2116 | 99,5 % |
+| **Total (sem native-only)** | 2121 | 2113 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -327,6 +327,7 @@ No claro, `successStrong` dá 5,1:1 sobre branco, `warningStrong` 4,7:1 sobre o 
 
 - o botão primário tem 52 dp como altura mínima e cresce quando o rótulo quebra linha; carregando, o rótulo fica no lugar, invisível sob o spinner, e a altura não muda;
 - o círculo com o número da parada cresce com o texto (48 dp em 200 %);
+- o nome "RouteBreeze" na tela de bloqueio diminui até caber numa linha, em vez de quebrar no meio da palavra;
 - a tela de bloqueio, o card de status do mapa e o sheet "Abrir em outro app" rolam quando o conteúdo não cabe;
 - na navegação, o painel de baixo ocupa só o espaço abaixo do card e dos avisos e rola a partir das ações, em vez de cobrir o card.
 
