@@ -16,11 +16,14 @@ class RouteProgress extends Equatable {
     required this.at,
   });
 
-  final RouteStop next;
+  /// Null on the way back to the start of a round trip; [toNextMeters] and
+  /// [toNextSeconds] are then what is left of it.
+  final RouteStop? next;
   final int toNextMeters;
   final int toNextSeconds;
 
-  /// Through the last unvisited stop, [toNextMeters] included.
+  /// Through the last unvisited stop and, on a round trip, back to the
+  /// start; [toNextMeters] included.
   final int remainingMeters;
   final int remainingSeconds;
 
@@ -47,21 +50,59 @@ class RouteProgress extends Equatable {
 /// Progress from a position: the position is projected on the closest
 /// segment of the leg that arrives at the next stop, and that leg's distance
 /// and duration (Google's) are scaled by the share of its line still ahead.
-/// The legs after it count in full, up to the last unvisited stop.
+/// The legs after it count in full, up to the last unvisited stop, and so
+/// does the way back of a round trip. Once every stop of a round trip has a
+/// result, the way back is the leg measured.
 class ProgressEstimator {
   const ProgressEstimator();
 
-  /// Null when every stop is visited or the plan does not know where its
-  /// legs end (plans saved by app 0.1.0).
+  /// Null when every stop of a one-way route is visited or the plan does not
+  /// know where its legs end (plans saved by app 0.1.0).
   RouteProgress? estimate(RoutePlan plan, GeoPoint position, DateTime at) {
+    final returnLeg = plan.returnLeg;
+    if (plan.isReturning && returnLeg != null) {
+      return _measure(
+        plan,
+        position,
+        at,
+        next: null,
+        leg: returnLeg,
+        // The way back starts where the last stop leg ends.
+        start: plan.legs.isEmpty ? 0 : plan.legs.last.endIndex,
+      );
+    }
     final nextIndex = plan.stops.indexWhere((stop) => !stop.visited);
     final lastIndex = plan.stops.lastIndexWhere((stop) => !stop.visited);
     // Legs belong to the last `legs.length` stops.
     final firstLegStop = plan.stops.length - plan.legs.length;
     final legIndex = nextIndex - firstLegStop;
     if (nextIndex < 0 || legIndex < 0) return null;
-    final start = legIndex == 0 ? 0 : plan.legs[legIndex - 1].endIndex;
-    final end = plan.legs[legIndex].endIndex;
+    return _measure(
+      plan,
+      position,
+      at,
+      next: plan.stops[nextIndex],
+      leg: plan.legs[legIndex],
+      start: legIndex == 0 ? 0 : plan.legs[legIndex - 1].endIndex,
+      later: [
+        ...plan.legs.sublist(legIndex + 1, lastIndex - firstLegStop + 1),
+        ?returnLeg,
+      ],
+    );
+  }
+
+  /// [leg], whose line starts at [start] in the polyline, measured from
+  /// [position], then [later] in full; null when the line is unknown.
+  static RouteProgress? _measure(
+    RoutePlan plan,
+    GeoPoint position,
+    DateTime at, {
+    required RouteStop? next,
+    required RouteLeg leg,
+    required int? start,
+    List<RouteLeg> later = const [],
+  }) {
+    final end = leg.endIndex;
     if (start == null ||
         end == null ||
         start > end ||
@@ -70,12 +111,10 @@ class ProgressEstimator {
     }
 
     final ahead = _shareAhead(position, plan.polyline.sublist(start, end + 1));
-    final leg = plan.legs[legIndex];
     final toNextMeters = (leg.distanceMeters * ahead).round();
     final toNextSeconds = (leg.durationSeconds * ahead).round();
-    final later = plan.legs.sublist(legIndex + 1, lastIndex - firstLegStop + 1);
     return RouteProgress(
-      next: plan.stops[nextIndex],
+      next: next,
       toNextMeters: toNextMeters,
       toNextSeconds: toNextSeconds,
       remainingMeters: later.fold(
