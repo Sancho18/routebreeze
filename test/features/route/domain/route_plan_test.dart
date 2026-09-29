@@ -42,6 +42,23 @@ void main() {
     ],
     computedAt: DateTime.utc(2026, 9, 22, 10, 30),
   );
+  // The same stops as a round trip: after C the line comes back to the
+  // start.
+  final roundTrip = RoutePlan(
+    origin: origin,
+    stops: plan.stops,
+    polyline: [...plan.polyline, origin],
+    distanceMeters: 15545,
+    durationSeconds: 1145,
+    legs: plan.legs,
+    computedAt: plan.computedAt,
+    returnTo: origin,
+    returnLeg: const RouteLeg(
+      distanceMeters: 3200,
+      durationSeconds: 540,
+      endIndex: 3,
+    ),
+  );
 
   group('RoutePlan JSON', () {
     test('round-trips ordered stops, visited flags, polyline and totals', () {
@@ -169,6 +186,113 @@ void main() {
         {'stop': a.toJson(), 'order': 2, 'visited': false},
         {'stop': c.toJson(), 'order': 3, 'visited': false},
       ]);
+    });
+  });
+
+  group('RoutePlan round trip', () {
+    test('writes the point to return to and the way back with a route in '
+        'progress, and restores them from the saved text', () {
+      final progressed = roundTrip
+          .record('pb', deliveredAt)
+          .withStart(startedAt)
+          .withTraveled(850);
+
+      final json = progressed.toJson();
+
+      expect(json['returnTo'], {'lat': -23.5614, 'lng': -46.6559});
+      expect(json['returnLeg'], {
+        'distanceMeters': 3200,
+        'durationSeconds': 540,
+        'endIndex': 3,
+      });
+      final restored = RoutePlan.fromJson(
+        jsonDecode(jsonEncode(json)) as Map<String, dynamic>,
+      );
+      expect(restored, progressed);
+      expect(restored.returnTo, origin);
+      expect(
+        restored.returnLeg,
+        const RouteLeg(distanceMeters: 3200, durationSeconds: 540, endIndex: 3),
+      );
+      expect(restored.isRoundTrip, isTrue);
+    });
+
+    test('a route saved before round trips reads as a one-way route, not '
+        'returning even with every stop done (edge case)', () {
+      final legacy = RoutePlan.fromJson({
+        ...plan.toJson(),
+        'stops': [
+          {'stop': b.toJson(), 'order': 1, 'visited': true},
+          {'stop': a.toJson(), 'order': 2, 'visited': true},
+          {'stop': c.toJson(), 'order': 3, 'visited': true},
+        ],
+      });
+
+      expect(legacy.returnTo, isNull);
+      expect(legacy.returnLeg, isNull);
+      expect(legacy.isRoundTrip, isFalse);
+      expect(legacy.isComplete, isTrue);
+      expect(legacy.isReturning, isFalse);
+    });
+
+    test('is returning only once every stop has a result', () {
+      final twoDone = roundTrip.record('pb', deliveredAt).record('pa', refused);
+      final allDone = twoDone.record('pc', delivered);
+
+      expect(roundTrip.isRoundTrip, isTrue);
+      expect(roundTrip.isReturning, isFalse);
+      expect(twoDone.isReturning, isFalse);
+      expect(allDone.isComplete, isTrue);
+      expect(allDone.isReturning, isTrue);
+      expect(allDone.returnTo, origin);
+      expect(allDone.returnLeg, roundTrip.returnLeg);
+    });
+
+    test('withProgressFrom keeps the point to return to while the origin '
+        'moves, with the way back of the new route', () {
+      final previous = roundTrip
+          .record('pb', deliveredAt)
+          .withStart(startedAt)
+          .withTraveled(12430);
+      const current = GeoPoint(-23.575, -46.665);
+      // Recalculated from the current position: C, then A, then back.
+      final recalculated = RoutePlan(
+        origin: current,
+        stops: const [
+          RouteStop(stop: b, order: 1),
+          RouteStop(stop: c, order: 2),
+          RouteStop(stop: a, order: 3),
+        ],
+        polyline: const [current, GeoPoint(-23.58, -46.67), origin],
+        distanceMeters: 2100,
+        durationSeconds: 300,
+        legs: const [
+          RouteLeg(distanceMeters: 600, durationSeconds: 90, endIndex: 1),
+          RouteLeg(distanceMeters: 600, durationSeconds: 90, endIndex: 1),
+        ],
+        computedAt: DateTime.utc(2026, 9, 28, 17, 6),
+        returnTo: origin,
+        returnLeg: const RouteLeg(
+          distanceMeters: 900,
+          durationSeconds: 120,
+          endIndex: 2,
+        ),
+      );
+
+      final merged = recalculated.withProgressFrom(previous);
+
+      expect(merged.origin, current);
+      expect(merged.returnTo, origin);
+      expect(
+        merged.returnLeg,
+        const RouteLeg(distanceMeters: 900, durationSeconds: 120, endIndex: 2),
+      );
+      expect(
+        merged.stops.first,
+        RouteStop(stop: b, order: 1, result: deliveredAt),
+      );
+      expect(merged.startedAt, startedAt);
+      expect(merged.traveledMeters, 12430);
     });
   });
 

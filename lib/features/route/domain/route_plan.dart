@@ -91,6 +91,8 @@ class RoutePlan extends Equatable {
     required this.computedAt,
     this.startedAt,
     this.traveledMeters = 0,
+    this.returnTo,
+    this.returnLeg,
   });
 
   factory RoutePlan.fromJson(Map<String, dynamic> json) => RoutePlan(
@@ -115,6 +117,14 @@ class RoutePlan extends Equatable {
       null => null,
     },
     traveledMeters: json['traveledMeters'] as int? ?? 0,
+    returnTo: switch (json['returnTo'] as Map<String, dynamic>?) {
+      final point? => GeoPoint.fromJson(point),
+      null => null,
+    },
+    returnLeg: switch (json['returnLeg'] as Map<String, dynamic>?) {
+      final leg? => RouteLeg.fromJson(leg),
+      null => null,
+    },
   );
 
   final GeoPoint origin;
@@ -139,12 +149,26 @@ class RoutePlan extends Equatable {
   /// kept.
   final int traveledMeters;
 
+  /// Where a round trip ends: the start of the route, which stays when a
+  /// recalculation moves [origin]. Null on one-way routes and in routes
+  /// saved before round trips.
+  final GeoPoint? returnTo;
+
+  /// The last leg of the last computation, from its last stop (or its
+  /// origin) to [returnTo]; null on one-way routes.
+  final RouteLeg? returnLeg;
+
   List<RouteStop> get unvisited => [
     for (final stop in stops)
       if (!stop.visited) stop,
   ];
 
   bool get isComplete => stops.every((stop) => stop.visited);
+
+  bool get isRoundTrip => returnTo != null;
+
+  /// Every stop of a round trip has a result: only the way back is left.
+  bool get isReturning => isRoundTrip && isComplete;
 
   RouteStop? get nextStop => unvisited.firstOrNull;
 
@@ -165,7 +189,8 @@ class RoutePlan extends Equatable {
   RoutePlan withTraveled(int meters) => _copy(traveledMeters: meters);
 
   /// This plan with the results (matched by place id), the start and the
-  /// distance traveled of [previous].
+  /// distance traveled of [previous]; its own route, the point to return to
+  /// and the way back included, stays.
   RoutePlan withProgressFrom(RoutePlan previous) {
     var plan = _copy(
       startedAt: previous.startedAt,
@@ -193,6 +218,8 @@ class RoutePlan extends Equatable {
     computedAt: computedAt,
     startedAt: startedAt ?? this.startedAt,
     traveledMeters: traveledMeters ?? this.traveledMeters,
+    returnTo: returnTo,
+    returnLeg: returnLeg,
   );
 
   Map<String, dynamic> toJson() => {
@@ -205,6 +232,8 @@ class RoutePlan extends Equatable {
     'computedAt': computedAt.toUtc().toIso8601String(),
     'startedAt': ?startedAt?.toUtc().toIso8601String(),
     if (traveledMeters > 0) 'traveledMeters': traveledMeters,
+    'returnTo': ?returnTo?.toJson(),
+    'returnLeg': ?returnLeg?.toJson(),
   };
 
   @override
@@ -218,6 +247,8 @@ class RoutePlan extends Equatable {
     computedAt,
     startedAt,
     traveledMeters,
+    returnTo,
+    returnLeg,
   ];
 
   @override
