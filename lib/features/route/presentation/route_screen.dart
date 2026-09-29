@@ -38,6 +38,7 @@ class RouteScreen extends StatefulWidget {
     required this.start,
     required this.stops,
     required this.onStart,
+    this.roundTrip = false,
     this.cubit,
     this.connectivity,
     this.mapBuilder,
@@ -46,6 +47,9 @@ class RouteScreen extends StatefulWidget {
 
   final Fix start;
   final List<Stop> stops;
+
+  /// The route ends back at [start].
+  final bool roundTrip;
 
   /// Opens the navigation with the plan; completes when it closes.
   final Future<void> Function(RoutePlan plan) onStart;
@@ -93,7 +97,11 @@ class _RouteScreenState extends State<RouteScreen> {
   @override
   void initState() {
     super.initState();
-    _cubit.compute(widget.start.point, widget.stops);
+    _cubit.compute(
+      widget.start.point,
+      widget.stops,
+      roundTrip: widget.roundTrip,
+    );
     _connectivity.check().then(_setOnline);
     _online = _connectivity.isOnline.listen(_setOnline);
   }

@@ -83,17 +83,20 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
           final start = ModalRoute.of(context)!.settings.arguments! as Fix;
           return AddressesScreen(
             start: start.point,
-            onConfirmed: (stops, _) => Navigator.of(context)
-                .pushNamed('/route', arguments: (start: start, stops: stops)),
+            onConfirmed: (stops, roundTrip) => Navigator.of(context).pushNamed(
+              '/route',
+              arguments: (start: start, stops: stops, roundTrip: roundTrip),
+            ),
           );
         }),
         '/route': _guarded((context) {
           final args =
               ModalRoute.of(context)!.settings.arguments!
-                  as ({Fix start, List<Stop> stops});
+                  as ({Fix start, List<Stop> stops, bool roundTrip});
           return RouteScreen(
             start: args.start,
             stops: args.stops,
+            roundTrip: args.roundTrip,
             onStart: (plan) => Navigator.of(context).pushNamed(
               '/navigation',
               arguments: (plan: plan, start: args.start),

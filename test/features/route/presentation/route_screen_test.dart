@@ -73,7 +73,8 @@ void main() {
     mapsBuilt = [];
     paddings = [];
     started = [];
-    when(() => cubit.compute(any(), any())).thenAnswer((_) async {});
+    when(() => cubit.compute(any(), any(), roundTrip: any(named: 'roundTrip')))
+        .thenAnswer((_) async {});
     when(() => cubit.retry()).thenAnswer((_) async {});
     when(() => cubit.refreshFromSaved()).thenAnswer((_) async {});
     when(() => connectivity.check()).thenAnswer((_) async => true);
@@ -95,11 +96,13 @@ void main() {
     RouteState state, {
     ThemeMode? mode,
     bool settle = true,
+    bool roundTrip = false,
   }) async {
     whenListen(cubit, const Stream<RouteState>.empty(), initialState: state);
     final screen = RouteScreen(
       start: start,
       stops: stops,
+      roundTrip: roundTrip,
       cubit: cubit,
       connectivity: connectivity,
       markers: FakeMapMarkers(),
@@ -132,6 +135,21 @@ void main() {
       expect(find.byKey(mapKey), findsNothing);
       expect(mapsBuilt, isEmpty);
     });
+
+    for (final roundTrip in [false, true]) {
+      testWidgets('computes on open with roundTrip $roundTrip, as the '
+          'addresses screen chose', (tester) async {
+        await pumpScreen(
+          tester,
+          const RouteState(status: RouteStatus.loading),
+          roundTrip: roundTrip,
+        );
+
+        verify(() => cubit.compute(origin, stops, roundTrip: roundTrip))
+            .called(1);
+        verifyNever(() => cubit.compute(origin, stops, roundTrip: !roundTrip));
+      });
+    }
 
     testWidgets('failure shows the copy in danger with "Tentar novamente" '
         'that retries, and a way back to Addresses', (tester) async {

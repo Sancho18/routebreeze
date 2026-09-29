@@ -39,6 +39,7 @@ import 'package:routebreeze/features/route/domain/route_repository.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_google_map.dart';
 
@@ -77,6 +78,26 @@ void main() {
     ],
     // Typed A, B, C: B is the farthest (destination); C goes before A.
     optimizedIndex: [1, 0],
+  );
+  // The same stops as a round trip: A, B and C are intermediates, optimized
+  // as C, A, B, and a fourth leg goes back to the start.
+  const roundTripResponse = RouteResponse(
+    polyline: [
+      origin,
+      GeoPoint(-23.57, -46.65),
+      GeoPoint(-23.565, -46.66),
+      GeoPoint(-23.60, -46.70),
+      origin,
+    ],
+    distanceMeters: 15000,
+    durationSeconds: 1500,
+    legs: [
+      RouteLeg(distanceMeters: 1500, durationSeconds: 180, endIndex: 1),
+      RouteLeg(distanceMeters: 1200, durationSeconds: 150, endIndex: 2),
+      RouteLeg(distanceMeters: 6300, durationSeconds: 570, endIndex: 3),
+      RouteLeg(distanceMeters: 6000, durationSeconds: 600, endIndex: 4),
+    ],
+    optimizedIndex: [2, 0, 1],
   );
 
   late MockLocalAuthService auth;
@@ -148,6 +169,8 @@ void main() {
   });
 
   setUp(() async {
+    // First use: no round-trip choice saved.
+    SharedPreferences.setMockInitialValues({});
     await configureDependencies(apiKey: 'test-key');
     positions = StreamController<Fix>.broadcast();
     online = StreamController<bool>.broadcast();
@@ -282,15 +305,27 @@ void main() {
     expect(find.text(NavigationScreen.stopLabel), findsOneWidget);
   }
 
+  /// The position of "Voltar ao ponto de partida" on the addresses screen.
+  bool roundTripSwitch(WidgetTester tester) => tester
+      .widget<SwitchListTile>(
+        find.widgetWithText(SwitchListTile, AddressesScreen.roundTripLabel),
+      )
+      .value;
+
   /// From the map through the addresses "Rua A", "Rua B" and "Rua C" to the
-  /// route screen, optimized as C, A, B.
-  Future<void> openRoute(WidgetTester tester) async {
+  /// route screen, optimized as C, A, B; with [roundTrip], "Voltar ao ponto
+  /// de partida" is turned on before confirming.
+  Future<void> openRoute(WidgetTester tester, {bool roundTrip = false}) async {
     await bootToMap(tester);
     await tester.tap(find.text(MapScreen.continueLabel));
     await tester.pumpAndSettle();
     await pickAddress(tester, 0, 'Rua A');
     await pickAddress(tester, 1, 'Rua B');
     await pickAddress(tester, 2, 'Rua C');
+    if (roundTrip) {
+      await tester.tap(find.text(AddressesScreen.roundTripLabel));
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text(AddressesScreen.confirmLabel));
     await tester.pumpAndSettle();
     expect(find.byType(RouteScreen), findsOneWidget);
@@ -398,6 +433,71 @@ void main() {
     expect(find.text('Ordem otimizada'), findsOneWidget);
     expect(find.text('12,3 km · 10 min'), findsOneWidget);
     expect(find.byType(GoogleMap), findsNothing);
+  });
+
+  testWidgets('with "Voltar ao ponto de partida" on, the route screen asks '
+      'for one route from the start back to it with every stop as an '
+      'intermediate and lists them as optimized, C, A, B', (tester) async {
+    when(() => routes.computeRoutes(any()))
+        .thenAnswer((_) async => roundTripResponse);
+
+    await openRoute(tester, roundTrip: true);
+
+    final request =
+        verify(() => routes.computeRoutes(captureAny())).captured.single
+            as RouteRequest;
+    expect(
+      request,
+      RouteRequest(
+        origin: origin,
+        intermediates: [
+          Stop('id-Rua A', 'Rua A, São Paulo', points['Rua A']!),
+          Stop('id-Rua B', 'Rua B, São Paulo', points['Rua B']!),
+          Stop('id-Rua C', 'Rua C, São Paulo', points['Rua C']!),
+        ],
+        destination: origin,
+      ),
+    );
+    final listed = tester
+        .widgetList<Text>(find.textContaining(', São Paulo'))
+        .map((t) => t.data)
+        .toList();
+    expect(listed, [
+      'Rua C, São Paulo',
+      'Rua A, São Paulo',
+      'Rua B, São Paulo',
+    ]);
+    expect(find.text('15,0 km · 25 min'), findsOneWidget);
+  });
+
+  testWidgets('"Voltar ao ponto de partida" is off on first use; confirmed '
+      'on, it is saved and the addresses screen opens with it on after a '
+      'restart', (tester) async {
+    when(() => routes.computeRoutes(any()))
+        .thenAnswer((_) async => roundTripResponse);
+    await bootToMap(tester);
+    await tester.tap(find.text(MapScreen.continueLabel));
+    await tester.pumpAndSettle();
+    expect(roundTripSwitch(tester), isFalse);
+
+    await pickAddress(tester, 0, 'Rua A');
+    await pickAddress(tester, 1, 'Rua B');
+    await pickAddress(tester, 2, 'Rua C');
+    await tester.tap(find.text(AddressesScreen.roundTripLabel));
+    await tester.pumpAndSettle();
+    expect(roundTripSwitch(tester), isTrue);
+    await tester.tap(find.text(AddressesScreen.confirmLabel));
+    await tester.pumpAndSettle();
+    expect(find.byType(RouteScreen), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('round_trip'), isTrue);
+
+    await restart(tester);
+    await tester.tap(find.text(MapScreen.continueLabel));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AddressesScreen), findsOneWidget);
+    expect(roundTripSwitch(tester), isTrue);
   });
 
   testWidgets('a failed route calculation shows "Tentar novamente" and the '
