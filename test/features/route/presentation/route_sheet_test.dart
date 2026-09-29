@@ -71,6 +71,8 @@ void main() {
     VoidCallback? onStart,
     VoidCallback? onDelivered,
     VoidCallback? onNotDelivered,
+    String? finishLabel,
+    VoidCallback? onFinish,
     String startLabel = 'Iniciar',
     Color? startColor,
     String? totals,
@@ -86,6 +88,8 @@ void main() {
           onStart: onStart ?? () {},
           onDelivered: onDelivered,
           onNotDelivered: onNotDelivered,
+          finishLabel: finishLabel,
+          onFinish: onFinish,
           startLabel: startLabel,
           startColor: startColor,
           totals: totals,
@@ -497,6 +501,74 @@ void main() {
       expect(find.byIcon(Icons.close), findsOneWidget);
       expect(find.byType(RbPrimaryButton), findsOneWidget);
       expect(find.byType(RbSecondaryButton), findsNothing);
+    });
+
+    testWidgets('a finish action shows only when given: on the way back of a '
+        'round trip "Finalizar rota" in brand takes the place of the result '
+        'buttons, across the width above "Encerrar", each calling its own', (
+      tester,
+    ) async {
+      // As the route screen and the navigation to a stop give the sheet.
+      await pumpSheet(tester, plan: plan());
+      expect(find.text('Finalizar rota'), findsNothing);
+      expect(startFinder, findsOneWidget);
+      expect(find.byType(RbPrimaryButton), findsOneWidget);
+      await pumpSheet(
+        tester,
+        plan: plan(),
+        startLabel: 'Encerrar',
+        onDelivered: () {},
+        onNotDelivered: () {},
+      );
+      expect(find.text('Finalizar rota'), findsNothing);
+      expect(deliveredFinder, findsOneWidget);
+      expect(notDeliveredFinder, findsOneWidget);
+
+      var finished = 0;
+      var stopped = 0;
+      await pumpSheet(
+        tester,
+        plan: roundTrip()
+            .record('pb', delivered)
+            .record('pa', refused)
+            .record('pc', delivered),
+        startLabel: 'Encerrar',
+        startColor: RbColors.danger,
+        onStart: () => stopped++,
+        onDelivered: () {},
+        onNotDelivered: () {},
+        finishLabel: 'Finalizar rota',
+        onFinish: () => finished++,
+      );
+
+      final finish = find.widgetWithText(RbPrimaryButton, 'Finalizar rota');
+      final stop = find.widgetWithText(RbPrimaryButton, 'Encerrar');
+      expect(finish, findsOneWidget);
+      expect(find.text('Entregue'), findsNothing);
+      expect(find.text('Não entregue'), findsNothing);
+      expect(find.byType(RbPrimaryButton), findsNWidgets(2));
+      expect(materialOf(tester, finish).color, RbColors.brand);
+      expect(
+        tester.widget<Text>(find.text('Finalizar rota')).style!.color,
+        Colors.white,
+      );
+      expect(materialOf(tester, stop).color, RbColors.danger);
+      final finishRect = tester.getRect(finish);
+      final stopRect = tester.getRect(stop);
+      expect(
+        finishRect.top - tester.getBottomLeft(find.text('17,3 km · 17 min')).dy,
+        RbSpace.s3,
+      );
+      expect(finishRect.left, stopRect.left);
+      expect(finishRect.right, stopRect.right);
+      expect(stopRect.top - finishRect.bottom, RbSpace.s2);
+
+      await tester.tap(finish);
+      expect(finished, 1);
+      expect(stopped, 0);
+      await tester.tap(stop);
+      expect(stopped, 1);
+      expect(finished, 1);
     });
 
     testWidgets('with 12 stops on a 640 px screen the heading, totals and '

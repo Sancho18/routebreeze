@@ -14,8 +14,9 @@ import 'stop_result_labels.dart';
 /// back to the start), totals and the primary action.
 /// While a stop is left, [onDelivered] and [onNotDelivered] add the
 /// "Entregue" and "Não entregue" buttons side by side above the primary
-/// action; [totals] replaces the plan's distance and duration line; [footer]
-/// is rendered below the actions.
+/// action; [finishLabel] adds a primary button in their place, calling
+/// [onFinish]; [totals] replaces the plan's distance and duration line;
+/// [footer] is rendered below the actions.
 class RouteSheet extends StatelessWidget {
   const RouteSheet({
     super.key,
@@ -24,6 +25,8 @@ class RouteSheet extends StatelessWidget {
     required this.onStart,
     this.onDelivered,
     this.onNotDelivered,
+    this.finishLabel,
+    this.onFinish,
     this.startLabel = 'Iniciar',
     this.startColor,
     this.totals,
@@ -35,6 +38,11 @@ class RouteSheet extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback? onDelivered;
   final VoidCallback? onNotDelivered;
+
+  /// "Finalizar rota" on the way back of a round trip, when every stop has a
+  /// result and the result buttons are gone.
+  final String? finishLabel;
+  final VoidCallback? onFinish;
   final String startLabel;
 
   /// Fill of the primary action; the palette's `brand` when null.
@@ -65,6 +73,7 @@ class RouteSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rb = context.rb;
+    final finishLabel = this.finishLabel;
     final listHeight = math.min(
       maxListHeight,
       MediaQuery.sizeOf(context).height * 0.4,
@@ -133,6 +142,10 @@ class RouteSheet extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: RbSpace.s2),
+            ],
+            if (finishLabel != null) ...[
+              RbPrimaryButton(label: finishLabel, onPressed: onFinish),
               const SizedBox(height: RbSpace.s2),
             ],
             RbPrimaryButton(

@@ -1128,7 +1128,8 @@ void main() {
       testWidgets('the return card takes the place of the next stop card, '
           'with no "Avisar cliente"; the sheet ends with the return row, shows '
           'what is left of the way back and "Finalizar rota" in brand in place '
-          'of the result buttons', (tester) async {
+          'of the result buttons, above "Encerrar" in dangerStrong as the last '
+          'action', (tester) async {
         await pumpScreen(tester, state);
 
         expect(find.byType(NextStopCard), findsNothing);
@@ -1154,19 +1155,26 @@ void main() {
         );
         expect(find.text('Entregue'), findsNothing);
         expect(find.text('Não entregue'), findsNothing);
-        expect(find.text('Encerrar'), findsNothing);
         expect(primary(tester, 'Finalizar rota').enabled, isTrue);
         expect(fillOf(tester, 'Finalizar rota'), RbColors.brand);
+        final finish = find.widgetWithText(RbPrimaryButton, 'Finalizar rota');
         expect(
           tester.getBottomLeft(returnRow).dy,
-          lessThan(
-            tester
-                .getTopLeft(
-                  find.widgetWithText(RbPrimaryButton, 'Finalizar rota'),
-                )
-                .dy,
-          ),
+          lessThan(tester.getTopLeft(finish).dy),
         );
+        // "Encerrar" stays the last action, right under "Finalizar rota".
+        final stop = find.widgetWithText(RbPrimaryButton, 'Encerrar');
+        expect(primary(tester, 'Encerrar').enabled, isTrue);
+        expect(fillOf(tester, 'Encerrar'), const Color(0xFFD01E23));
+        expect(tester.getTopLeft(stop).dy - tester.getBottomLeft(finish).dy, 8);
+        expect(
+          find.descendant(
+            of: find.byType(RouteSheet),
+            matching: find.byType(RbPrimaryButton),
+          ),
+          findsNWidgets(2),
+        );
+        expect(find.byType(RbSecondaryButton), findsNothing);
       });
 
       testWidgets('"Finalizar rota" finishes the route', (tester) async {
@@ -1180,6 +1188,82 @@ void main() {
         verify(() => cubit.finishRoute()).called(1);
         verifyNever(() => cubit.stop());
         expect(exits, 0);
+      });
+
+      testWidgets('"Encerrar" stops and leaves once the stop has saved the '
+          'route, as on the way to a stop, without finishing it', (
+        tester,
+      ) async {
+        await pumpScreen(tester, state);
+        final saved = Completer<void>();
+        when(() => cubit.stop()).thenAnswer((_) => saved.future);
+
+        await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
+        await tester.pump();
+
+        verify(() => cubit.stop()).called(1);
+        verifyNever(() => cubit.finishRoute());
+        expect(exits, 0);
+
+        saved.complete();
+        await tester.pump();
+        expect(exits, 1);
+        expect(newRoutes, 0);
+      });
+
+      testWidgets('"Finalizar rota" is only for the way back: a round trip '
+          'with a stop left keeps "Entregue" and "Não entregue" above '
+          '"Encerrar", and one continued on its way back waits for GPS with '
+          '"Iniciar" alone', (tester) async {
+        final toB = RoutePlan(
+          origin: origin,
+          stops: const [
+            RouteStop(stop: a, order: 1, result: delivered),
+            RouteStop(stop: b, order: 2),
+          ],
+          polyline: const [origin, GeoPoint(-23.60, -46.70), origin],
+          distanceMeters: 24690,
+          durationSeconds: 1210,
+          legs: const [],
+          computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+          returnTo: origin,
+          returnLeg: const RouteLeg(
+            distanceMeters: 12345,
+            durationSeconds: 605,
+          ),
+        );
+        await pumpScreen(
+          tester,
+          NavigationState(
+            plan: toB,
+            phase: NavigationPhase.navigating,
+            fix: fix,
+          ),
+        );
+
+        expect(find.text('Finalizar rota'), findsNothing);
+        expect(
+          find.widgetWithText(RbPrimaryButton, 'Entregue'),
+          findsOneWidget,
+        );
+        expect(
+          find.widgetWithText(RbSecondaryButton, 'Não entregue'),
+          findsOneWidget,
+        );
+        expect(primary(tester, 'Encerrar').enabled, isTrue);
+
+        await pumpScreen(
+          tester,
+          NavigationState(
+            plan: returning,
+            phase: NavigationPhase.waitingGps,
+            fix: fix,
+          ),
+        );
+
+        expect(find.text('Finalizar rota'), findsNothing);
+        expect(primary(tester, 'Iniciar').enabled, isTrue);
+        expect(find.byType(RbPrimaryButton), findsOneWidget);
       });
 
       testWidgets('"Abrir em outro app" on the return card hands the start '
@@ -1433,6 +1517,13 @@ void main() {
       error: error,
       arrived: arrived,
     );
+    final onTheWayBack = NavigationState(
+      plan: returning,
+      phase: NavigationPhase.navigating,
+      fix: fix,
+      progress: wayBack,
+      following: false,
+    );
 
     // Each state with a text that proves it is on screen and the panel's
     // last action.
@@ -1478,15 +1569,9 @@ void main() {
         NavigationScreen.stopLabel,
       ),
       'on the way back of a round trip': (
-        NavigationState(
-          plan: returning,
-          phase: NavigationPhase.navigating,
-          fix: fix,
-          progress: wayBack,
-          following: false,
-        ),
+        onTheWayBack,
         '3,2 km · 9 min · chegada às 15:40',
-        NavigationScreen.finishLabel,
+        NavigationScreen.stopLabel,
       ),
       // With one stop not delivered the whole summary fits at 200%.
       'completed with its summary': (
@@ -1556,6 +1641,23 @@ void main() {
         expect(uncovered(tester, find.text(action)), isTrue);
       });
     }
+
+    testWidgets('on the way back of a round trip "Finalizar rota" stays on '
+        'screen above "Encerrar" at 200% text on a 360×800 phone', (
+      tester,
+    ) async {
+      await setLargeTextPhone(tester);
+      await pumpScreen(tester, onTheWayBack, mode: ThemeMode.light);
+
+      expect(
+        uncovered(tester, find.text(NavigationScreen.finishLabel)),
+        isTrue,
+      );
+      expect(
+        tester.getBottomLeft(find.text(NavigationScreen.finishLabel)).dy,
+        lessThan(tester.getTopLeft(find.text(NavigationScreen.stopLabel)).dy),
+      );
+    });
 
     testWidgets('"Abrir em outro app" lays out at 200% text on a 360×800 '
         'phone', (tester) async {

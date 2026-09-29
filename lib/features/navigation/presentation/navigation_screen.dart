@@ -59,8 +59,9 @@ typedef NavigationMapBuilder = Widget Function(
 /// Live navigation: map following the position, the [NextStopCard] and status
 /// overlays, and the [RouteSheet] in navigation mode with what is left and
 /// the result buttons. On the way back of a round trip the [ReturnCard]
-/// replaces the card and "Finalizar rota" the sheet actions. The
-/// [RouteSummarySheet] replaces the sheet once the route completes.
+/// replaces the card and "Finalizar rota" the result buttons, above
+/// "Encerrar". The [RouteSummarySheet] replaces the sheet once the route
+/// completes.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -385,21 +386,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                           plan: state.plan,
                                           startEnabled:
                                               navigating || state.canStart,
-                                          // On the way back every stop has
-                                          // a result, so no result buttons
-                                          // show: "Finalizar rota" is the
-                                          // one action.
-                                          startLabel: returning
-                                              ? NavigationScreen.finishLabel
-                                              : navigating
+                                          startLabel: navigating
                                               ? NavigationScreen.stopLabel
                                               : NavigationScreen.startLabel,
-                                          startColor: navigating && !returning
+                                          startColor: navigating
                                               ? rb.dangerStrong
                                               : null,
-                                          onStart: returning
-                                              ? _cubit.finishRoute
-                                              : navigating
+                                          onStart: navigating
                                               ? _stop
                                               : _cubit.start,
                                           onDelivered: navigating
@@ -408,6 +401,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                           onNotDelivered: navigating
                                               ? _notDelivered
                                               : null,
+                                          // On the way back every stop has
+                                          // a result, so no result buttons
+                                          // show: "Finalizar rota" takes
+                                          // their place, above "Encerrar".
+                                          finishLabel: returning
+                                              ? NavigationScreen.finishLabel
+                                              : null,
+                                          onFinish: _cubit.finishRoute,
                                           totals: progress == null
                                               ? null
                                               : NavigationScreen.remaining(
