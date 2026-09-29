@@ -180,6 +180,35 @@ void main() {
       expect(title.style!.color, const Color(0xFF0D7F4A));
     });
 
+    testWidgets('counts in bodyStrong ink; distance and time, the clocks and '
+        'the reason in caption ink-muted; the stop line in body ink', (
+      tester,
+    ) async {
+      await pumpSheet(tester, summary);
+
+      /// Size, weight and color of the text [text].
+      (double?, FontWeight?, Color?) look(String text) {
+        final style = tester.widget<Text>(find.text(text)).style!;
+        return (style.fontSize, style.fontWeight, style.color);
+      }
+
+      const ink = Color(0xFF12141A);
+      const inkMuted = Color(0xFF5B6472);
+      expect(look('3 entregues · 1 não entregue'), (15, FontWeight.w600, ink));
+      expect(look('12,4 km percorridos · 1 h 05 min'), (
+        13,
+        FontWeight.w400,
+        inkMuted,
+      ));
+      expect(look('Início às 08:40 · fim às 09:45'), (
+        13,
+        FontWeight.w400,
+        inkMuted,
+      ));
+      expect(look('Parada 2 · Rua B, 2'), (15, FontWeight.w400, ink));
+      expect(look('Recusado'), (13, FontWeight.w400, inkMuted));
+    });
+
     testWidgets('lists only the stops not delivered, in stop order, each '
         'with its reason below it', (tester) async {
       await pumpSheet(
