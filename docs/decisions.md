@@ -174,3 +174,14 @@ Registro das decisões do RouteBreeze no formato Contexto / Decisão / Consequê
 - Sair da navegação não perde o progresso. "Encerrar" espera a rota ser salva e só então volta para a tela Rota, que relê a rota salva quando ela tem as mesmas paradas; o "Iniciar" seguinte continua com os resultados, o início e a distância. O voltar do sistema usa as saídas da própria tela: "Encerrar" durante a rota e "Nova rota" no resumo. A saída roda uma vez só, para um segundo toque durante o salvamento não fechar também a tela de baixo.
 
 **Consequências.** Uma tentativa que falhou nunca conta como entrega, e o resumo diz o que aconteceu. Resultados, distância e início sobrevivem a um reinício do app. A distância vem do GPS: sem posição em segundo plano, o trecho percorrido com o app fora da tela entra como uma linha reta. O resumo não é salvo; se o app for encerrado com ele na tela, ele se perde. Com o resumo na tela, o rebloqueio fica suspenso até "Nova rota". Um resultado errado não tem correção, e uma parada não entregue não volta para a fila na mesma rota. "Outro" não tem texto livre, e não há foto nem assinatura. Rotas salvas antes seguem funcionando: paradas visitadas contam como entregues, e o início passa a ser o "Iniciar" da continuação.
+
+## D-020: Avisar o cliente pela folha de compartilhamento
+
+**Contexto.** Depois da entrega. O cliente pergunta quando a entrega chega. O entregador já vê o horário de chegada no card da próxima parada, mas precisaria digitar a mensagem à mão, dirigindo. O app só guarda endereços: nenhuma parada tem telefone.
+
+**Decisão.**
+- Um botão "Avisar cliente" no card da próxima parada, antes de "Abrir em outro app", abre a folha de compartilhamento do sistema (`share_plus`) com a mensagem pronta. O entregador escolhe o app (WhatsApp, SMS, outro) e o contato ali.
+- A mensagem segue o estado da navegação: com a chegada medida, "Olá! Sua entrega chega por volta das {HH:mm}.", com o mesmo horário do card; antes da primeira medida, "Olá! Sua entrega está a caminho."; depois de "Você chegou", "Olá! Cheguei com a sua entrega.", porque um horário já passado confundiria o cliente.
+- A folha abre ancorada no botão, como o iPad exige. Se ela não abrir, a tela mostra "Não foi possível abrir o compartilhamento.", já que o botão não tem uma folha própria onde mostrar o erro.
+
+**Consequências.** Nenhuma permissão nova, nenhum telefone guardado e nenhum backend nem API paga: um teste fixa as permissões do Android e as descrições de uso do iOS no conjunto de hoje. Cada envio pede um toque e a escolha do contato no outro app; não há envio automático nem aviso para todos os clientes da rota de uma vez, e o texto não é editável no app.
