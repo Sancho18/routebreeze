@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Android asks only for biometrics, location and the location '
-      'foreground service', () {
+  test('Android asks only for biometrics, location, the location '
+      'foreground service and notifications', () {
     final manifest = File('android/app/src/main/AndroidManifest.xml')
         .readAsStringSync();
     final permissions = {
@@ -20,6 +20,7 @@ void main() {
       'android.permission.ACCESS_COARSE_LOCATION',
       'android.permission.FOREGROUND_SERVICE',
       'android.permission.FOREGROUND_SERVICE_LOCATION',
+      'android.permission.POST_NOTIFICATIONS',
     });
   });
 
