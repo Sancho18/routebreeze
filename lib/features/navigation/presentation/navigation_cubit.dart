@@ -73,7 +73,8 @@ class NavigationState extends Equatable {
   final NavigationBadge? badge;
   final bool online;
 
-  /// Off-route while offline: recalculate on reconnect.
+  /// Off-route while offline: recalculate on reconnect, unless the driver
+  /// arrives at the next stop first.
   final bool recalcPending;
   final bool recalcInFlight;
 
@@ -381,13 +382,21 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   /// While arrived the driver may walk away from the road to deliver, so no
-  /// fix is checked for a deviation until a result is recorded.
+  /// fix is checked for a deviation until a result is recorded. Arrival
+  /// drops a recalculation deferred offline, with its badge: the deviation
+  /// it answered is over.
   Future<void> _navigate(Fix fix) async {
     _odometer.add(fix);
     if (fix.accuracyMeters <= _deviation.maxAccuracyMeters) _lastAccepted = fix;
     final next = state.plan.nextStop;
     if (next != null && _arrival.isArrived(fix, next.stop)) {
-      emit(state.copyWith(arrived: true));
+      emit(
+        state.copyWith(
+          arrived: true,
+          recalcPending: false,
+          clearBadge: state.recalcPending,
+        ),
+      );
       return;
     }
     if (state.arrived) return;

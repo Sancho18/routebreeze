@@ -347,6 +347,64 @@ void main() {
       });
     });
 
+    test('arrival drops a recalculation deferred offline with its badge: '
+        'reconnecting requests nothing; after a result, off-route fixes '
+        'recalculate again', () {
+      stubPlan(recalculated);
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        online.add(false);
+        async.flushMicrotasks();
+        goOffRoute(async);
+        expect(cubit.state.recalcPending, isTrue);
+        expect(cubit.state.badge, NavigationBadge.recalcPending);
+
+        emitFix(async, atStop(a));
+
+        expect(cubit.state.arrived, isTrue);
+        expect(cubit.state.recalcPending, isFalse);
+        expect(cubit.state.badge, isNull);
+
+        online.add(true);
+        async.flushMicrotasks();
+
+        expect(cubit.state.online, isTrue);
+        verifyNever(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        );
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.recalcPending, isFalse);
+        expect(cubit.state.badge, isNull);
+        expect(cubit.state.arrived, isTrue);
+        expect(cubit.state.plan.nextStop!.stop, a);
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        // 120 m from the line and from A: off the route, not at the stop.
+        final walking = GeoPoint(lat(120), a.point.lng);
+        for (var i = 0; i < 3; i++) {
+          emitFix(async, fix(walking));
+        }
+
+        verify(
+          () => routes.plan(
+            walking,
+            [b],
+            keepVisited: [
+              RouteStop(
+                stop: a,
+                order: 1,
+                result: StopResult.delivered(at: t0),
+              ),
+            ],
+          ),
+        ).called(1);
+        expect(cubit.state.badge, NavigationBadge.recalculated);
+        cubit.close();
+      });
+    });
+
     test('an answer in flight at arrival that makes another stop next '
         'clears arrived', () {
       fakeAsync((async) {
