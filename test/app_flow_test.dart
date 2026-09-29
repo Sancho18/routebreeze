@@ -657,6 +657,29 @@ void main() {
       order: 2,
     );
 
+    testWidgets('the system back on the summary opens the map with no saved '
+        'route, like "Nova rota", instead of the route screen', (tester) async {
+      storeAsJson();
+      await openRoute(tester);
+      clock = DateTime(2026, 9, 22, 9);
+      await navigateFromRoute(tester);
+      for (final minute in [1, 2, 3]) {
+        clock = DateTime(2026, 9, 22, 9, minute);
+        await tester.tap(find.text(RouteSheet.deliveredLabel));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Rota concluída'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MapScreen), findsOneWidget);
+      expect(find.byType(RouteScreen), findsNothing);
+      expect(find.byType(NavigationScreen), findsNothing);
+      expect(find.text(MapScreen.resumeTitle), findsNothing);
+      expect(stored, isNull);
+    });
+
     testWidgets('"Encerrar" returns to the route with stop 1 delivered and '
         '"Iniciar" continues from stop 2: the summary counts every result '
         'with the first start and the distance driven before "Encerrar"', (

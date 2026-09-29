@@ -356,6 +356,43 @@ void main() {
       expect(errors, [failure]);
     });
 
+    testWidgets('the system back while navigating runs "Encerrar": it leaves '
+        'only once the stop has saved the route', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final saved = Completer<void>();
+      when(() => cubit.stop()).thenAnswer((_) => saved.future);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      verify(() => cubit.stop()).called(1);
+      expect(exits, 0);
+
+      saved.complete();
+      await tester.pump();
+      expect(exits, 1);
+      expect(newRoutes, 0);
+    });
+
+    testWidgets('the system back on the summary runs "Nova rota"', (
+      tester,
+    ) async {
+      await pumpScreen(tester, completed(done));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(newRoutes, 1);
+      expect(exits, 0);
+    });
+
     testWidgets('navigating: "Não entregue" asks "Por que não foi entregue?" '
         'and "Recusado" records the next stop as not delivered, refused', (
       tester,

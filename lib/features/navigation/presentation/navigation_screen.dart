@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -257,117 +259,130 @@ class _NavigationScreenState extends State<NavigationScreen> {
         final navigating = state.phase == NavigationPhase.navigating;
         final completed = state.phase == NavigationPhase.completed;
         final progress = navigating ? state.progress : null;
-        return Scaffold(
-          appBar: AppBar(title: const Text(NavigationScreen.title)),
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) => _pointerDown = event.position,
-                  onPointerMove: _onPointerMove,
-                  child: FutureBuilder<_Icons>(
-                    future: _iconsFor(state.plan),
-                    builder: (context, snapshot) {
-                      final icons = snapshot.data;
-                      return icons == null
-                          ? ColoredBox(color: context.rb.surface100)
-                          : mapBuilder(
-                              context,
-                              _model(state, icons, context.rb.brand),
-                            );
-                    },
+        // The system back takes the screen's own exits: "Nova rota" on the
+        // summary, "Encerrar" otherwise, so the route is saved first.
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (completed) {
+              widget.onNewRoute();
+            } else {
+              unawaited(_stop());
+            }
+          },
+          child: Scaffold(
+            appBar: AppBar(title: const Text(NavigationScreen.title)),
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (event) => _pointerDown = event.position,
+                    onPointerMove: _onPointerMove,
+                    child: FutureBuilder<_Icons>(
+                      future: _iconsFor(state.plan),
+                      builder: (context, snapshot) {
+                        final icons = snapshot.data;
+                        return icons == null
+                            ? ColoredBox(color: context.rb.surface100)
+                            : mapBuilder(
+                                context,
+                                _model(state, icons, context.rb.brand),
+                              );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              // The bottom overlay takes the space under the top one: with
-              // large text it scrolls, from its actions up, instead of
-              // covering the next stop. Taps outside both reach the map.
-              Positioned.fill(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _TopOverlay(
-                      state: state,
-                      onMeasured: _onTopMeasured,
-                      onOpenInApp: _openInApp,
-                    ),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: SingleChildScrollView(
-                          reverse: true,
-                          // Hits beside the button and the sheet reach the
-                          // map.
-                          hitTestBehavior: HitTestBehavior.deferToChild,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              if (!state.following && !completed)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    right: RbSpace.s3,
-                                    bottom: RbSpace.s2,
-                                  ),
-                                  child: FloatingActionButton.extended(
-                                    onPressed: _cubit.recenter,
-                                    backgroundColor: rb.surface200,
-                                    foregroundColor: rb.brandStrong,
-                                    icon: Icon(
-                                      Icons.my_location,
-                                      color: rb.brand,
+                // The bottom overlay takes the space under the top one: with
+                // large text it scrolls, from its actions up, instead of
+                // covering the next stop. Taps outside both reach the map.
+                Positioned.fill(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TopOverlay(
+                        state: state,
+                        onMeasured: _onTopMeasured,
+                        onOpenInApp: _openInApp,
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: SingleChildScrollView(
+                            reverse: true,
+                            // Hits beside the button and the sheet reach the
+                            // map.
+                            hitTestBehavior: HitTestBehavior.deferToChild,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                if (!state.following && !completed)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      right: RbSpace.s3,
+                                      bottom: RbSpace.s2,
                                     ),
-                                    label: const Text(
-                                      NavigationScreen.recenterLabel,
-                                    ),
-                                  ),
-                                ),
-                              MeasureSize(
-                                onChange: _onBottomMeasured,
-                                child: completed
-                                    ? RouteSummarySheet(
-                                        summary: state.summary!,
-                                        onNewRoute: widget.onNewRoute,
-                                      )
-                                    : RouteSheet(
-                                        plan: state.plan,
-                                        startEnabled:
-                                            navigating || state.canStart,
-                                        startLabel: navigating
-                                            ? NavigationScreen.stopLabel
-                                            : NavigationScreen.startLabel,
-                                        startColor: navigating
-                                            ? rb.dangerStrong
-                                            : null,
-                                        onStart: navigating
-                                            ? _stop
-                                            : _cubit.start,
-                                        onDelivered: navigating
-                                            ? _cubit.recordDelivered
-                                            : null,
-                                        onNotDelivered: navigating
-                                            ? _notDelivered
-                                            : null,
-                                        totals: progress == null
-                                            ? null
-                                            : NavigationScreen.remaining(
-                                                progress,
-                                              ),
-                                        footer: navigating || state.canStart
-                                            ? null
-                                            : const _WaitingGps(),
+                                    child: FloatingActionButton.extended(
+                                      onPressed: _cubit.recenter,
+                                      backgroundColor: rb.surface200,
+                                      foregroundColor: rb.brandStrong,
+                                      icon: Icon(
+                                        Icons.my_location,
+                                        color: rb.brand,
                                       ),
-                              ),
-                            ],
+                                      label: const Text(
+                                        NavigationScreen.recenterLabel,
+                                      ),
+                                    ),
+                                  ),
+                                MeasureSize(
+                                  onChange: _onBottomMeasured,
+                                  child: completed
+                                      ? RouteSummarySheet(
+                                          summary: state.summary!,
+                                          onNewRoute: widget.onNewRoute,
+                                        )
+                                      : RouteSheet(
+                                          plan: state.plan,
+                                          startEnabled:
+                                              navigating || state.canStart,
+                                          startLabel: navigating
+                                              ? NavigationScreen.stopLabel
+                                              : NavigationScreen.startLabel,
+                                          startColor: navigating
+                                              ? rb.dangerStrong
+                                              : null,
+                                          onStart: navigating
+                                              ? _stop
+                                              : _cubit.start,
+                                          onDelivered: navigating
+                                              ? _cubit.recordDelivered
+                                              : null,
+                                          onNotDelivered: navigating
+                                              ? _notDelivered
+                                              : null,
+                                          totals: progress == null
+                                              ? null
+                                              : NavigationScreen.remaining(
+                                                  progress,
+                                                ),
+                                          footer: navigating || state.canStart
+                                              ? null
+                                              : const _WaitingGps(),
+                                        ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
