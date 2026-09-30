@@ -19,8 +19,7 @@ void main() {
   late FailureReason? picked;
   late bool closed;
 
-  /// A screen whose button opens the sheet and keeps what it returns: in a
-  /// bare `MaterialApp`, or in the app themes when [mode] is given.
+  /// Opens the sheet from a button and keeps what it returns.
   Future<void> pumpAndOpen(WidgetTester tester, {ThemeMode? mode}) async {
     picked = null;
     closed = false;

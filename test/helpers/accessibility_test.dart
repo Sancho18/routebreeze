@@ -39,7 +39,6 @@ void main() {
       expect(() => expectNoClippedText(tester), throwsA(isA<TestFailure>()));
     });
 
-    /// The one-line size of a short word, measured on screen.
     Future<Size> oneLineSize(WidgetTester tester) async {
       await pumpText(tester, const Text('Rua'));
       final paragraph = tester.renderObject<RenderParagraph>(find.text('Rua'));

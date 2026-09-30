@@ -77,7 +77,6 @@ void main() {
   late StreamController<bool> online;
   var seq = 0;
 
-  /// A fix with a fresh timestamp.
   Fix fix(GeoPoint point, {double accuracy = 10}) =>
       Fix(point, accuracy, t0.add(Duration(seconds: ++seq)));
   Fix onRoute({double accuracy = 10}) =>
@@ -128,7 +127,6 @@ void main() {
     }
   }
 
-  /// Builds the cubit inside the fake zone with its clock on `t0 + elapsed`.
   NavigationCubit build(FakeAsync async, [RoutePlan? initial]) =>
       NavigationCubit(
         plan: initial ?? plan,
@@ -145,8 +143,7 @@ void main() {
     async.flushMicrotasks();
   }
 
-  /// "Iniciar" saves the plan with its start; that save is verified here, so
-  /// a test sees only the saves that follow it.
+  /// Verifies the save made by "Iniciar", so a test sees only later saves.
   NavigationCubit navigating(FakeAsync async, [RoutePlan? initial]) {
     final cubit = build(async, initial)..prepare();
     async.flushMicrotasks();
@@ -394,7 +391,6 @@ void main() {
 
         cubit.recordDelivered();
         async.flushMicrotasks();
-        // 120 m from the line and from A: off the route, not at the stop.
         final walking = GeoPoint(lat(120), a.point.lng);
         for (var i = 0; i < 3; i++) {
           emitFix(async, fix(walking));
@@ -1660,8 +1656,6 @@ void main() {
   });
 
   group('progress', () {
-    // The same route with its leg ends: leg 1 ends on A (vertex 1), leg 2 on
-    // B (vertex 2).
     final tracked = RoutePlan(
       origin: origin,
       stops: plan.stops,
@@ -1850,8 +1844,7 @@ void main() {
   });
 
   group('round trip', () {
-    // The same route back to its origin: after B the line runs back along
-    // the equator (leg ends on A, B, and the origin for the way back).
+    // After B the line runs back along the equator to the origin.
     final roundTrip = RoutePlan(
       origin: origin,
       stops: plan.stops,
@@ -1879,12 +1872,9 @@ void main() {
       at: t0.add(const Duration(seconds: 10)),
     );
 
-    /// A fix 30 m from the start of the route.
     Fix atStart({double accuracy = 10}) =>
         fix(GeoPoint(lat(30), origin.lng), accuracy: accuracy);
 
-    /// [roundTrip], started 30 min before t0 with 850 m traveled, with A
-    /// delivered at t0 + 5 s and B refused at t0 + 10 s: on its way back.
     NavigationCubit returning(FakeAsync async) {
       final cubit = navigating(
         async,
@@ -1899,7 +1889,6 @@ void main() {
       return cubit;
     }
 
-    /// The summary of [returning] ended at [end], [traveled] meters.
     RouteSummary summaryAt(DateTime end, {int traveled = 850}) => RouteSummary(
       delivered: 1,
       failed: [RouteStop(stop: b, order: 2, result: refusedB)],
@@ -2234,7 +2223,6 @@ void main() {
     });
 
     group('recalculation', () {
-      /// Every recalculation answers [answer], whatever its point of return.
       void stubReturn(RoutePlan answer) => when(
         () => routes.plan(
           any(),

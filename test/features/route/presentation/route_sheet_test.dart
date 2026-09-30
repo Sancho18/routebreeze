@@ -37,8 +37,7 @@ void main() {
     computedAt: DateTime.utc(2026, 9, 22, 10, 30),
   );
 
-  /// [plan] as a round trip: 5 km and 7 min back to [origin] on top of the
-  /// 12,3 km and 10 min to the stops.
+  /// [plan] plus 5 km and 7 min back to [origin].
   RoutePlan roundTrip() => RoutePlan(
     origin: origin,
     stops: const [
@@ -62,8 +61,6 @@ void main() {
     'Não entregue',
   );
 
-  /// The sheet in a bare `MaterialApp`, or in the app themes when [mode] is
-  /// given.
   Future<void> pumpSheet(
     WidgetTester tester, {
     required RoutePlan plan,
@@ -106,7 +103,6 @@ void main() {
 
   final returnRow = find.byKey(RouteSheet.returnKey);
 
-  /// The circle behind the home icon of the return row.
   Finder homeBadge() => find
       .ancestor(
         of: find.descendant(of: returnRow, matching: find.byIcon(Icons.home)),
@@ -823,8 +819,6 @@ void main() {
   });
 
   group('RouteSheet accessibility', () {
-    /// The sheet while navigating: a stop not delivered, a delivered one and
-    /// the next one, with the result buttons above "Encerrar".
     Future<void> pumpNavigating(WidgetTester tester, ThemeMode mode) =>
         pumpSheet(
           tester,
@@ -883,7 +877,6 @@ void main() {
         find.text('Não entregue'),
       );
       expect(longLabel.textScaler.scale(15), 30);
-      // The labels wrap to different heights; the shorter one is stretched.
       expect(shortLabel.textSize.height, lessThan(longLabel.textSize.height));
       final delivered = tester.getRect(deliveredFinder);
       final notDelivered = tester.getRect(notDeliveredFinder);

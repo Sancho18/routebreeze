@@ -13,7 +13,6 @@ import 'package:routebreeze/features/navigation/presentation/navigation_notifier
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
 
-/// Records the texts sent to the ongoing notification.
 class _Tracker implements BackgroundTracker {
   final List<(String, String)> updates = [];
 
@@ -28,7 +27,6 @@ class _Tracker implements BackgroundTracker {
   Future<void> stop() async {}
 }
 
-/// Records the alerts shown and cleared, in order.
 class _Alerts implements RouteAlerts {
   final List<Object> calls = [];
 
@@ -75,7 +73,6 @@ void main() {
     computedAt: t0,
   );
 
-  /// [plan] after a recalculation that made Rua Augusta the next stop.
   final recalculated = RoutePlan(
     origin: const GeoPoint(-23.564, -46.654),
     stops: const [
@@ -89,7 +86,6 @@ void main() {
     computedAt: t0,
   );
 
-  /// A round trip back to [origin] through four stops.
   final roundTrip = RoutePlan(
     origin: origin,
     stops: const [
@@ -107,19 +103,14 @@ void main() {
     returnLeg: const RouteLeg(distanceMeters: 3400, durationSeconds: 540),
   );
 
-  /// [roundTrip] with three stops done, Rua Haddock Lobo refused: Rua Oscar
-  /// Freire is the last one left.
   final toOscar = roundTrip
       .record('pa', const StopResult.delivered())
       .record('pb', const StopResult.delivered())
       .record('pc', const StopResult.failed(FailureReason.refused));
 
-  /// [toOscar] with Rua Oscar Freire delivered: three delivered, one not,
-  /// on its way back.
   final returning = toOscar.record('pd', const StopResult.delivered());
 
-  /// [meters] and [seconds] to [next] (null: the way back), measured
-  /// [after] t0.
+  /// Progress to [next], or along the way back when null, measured [after] t0.
   RouteProgress progress(
     RouteStop? next,
     int meters,
@@ -147,7 +138,6 @@ void main() {
     badge: badge,
   );
 
-  /// [plan] finished at t0 + 20 min.
   NavigationState completed(RoutePlan plan) => NavigationState(
     plan: plan,
     phase: NavigationPhase.completed,
@@ -172,8 +162,6 @@ void main() {
     background = false;
   });
 
-  /// A notifier over [states] whose clock is t0 plus the fake time elapsed,
-  /// created before "Iniciar", while waiting for GPS.
   NavigationNotifier build(FakeAsync async) {
     states = StreamController<NavigationState>();
     return NavigationNotifier(
@@ -186,7 +174,6 @@ void main() {
     );
   }
 
-  /// Delivers [state] to the notifier.
   void emit(FakeAsync async, NavigationState state) {
     states.add(state);
     async.flushMicrotasks();
@@ -431,8 +418,7 @@ void main() {
       });
     });
 
-    /// Fixes at +5 s and +8 s after the first update: the 15 s throttle
-    /// holds both back, until +15 s.
+    /// Sends two changes that the 15 s throttle holds back.
     void holdBack(FakeAsync async) {
       for (final (at, meters, seconds) in [(5, 1100, 230), (8, 1000, 210)]) {
         async.elapse(Duration(seconds: at) - async.elapsed);

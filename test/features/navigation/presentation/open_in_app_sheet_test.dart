@@ -30,8 +30,7 @@ void main() {
 
   setUp(() => launcher = MockNavigationAppLauncher());
 
-  /// A screen whose button opens the sheet, as the navigation screen does:
-  /// in a bare `MaterialApp`, or in the app themes when [mode] is given.
+  /// Opens the sheet from a button, as the navigation screen does.
   Future<void> pumpAndOpen(WidgetTester tester, {ThemeMode? mode}) async {
     final home = Builder(
       builder: (context) => Scaffold(

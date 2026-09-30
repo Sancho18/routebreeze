@@ -11,7 +11,6 @@ void main() {
     order: 2,
   );
 
-  /// Progress measured at [at], [toNextSeconds] away from [next].
   RouteProgress measuredAt(DateTime at, {int toNextSeconds = 240}) =>
       RouteProgress(
         next: next,

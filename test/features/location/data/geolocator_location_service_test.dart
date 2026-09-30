@@ -32,9 +32,6 @@ Position position({
   speedAccuracy: 0,
 );
 
-/// iOS navigation settings: best accuracy every [meters], updates in
-/// background with the location indicator, no automatic pauses, automotive
-/// navigation.
 Matcher appleBackground(int meters) => isA<AppleSettings>()
     .having((s) => s.accuracy, 'accuracy', LocationAccuracy.best)
     .having((s) => s.distanceFilter, 'distanceFilter', meters)
@@ -59,8 +56,6 @@ Matcher appleBackground(int meters) => isA<AppleSettings>()
       ActivityType.automotiveNavigation,
     );
 
-/// Android settings: best accuracy every [meters], without the geolocator
-/// foreground notification.
 Matcher android(int meters) => isA<AndroidSettings>()
     .having((s) => s.accuracy, 'accuracy', LocationAccuracy.best)
     .having((s) => s.distanceFilter, 'distanceFilter', meters)
@@ -70,8 +65,6 @@ Matcher android(int meters) => isA<AndroidSettings>()
       isNull,
     );
 
-/// Plain [LocationSettings], no platform subclass: best accuracy every
-/// [meters].
 Matcher plain(int meters) => isA<LocationSettings>()
     .having((s) => s.runtimeType, 'runtimeType', LocationSettings)
     .having((s) => s.accuracy, 'accuracy', LocationAccuracy.best)

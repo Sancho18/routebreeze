@@ -12,7 +12,6 @@ void main() {
     order: 2,
   );
 
-  /// 1234 m and 250 s from 14:28: "1,2 km · 4 min · chegada às 14:32".
   final progress = RouteProgress(
     next: stop,
     toNextMeters: 1234,
@@ -22,8 +21,6 @@ void main() {
     at: DateTime.utc(2026, 9, 28, 14, 28),
   );
 
-  /// On the way back of a round trip there is no next stop: 3400 m and
-  /// 9 min from 14:28 are what is left of it.
   final wayBack = RouteProgress(
     next: null,
     toNextMeters: 3400,

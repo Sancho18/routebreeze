@@ -7,11 +7,9 @@ void main() {
   final t0 = DateTime.utc(2026, 9, 28, 16, 40);
   var seq = 0;
 
-  /// A fix with a fresh timestamp.
   Fix fix(double lat, double lng, {double accuracy = 10}) =>
       Fix(GeoPoint(lat, lng), accuracy, t0.add(Duration(seconds: ++seq)));
 
-  /// [meters] within ±1%, on top of [from].
   Matcher about(double meters, {int from = 0}) =>
       closeTo(from + meters, meters * 0.01);
 

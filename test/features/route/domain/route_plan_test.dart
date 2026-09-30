@@ -42,8 +42,6 @@ void main() {
     ],
     computedAt: DateTime.utc(2026, 9, 22, 10, 30),
   );
-  // The same stops as a round trip: after C the line comes back to the
-  // start.
   final roundTrip = RoutePlan(
     origin: origin,
     stops: plan.stops,
@@ -255,7 +253,6 @@ void main() {
           .withStart(startedAt)
           .withTraveled(12430);
       const current = GeoPoint(-23.575, -46.665);
-      // Recalculated from the current position: C, then A, then back.
       final recalculated = RoutePlan(
         origin: current,
         stops: const [
@@ -449,7 +446,6 @@ void main() {
           .record('pa', refused)
           .withStart(startedAt)
           .withTraveled(12430);
-      // A recalculation answer: its own order, line and totals, no progress.
       final recalculated = RoutePlan(
         origin: const GeoPoint(-23.575, -46.665),
         stops: const [

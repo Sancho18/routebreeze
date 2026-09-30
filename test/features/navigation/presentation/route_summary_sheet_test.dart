@@ -30,7 +30,6 @@ void main() {
 
   final refusedB = failedStop('pb', 'Rua B, 2', 2, FailureReason.refused);
 
-  /// A 4-stop route with one stop not delivered.
   final summary = RouteSummary(
     delivered: 3,
     failed: [refusedB],
@@ -56,9 +55,8 @@ void main() {
 
   var newRoutes = 0;
 
-  /// The sheet as the navigation screen shows it, at the bottom under the
-  /// app bar in a panel that scrolls from its actions up: in a bare
-  /// `MaterialApp`, or in the app themes when [mode] is given.
+  /// The sheet as the navigation screen shows it: at the bottom, under an app
+  /// bar, in a panel that scrolls from its actions up.
   Future<void> pumpSheet(
     WidgetTester tester,
     RouteSummary summary, {
@@ -186,7 +184,6 @@ void main() {
     ) async {
       await pumpSheet(tester, summary);
 
-      /// Size, weight and color of the text [text].
       (double?, FontWeight?, Color?) look(String text) {
         final style = tester.widget<Text>(find.text(text)).style!;
         return (style.fontSize, style.fontWeight, style.color);

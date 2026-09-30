@@ -35,8 +35,6 @@ void main() {
   const c = Stop('pc', 'Rua C, 3', GeoPoint(-23.58, -46.68));
   final ready = RouteState(status: RouteStatus.ready, plan: plan);
 
-  /// What a navigation over [stops] saved: recalculated from a point on
-  /// the way, the first stop delivered, 850 m since the first "Iniciar".
   RoutePlan savedWith(List<Stop> stops) => RoutePlan(
     origin: const GeoPoint(-23.58, -46.67),
     stops: [
@@ -57,7 +55,6 @@ void main() {
     traveledMeters: 850,
   );
 
-  /// The same stops as a round trip: the way back to [origin] included.
   final roundTrip = RoutePlan(
     origin: origin,
     stops: const [
@@ -88,7 +85,6 @@ void main() {
     repository = MockRouteRepository();
   });
 
-  /// The `returnTo` of every repository request, in order.
   List<Object?> requestedReturns() => verify(
     () =>
         repository.plan(origin, stops, returnTo: captureAny(named: 'returnTo')),

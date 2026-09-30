@@ -47,7 +47,6 @@ void main() {
         '(the deviation threshold)', () {
       const lat = -23.5645;
       const line = [GeoPoint(lat, -46.66), GeoPoint(lat, -46.64)];
-      // 50 m north of the line: 50 / 111195 m per degree.
       const fix = GeoPoint(lat + 50 / 111195, -46.65);
       expect(distanceToPolylineMeters(fix, line), closeTo(50, 0.5));
     });
@@ -99,7 +98,6 @@ void main() {
   });
 
   group('projectOntoSegment', () {
-    // Along the equator: 0.01° of longitude ≈ 1112 m.
     const a = GeoPoint(0, 0);
     const b = GeoPoint(0, 0.01);
 

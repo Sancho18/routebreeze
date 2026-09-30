@@ -4,7 +4,6 @@ import 'package:routebreeze/core/theme/rb_palette.dart';
 
 import '../../helpers/contrast.dart';
 
-/// The color roles of [p], in constructor order.
 List<Color> _colors(RbPalette p) => [
   p.brand,
   p.onFill,
@@ -139,7 +138,6 @@ void main() {
   group('light palette contrast of the strong roles is at least 4.5:1', () {
     const light = RbPalette.light;
 
-    // The status chip draws its tone at 12% over surface-200.
     Color chipTint(Color tone) =>
         Color.alphaBlend(tone.withValues(alpha: 0.12), light.surface200);
 

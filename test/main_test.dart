@@ -1,5 +1,4 @@
-// Edge case: without GOOGLE_MAPS_API_KEY the app fails fast at startup with
-// a message naming env.json (flutter test runs without --dart-define).
+// `flutter test` runs without --dart-define, so GOOGLE_MAPS_API_KEY is empty.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/di/injector.dart';

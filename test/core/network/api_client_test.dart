@@ -6,8 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/error/failure.dart';
 import 'package:routebreeze/core/network/api_client.dart';
 
-/// Transport stub: answers each call with the next scripted result and
-/// records every request with its timestamp.
+/// Answers each request with the next step of [script] and records it.
 class FakeAdapter implements HttpClientAdapter {
   FakeAdapter(this.script);
 

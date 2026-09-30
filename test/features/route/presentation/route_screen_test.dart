@@ -88,9 +88,7 @@ void main() {
     registerFallbackValue(const <Stop>[]);
   });
 
-  /// Pumps the screen in [state]: in a bare `MaterialApp`, or in the app
-  /// themes when [mode] is given. [settle] pumps once more, so a ready map
-  /// gets its marker icons.
+  /// [settle] pumps once more, so a ready map gets its marker icons.
   Future<void> pumpScreen(
     WidgetTester tester,
     RouteState state, {
@@ -427,8 +425,7 @@ void main() {
       returnTo: origin,
       returnLeg: const RouteLeg(distanceMeters: 5000, durationSeconds: 420),
     );
-    // Each state with a text that proves it is on screen, and whether the
-    // connectivity check answers online.
+    // State, a text that proves it is on screen, and whether it is online.
     final states = <String, (RouteState, String, bool)>{
       'loading': (
         const RouteState(status: RouteStatus.loading),

@@ -9,7 +9,6 @@ import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 void main() {
-  /// What is left of the way back: 3,2 km and 9 min from 15:31.
   final progress = RouteProgress(
     next: null,
     toNextMeters: 3200,
@@ -20,8 +19,6 @@ void main() {
   );
   const summary = '3,2 km · 9 min · chegada às 15:40';
 
-  /// The card in a bare `MaterialApp`, or in the app themes when [mode] is
-  /// given.
   Future<void> pumpCard(
     WidgetTester tester, {
     RouteProgress? progress,
@@ -42,7 +39,6 @@ void main() {
   Text text(WidgetTester tester, String value) =>
       tester.widget<Text>(find.text(value));
 
-  /// The circle behind the home icon.
   Finder homeBadge() => find
       .ancestor(of: find.byIcon(Icons.home), matching: find.byType(Container))
       .first;

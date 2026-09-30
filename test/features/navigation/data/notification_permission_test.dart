@@ -14,7 +14,6 @@ void main() {
   PluginNotificationPermission permission() =>
       PluginNotificationPermission(FlutterLocalNotificationsPlugin());
 
-  /// Whether the app recorded that it asked.
   Future<bool?> asked() async =>
       (await SharedPreferences.getInstance()).getBool('notifications_asked');
 

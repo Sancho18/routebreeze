@@ -22,8 +22,6 @@ void main() {
     removals = 0;
   });
 
-  /// The field in a bare `MaterialApp`, or in the app themes when [mode] is
-  /// given.
   Widget wrap(AddressField field, {bool removable = false, ThemeMode? mode}) {
     final home = Scaffold(
       body: AddressFieldWidget(

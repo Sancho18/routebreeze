@@ -9,10 +9,9 @@ import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 void main() {
-  // Route along the equator, 0.01° (≈ 1112 m) between stops:
-  // origin → A (leg 0, two segments) → B (leg 1) → C (leg 2). Google's leg
-  // distances differ from the line lengths on purpose: the estimate scales
-  // them by the share of the line still ahead.
+  // Route along the equator, 0.01° (≈ 1112 m) between stops, A after two
+  // segments. The leg distances differ from the line lengths on purpose: the
+  // estimate scales them by the share of the line still ahead.
   const origin = GeoPoint(0, 0);
   const a = Stop('pa', 'Rua A, 1', GeoPoint(0, 0.01));
   const b = Stop('pb', 'Rua B, 2', GeoPoint(0, 0.02));
@@ -49,8 +48,7 @@ void main() {
     returnLeg: returnLeg,
   );
 
-  // The same stops as a round trip: from C the line comes straight back to
-  // the origin over the way out (leg 3).
+  // As a round trip: from C the line runs straight back over the way out.
   RoutePlan roundTripOf(List<RouteStop> stops) => planOf(
     stops,
     polyline: const [
@@ -151,7 +149,6 @@ void main() {
 
     test('a recalculated plan (visited stops first, legs only for the new '
         'order) measures the first new leg', () {
-      // Recalculated at A: C before B.
       final recalculated = planOf(
         const [
           RouteStop(stop: a, order: 1, result: delivered),

@@ -72,8 +72,6 @@ void main() {
 
   tearDown(() => online.close());
 
-  /// Pumps the screen in a bare `MaterialApp`, or in the app themes when
-  /// [mode] is given.
   Future<void> pumpScreen(
     WidgetTester tester,
     AddressFormState state, {
@@ -430,9 +428,6 @@ void main() {
       verify(() => cubit.reset()).called(1);
     });
 
-    // Light: brand #2A6DF4, onFill white, ink-muted #5B6472, surface-200
-    // white. Dark: brand #7EA6F8, onFill #0F1115, ink-muted #A4ACB9,
-    // surface-200 #1A1D23.
     final switchColors = {
       ThemeMode.light: (
         const Color(0xFF2A6DF4),

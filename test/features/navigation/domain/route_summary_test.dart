@@ -18,7 +18,6 @@ void main() {
   StopResult failedAt(FailureReason reason, int minute) =>
       StopResult.failed(reason, at: DateTime.utc(2026, 9, 28, 17, minute));
 
-  /// The stops numbered 1..N in the given order, without results.
   RoutePlan planOf(List<Stop> stops) => RoutePlan(
     origin: origin,
     stops: [

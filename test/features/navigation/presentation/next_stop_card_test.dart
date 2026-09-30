@@ -22,7 +22,6 @@ void main() {
     order: 2,
   );
 
-  /// Matches the spec's own example sentence verbatim.
   const shortStop = RouteStop(
     stop: Stop('pa', 'Rua Augusta, 500', GeoPoint(-23.553, -46.653)),
     order: 2,
@@ -36,8 +35,6 @@ void main() {
     at: DateTime.utc(2026, 9, 28, 14, 28),
   );
 
-  /// The card in a bare `MaterialApp`, or in the app themes when [mode] is
-  /// given.
   Future<void> pumpCard(
     WidgetTester tester, {
     RouteProgress? progress,

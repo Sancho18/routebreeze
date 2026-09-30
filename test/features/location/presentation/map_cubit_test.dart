@@ -77,7 +77,6 @@ void main() {
       computedAt: at,
     );
 
-    /// [plan] as a round trip with B delivered too: on its way back.
     final onItsWayBack = RoutePlan(
       origin: plan.origin,
       stops: plan.stops,

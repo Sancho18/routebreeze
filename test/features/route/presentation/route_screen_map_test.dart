@@ -1,5 +1,3 @@
-// The default map of the Route screen draws the plan and fits the camera to
-// the whole route once the platform view exists.
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -76,8 +74,6 @@ void main() {
 
   tearDown(() => online.close());
 
-  /// The ready screen in a bare `MaterialApp`, or in the app themes when
-  /// [mode] is given.
   Future<void> pumpReady(WidgetTester tester, {ThemeMode? mode}) async {
     platform = FakeGoogleMapPlatform.install(tester);
     final screen = RouteScreen(
@@ -181,7 +177,6 @@ void main() {
   });
 
   group('RouteScreen map theme', () {
-    /// ARGB of the route line in the creation params.
     Object? createdRouteColor(FakeMapInstance map) =>
         (map.polylinesToAdd.single as Map<Object?, Object?>)['color'];
 

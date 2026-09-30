@@ -47,9 +47,8 @@ import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 const GeoPoint start = GeoPoint(-23.5645, -46.6527);
 
-/// The three stops in the order they are typed (A, B, C). Rua Augusta is
-/// the farthest from [start], so the planner makes it the destination and
-/// sends Paulista and Oscar Freire as intermediates, in that order.
+/// Typed in this order. Rua Augusta is the farthest from [start], so it is
+/// the destination and the other two are intermediates, in typed order.
 const Stop paulista = Stop(
   'pl-paulista',
   'Av. Paulista, 1000 - Bela Vista, São Paulo',
@@ -69,8 +68,7 @@ const Stop oscarFreire = Stop(
 /// start → Oscar Freire → Paulista → Augusta, Google polyline encoding.
 const String encodedPolyline = 'bmynCjzv{GbBby@~C_jA_oAvQ';
 
-/// [encodedPolyline] decoded: one vertex per stop after the start, so leg
-/// `i` ends on vertex `i + 1`.
+/// One vertex per stop after the start, so leg `i` ends on vertex `i + 1`.
 final List<GeoPoint> routeLine = decodePolyline(encodedPolyline);
 
 class FakeLocalAuthService implements LocalAuthService {
@@ -79,7 +77,6 @@ class FakeLocalAuthService implements LocalAuthService {
 }
 
 class FakeLocationService implements LocationService {
-  /// Positions of the live navigation; the test adds them.
   final StreamController<Fix> positions = StreamController<Fix>.broadcast();
 
   @override
@@ -103,8 +100,7 @@ class FakeLocationService implements LocationService {
   Future<void> openLocationSettings() async {}
 }
 
-/// The system prompt cannot be answered from a test: the permission counts
-/// as asked.
+/// A test cannot answer the system prompt, so the request is a no-op.
 class FakeNotificationPermission implements NotificationPermission {
   @override
   Future<void> requestOnce() async {}
@@ -118,7 +114,6 @@ class FakeConnectivityService implements ConnectivityService {
   Future<bool> check() async => true;
 }
 
-/// One suggestion per known street; details resolve by placeId.
 class FakePlacesApi implements PlacesApi {
   static const Map<String, Stop> byPlaceId = {
     'pl-paulista': paulista,
@@ -151,7 +146,7 @@ class FakePlacesApi implements PlacesApi {
   }) async => byPlaceId[placeId]!;
 }
 
-/// Fixed answer: the API "reorders" the intermediates (index [1, 0]).
+/// Swaps the two intermediates, so Oscar Freire is visited first.
 class FakeRoutesApi implements RoutesApi {
   RouteRequest? lastRequest;
 
@@ -214,8 +209,8 @@ Finder enabledPrimaryButton(String label) => find.byWidgetPredicate(
       widget is RbPrimaryButton && widget.label == label && widget.enabled,
 );
 
-/// Types [query] into the [index]-th field, waits past the debounce and
-/// picks the single suggestion under that field.
+/// Types [query] into field [index], waits out the debounce and picks the
+/// only suggestion.
 Future<void> pickAddress(WidgetTester tester, int index, String query) async {
   await tester.enterText(find.byType(TextField).at(index), query);
   await tester.pump(const Duration(milliseconds: 400));
@@ -246,18 +241,15 @@ String orderOf(WidgetTester tester, Stop stop) {
   return badge.data!;
 }
 
-/// [finder] inside the sheet row of [stop].
 Finder inRow(Stop stop, Finder finder) => find.descendant(
   of: find.byKey(RouteSheet.stopKey(stop.placeId)),
   matching: finder,
 );
 
-/// A text whose whole content matches [pattern].
 Finder textMatching(RegExp pattern) => find.byWidgetPredicate(
   (widget) => widget is Text && pattern.hasMatch(widget.data ?? ''),
 );
 
-/// A fix of 10 m accuracy [metersNorth] north of [point], taken now.
 Fix fixNorthOf(GeoPoint point, double metersNorth) => Fix(
   GeoPoint(
     point.lat + metersNorth / earthRadiusMeters * 180 / math.pi,
@@ -285,8 +277,7 @@ void main() {
     _replace<RoutesApi>(routesApi);
     // A route left by an earlier run would trigger "Continuar rota?".
     await getIt<RouteStorage>().clear();
-    // A round trip left on by an earlier session would change the route
-    // request that the fake Routes API answers.
+    // A round trip saved by an earlier run would change the route request.
     await getIt<RoundTripPreference>().save(false);
   });
 
@@ -300,22 +291,18 @@ void main() {
       '"Entregue", "Não entregue" with a reason → summary', (tester) async {
     await tester.pumpWidget(const RouteBreezeApp());
 
-    // Lock: the prompt runs on the first frame and succeeds.
     await pumpUntil(tester, find.byType(MapScreen));
 
-    // Map: start fix accepted, the loading fades and "Para onde vamos?"
-    // becomes enabled.
     await pumpUntil(tester, enabledPrimaryButton(MapScreen.continueLabel));
     await pumpUntilGone(tester, find.byType(RbRouteLoader));
     await tester.tap(primaryButton(MapScreen.continueLabel));
     await pumpUntil(tester, find.byType(AddressesScreen));
-    // The iOS page transition keeps the Map screen (and its "Para onde
-    // vamos?" button) on stage until the new page covers it.
+    // The iOS page transition keeps the Map screen on stage until the new
+    // page covers it.
     await pumpUntilGone(tester, find.byType(MapScreen));
     expect(find.text(AddressesScreen.title), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(3));
 
-    // Addresses: one suggestion picked per field, in typed order A, B, C.
     await pickAddress(tester, 0, 'Av. Paulista');
     await pickAddress(tester, 1, 'Rua Augusta');
     await pickAddress(tester, 2, 'Rua Oscar Freire');
@@ -323,7 +310,6 @@ void main() {
     await tester.ensureVisible(primaryButton(AddressesScreen.confirmLabel));
     await tester.tap(primaryButton(AddressesScreen.confirmLabel));
 
-    // Route: one computeRoutes call, farthest stop as destination.
     await pumpUntil(tester, find.byType(RouteScreen));
     await pumpUntil(tester, find.text(RouteSheet.heading));
     final request = routesApi.lastRequest!;
@@ -332,14 +318,13 @@ void main() {
     expect(request.destinationStop, augusta);
     expect(request.intermediates, [paulista, oscarFreire]);
 
-    // Sheet: three rows numbered in the optimized order, destination last.
     expect(orderOf(tester, oscarFreire), '1');
     expect(orderOf(tester, paulista), '2');
     expect(orderOf(tester, augusta), '3');
     expect(find.text('4,2 km · 15 min'), findsOneWidget);
     expect(primaryButton('Iniciar'), findsOneWidget);
 
-    // Navigation: "Iniciar" waits for a fix of 50 m or better.
+    // "Iniciar" waits for a fix of 50 m or better.
     await tester.tap(primaryButton('Iniciar'));
     await pumpUntil(tester, find.byType(NavigationScreen));
     await pumpUntilGone(tester, find.byType(RouteScreen));
@@ -348,7 +333,7 @@ void main() {
     await tester.tap(primaryButton(NavigationScreen.startLabel));
     await pumpUntil(tester, primaryButton(NavigationScreen.stopLabel));
 
-    // Arrival 30 m from the first stop: "Você chegou", no result yet.
+    // 30 m from the first stop is inside the arrival radius.
     final card = find.byType(NextStopCard);
     expect(
       find.descendant(of: card, matching: find.text(oscarFreire.address)),
@@ -361,7 +346,6 @@ void main() {
     );
     expect(find.byIcon(Icons.check), findsNothing);
 
-    // "Entregue": the first stop is delivered and the second one is next.
     await tester.tap(primaryButton(RouteSheet.deliveredLabel));
     await pumpUntil(
       tester,
@@ -370,8 +354,7 @@ void main() {
     expect(inRow(oscarFreire, find.byIcon(Icons.check)), findsOneWidget);
     expect(find.text('Você chegou'), findsNothing);
 
-    // "Não entregue", past the 1 s double-tap guard: the reason picked
-    // records the second stop and the third one is next.
+    // A second result within the double-tap guard would be dropped.
     await tester.pump(
       NavigationCubit.recordGuard + const Duration(milliseconds: 100),
     );
@@ -390,7 +373,6 @@ void main() {
     expect(inRow(paulista, find.byIcon(Icons.close)), findsOneWidget);
     expect(inRow(paulista, find.text('Destinatário ausente')), findsOneWidget);
 
-    // The last result ends the route: the summary replaces the sheet.
     await tester.pump(
       NavigationCubit.recordGuard + const Duration(milliseconds: 100),
     );

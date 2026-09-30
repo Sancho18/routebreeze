@@ -4,8 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 
-/// One map created by the widget under test: its decoded creation params
-/// and every call the plugin made on that map's method channel.
+/// A map created by the widget under test, and the calls on its channel.
 class FakeMapInstance {
   FakeMapInstance(this.id, this.creationParams);
 
@@ -66,9 +65,8 @@ class _TestGoogleMapsPlatform extends MethodChannelGoogleMapsFlutter {
   }) async {}
 }
 
-/// Stubs `flutter/platform_views` (the Android platform view that hosts the
-/// map under `flutter test`) and `plugins.flutter.io/google_maps_<id>` (the
-/// per-map channel) for one test.
+/// Stubs the platform view that hosts the map under `flutter test` and each
+/// map's `plugins.flutter.io/google_maps_<id>` channel, for one test.
 class FakeGoogleMapPlatform {
   FakeGoogleMapPlatform._(this._messenger);
 
@@ -77,8 +75,8 @@ class FakeGoogleMapPlatform {
   /// Maps in creation order.
   final List<FakeMapInstance> maps = [];
 
-  /// When set, the map channel answers [method] with this error
-  /// (e.g. `camera#animate` before the view has laid out).
+  /// Errors the map channel throws by method name, e.g. `camera#animate`
+  /// before the view has laid out.
   final Map<String, PlatformException> failures = {};
 
   /// Installs the stubs and removes them when the test ends.

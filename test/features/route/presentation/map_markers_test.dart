@@ -6,7 +6,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 
 void main() {
-  /// The color of the pixel at ([x], [y]) of a PNG [icon].
   Future<Color> pixelOf(BytesMapBitmap icon, int x, int y) async {
     final codec = await ui.instantiateImageCodec(icon.byteData);
     final image = (await codec.getNextFrame()).image;

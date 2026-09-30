@@ -14,8 +14,7 @@ void main() {
   late List<MethodCall> calls;
 
   setUp(() {
-    // `flutter test` runs no plugin registrant: register the Android
-    // implementation the app gets at startup, and run as Android.
+    // `flutter test` runs no plugin registrant, so register the Android one.
     AndroidFlutterLocalNotificationsPlugin.registerWith();
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     calls = [];
@@ -82,7 +81,6 @@ void main() {
       const title = 'Próxima parada 2 · Rua Augusta, 500';
       const body = '1,2 km · 4 min · chegada às 14:32';
 
-      /// The platform refuses every call, like a service that cannot start.
       void failEveryCall() =>
           messenger.setMockMethodCallHandler(channel, (call) async {
             calls.add(call);
@@ -194,7 +192,6 @@ void main() {
         await expectLater(tracker.update(title, body), completes);
         expect(methods(), ['startForegroundService', 'startForegroundService']);
 
-        // The platform answers again.
         messenger.setMockMethodCallHandler(channel, (call) async {
           calls.add(call);
           return null;

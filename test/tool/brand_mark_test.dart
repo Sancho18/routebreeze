@@ -8,7 +8,6 @@ import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 
 import '../../tool/brand/brand_mark.dart';
 
-/// RGBA pixels of a [size]×[size] transparent canvas with the mark on it.
 Future<ByteData> render({
   required double size,
   required double scale,
@@ -59,9 +58,6 @@ void main() {
   });
 
   group('the mark is the loader curve', () {
-    // Spec sizes at scale 1 on 1024 px: the curve's box is 640 px wide and
-    // 0.62 of that tall, centered; destination dot r 84, origin ring r 66
-    // with a hole of r 30.
     const width = 640.0;
     const height = width * 0.62;
     const topLeft = Offset((canvas - width) / 2, (canvas - height) / 2);

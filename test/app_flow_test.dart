@@ -82,8 +82,7 @@ void main() {
     // Typed A, B, C: B is the farthest (destination); C goes before A.
     optimizedIndex: [1, 0],
   );
-  // The same stops as a round trip: A, B and C are intermediates, optimized
-  // as C, A, B, and a fourth leg goes back to the start.
+  // As a round trip every stop is an intermediate, optimized as C, A, B.
   const roundTripResponse = RouteResponse(
     polyline: [
       origin,
@@ -116,12 +115,8 @@ void main() {
   /// Clock of the lifecycle gate and of the navigation.
   late DateTime clock;
 
-  /// What [storage] holds once [storeAsJson] backs it: the route as JSON
-  /// text, as on the device.
   String? stored;
 
-  /// Puts the fakes in place of the device and network services; the
-  /// navigation runs on [clock].
   void registerFakes() {
     getIt
       ..unregister<LocalAuthService>()
@@ -257,7 +252,7 @@ void main() {
         (_) {},
       );
 
-  /// Types [name] in field [index], waits the debounce and picks the
+  /// Types [name] in field [index], waits out the debounce and picks the
   /// suggestion.
   Future<void> pickAddress(WidgetTester tester, int index, String name) async {
     await tester.enterText(find.byType(TextField).at(index), name);
@@ -268,8 +263,8 @@ void main() {
     expect(find.text('$name, São Paulo'), findsOneWidget);
   }
 
-  /// Backs [storage] with [stored], starting from [plan] or empty: saves
-  /// write the route as JSON text and loads read it back, as on the device.
+  /// Backs [storage] with [stored], starting from [plan] or empty: the route
+  /// goes through JSON text, as on the device.
   void storeAsJson([RoutePlan? plan]) {
     stored = plan == null ? null : jsonEncode(plan.toJson());
     when(() => storage.load()).thenAnswer(
@@ -289,8 +284,7 @@ void main() {
     });
   }
 
-  /// Ends the app and opens it again over the same storage, as after the
-  /// system killed it, up to the map.
+  /// Reopens the app over the same storage, as after the system killed it.
   Future<void> restart(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     await resetDependencies();
@@ -299,7 +293,6 @@ void main() {
     await bootToMap(tester);
   }
 
-  /// Continues [plan] from the storage and taps "Iniciar" on a precise fix.
   Future<void> resumeAndStart(WidgetTester tester, RoutePlan plan) async {
     storeAsJson(plan);
     await bootToMap(tester);
@@ -312,16 +305,12 @@ void main() {
     expect(find.text(NavigationScreen.stopLabel), findsOneWidget);
   }
 
-  /// The position of "Voltar ao ponto de partida" on the addresses screen.
   bool roundTripSwitch(WidgetTester tester) => tester
       .widget<SwitchListTile>(
         find.widgetWithText(SwitchListTile, AddressesScreen.roundTripLabel),
       )
       .value;
 
-  /// From the map through the addresses "Rua A", "Rua B" and "Rua C" to the
-  /// route screen, optimized as C, A, B; with [roundTrip], "Voltar ao ponto
-  /// de partida" is turned on before confirming.
   Future<void> openRoute(WidgetTester tester, {bool roundTrip = false}) async {
     await bootToMap(tester);
     await tester.tap(find.text(MapScreen.continueLabel));
@@ -338,8 +327,6 @@ void main() {
     expect(find.byType(RouteScreen), findsOneWidget);
   }
 
-  /// "Iniciar" on the route screen, a precise fix, then "Iniciar" on the
-  /// navigation at the current [clock].
   Future<void> navigateFromRoute(WidgetTester tester) async {
     await tester.tap(find.text('Iniciar'));
     await tester.pumpAndSettle();
@@ -351,7 +338,6 @@ void main() {
     expect(find.text(NavigationScreen.stopLabel), findsOneWidget);
   }
 
-  /// [finder] inside the sheet row of the stop [placeId].
   Finder inRow(String placeId, Finder finder) => find.descendant(
     of: find.byKey(RouteSheet.stopKey(placeId)),
     matching: finder,
@@ -407,7 +393,6 @@ void main() {
     expect(find.byType(RouteScreen), findsOneWidget);
     expect(find.text('Ordem otimizada'), findsOneWidget);
     expect(find.text('12,3 km · 10 min'), findsOneWidget);
-    // Optimized order C, A, then the farthest stop B as the destination.
     final listed = tester
         .widgetList<Text>(find.textContaining(', São Paulo'))
         .map((t) => t.data)
@@ -432,7 +417,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(NavigationScreen.stopLabel), findsOneWidget);
 
-    // "Encerrar" returns to the Route screen with the route intact.
     await tester.tap(find.text(NavigationScreen.stopLabel));
     await tester.pumpAndSettle();
     expect(find.byType(NavigationScreen), findsNothing);
@@ -656,7 +640,6 @@ void main() {
       RbPrimaryButton,
       NavigationScreen.finishLabel,
     );
-    // "Finalizar rota" now fills the place of "Entregue", under the finger.
     expect(tester.getRect(finish).contains(at), isTrue);
     clock = DateTime(2026, 9, 22, 9, 30, 0, 150);
     await tester.tapAt(at);
@@ -900,7 +883,6 @@ void main() {
     clock = DateTime(2026, 9, 22, 9, 41);
     await resumeAndStart(tester, fourStops);
 
-    /// Taps [label] with the clock on [minute] past nine.
     Future<void> recordAt(int minute, String label) async {
       clock = DateTime(2026, 9, 22, 9, minute);
       await tester.tap(find.text(label));
@@ -932,7 +914,6 @@ void main() {
   });
 
   group('back on the route screen', () {
-    // The typed "Rua A", second in the optimized order C, A, B.
     final secondStop = RouteStop(
       stop: Stop('id-Rua A', 'Rua A, São Paulo', points['Rua A']!),
       order: 2,

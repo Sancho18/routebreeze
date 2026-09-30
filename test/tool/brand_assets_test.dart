@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 
-/// A decoded PNG from `assets/brand/` or another [dir].
 class Png {
   Png(this.width, this.height, this.rgba);
 
@@ -71,8 +70,7 @@ const brand = [0x2A, 0x6D, 0xF4, 0xFF];
 const white = [0xFF, 0xFF, 0xFF, 0xFF];
 const clear = 0;
 
-/// Point at [t] of the loader curve for a mark drawn at [scale] on a
-/// [canvas] px square (spec: box 640 px wide, 0.62 tall, centered, per 1024).
+/// The loader curve at [t] for the mark at [scale] on a [canvas] px square.
 Offset curvePoint(double t, {required double canvas, required double scale}) {
   final k = canvas / 1024 * scale;
   final size = Size(640 * k, 640 * 0.62 * k);
@@ -81,9 +79,8 @@ Offset curvePoint(double t, {required double canvas, required double scale}) {
   return topLeft + metric.getTangentForOffset(metric.length * t)!.position;
 }
 
-/// [curvePoint] of the adaptive icon (1024 px, scale 0.62) mapped onto a
-/// splash image whose [circle] px circle shows the adaptive icon's visible
-/// 72 of 108 dp.
+/// [curvePoint] of the adaptive icon mapped onto a splash [image] whose
+/// [circle] px circle shows the icon's visible 72 of 108 dp.
 Offset splashPoint(double t, {required double image, required double circle}) {
   const visible = 1024 * 72 / 108;
   final p = curvePoint(t, canvas: 1024, scale: 0.62);
@@ -167,7 +164,6 @@ void main() {
       dir: 'android/app/src/main/res/drawable-$density',
     );
 
-    /// [curvePoint] of the mark at scale 1 on 1024 px, on a [size] px icon.
     Offset iconPoint(double t, int size) =>
         curvePoint(t, canvas: 1024, scale: 1) * (size / 1024);
 

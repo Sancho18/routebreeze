@@ -15,7 +15,6 @@ void main() {
   final t0 = DateTime.utc(2026, 9, 22, 10);
   var seq = 0;
 
-  /// A fix [meters] from the polyline with a fresh timestamp.
   Fix fix(double meters, {double accuracy = 10, DateTime? at}) => Fix(
     GeoPoint(lat(meters), 0),
     accuracy,

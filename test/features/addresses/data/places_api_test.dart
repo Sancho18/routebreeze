@@ -9,8 +9,7 @@ import 'package:routebreeze/features/addresses/data/places_api.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
 
-/// Transport stub: answers every call with [body]/[status] and records the
-/// request.
+/// Answers every request with [body] and [status], and records it.
 class FakeAdapter implements HttpClientAdapter {
   FakeAdapter(this.body, [this.status = 200]);
 

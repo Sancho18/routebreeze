@@ -24,8 +24,6 @@ void main() {
     when(() => cubit.unlock()).thenAnswer((_) async {});
   });
 
-  /// Pumps the screen in a bare `MaterialApp`, or in the app themes when
-  /// [mode] is given.
   Future<void> pumpLock(
     WidgetTester tester, {
     required LockState initial,

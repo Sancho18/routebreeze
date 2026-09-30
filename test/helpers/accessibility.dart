@@ -2,9 +2,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Checks the current tree against Flutter's text contrast, Android and iOS
-/// tap target and labeled tap target guidelines. Settle animations first:
-/// the contrast check samples the rendered pixels.
+/// Checks the tree against Flutter's contrast, tap target and label
+/// guidelines. Settle animations first: the contrast check samples pixels.
 Future<void> expectAccessibleGuidelines(WidgetTester tester) async {
   await expectLater(tester, meetsGuideline(textContrastGuideline));
   await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
@@ -23,11 +22,8 @@ Future<void> setLargeTextPhone(WidgetTester tester) async {
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 }
 
-/// Fails when a laid-out paragraph is smaller than its text: shorter, when a
-/// fixed-height parent cuts it, which raises no overflow error; narrower,
-/// when a line that does not wrap runs past it; or cut by a line limit
-/// without an ellipsis. A paragraph with a line limit and an ellipsis counts
-/// as its visible lines.
+/// Fails when a paragraph is cut, which raises no overflow error: shorter or
+/// narrower than its text, or past a line limit without an ellipsis.
 void expectNoClippedText(WidgetTester tester) {
   final clipped = [
     for (final paragraph in tester.renderObjectList<RenderParagraph>(

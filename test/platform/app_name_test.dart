@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Value of `<key>[key]</key><string>…</string>` in the iOS Info.plist.
 String? plistString(String key) =>
     RegExp('<key>$key</key>\\s*<string>([^<]*)</string>')
         .firstMatch(File('ios/Runner/Info.plist').readAsStringSync())

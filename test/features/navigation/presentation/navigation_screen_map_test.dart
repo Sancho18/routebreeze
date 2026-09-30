@@ -1,5 +1,3 @@
-// The real `GoogleMap` on a fake platform: initial camera placement and the
-// moves that following and "Recentralizar" trigger.
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
@@ -91,8 +89,6 @@ void main() {
 
   tearDown(() => states.close());
 
-  /// The screen in a bare `MaterialApp`, or in the app themes when [mode] is
-  /// given.
   Future<void> pumpScreen(
     WidgetTester tester,
     NavigationState initial, {
@@ -198,7 +194,6 @@ void main() {
   });
 
   group('NavigationScreen map theme', () {
-    /// ARGB of the route line in the creation params.
     Object? createdRouteColor(FakeMapInstance map) =>
         (map.polylinesToAdd.single as Map<Object?, Object?>)['color'];
 

@@ -102,7 +102,6 @@ void main() {
 
     test('a round trip keeps the start pin at its point of return when a '
         'recalculation moved the origin', () {
-      // Recalculated from a point on the way, after the first stop.
       const moved = GeoPoint(-23.58, -46.62);
       final recalculated = RoutePlan(
         origin: moved,

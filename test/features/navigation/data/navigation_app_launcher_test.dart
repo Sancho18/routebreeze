@@ -7,8 +7,6 @@ import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dar
 import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
-/// Records the links the plugin is asked to open and answers with [result]
-/// (or throws [error]).
 class FakeUrlLauncher extends Fake
     with MockPlatformInterfaceMixin
     implements UrlLauncherPlatform {

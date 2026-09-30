@@ -61,10 +61,8 @@ void main() {
     when(() => cubit.openSettings()).thenAnswer((_) async {});
   });
 
-  /// Pumps the screen; the placeholder map reports itself ready at once
-  /// unless [mapReady] is false, and the loading overlay is given time to
-  /// fade so the card is reachable. A bare `MaterialApp` hosts it unless
-  /// [mode] asks for the app themes.
+  /// Pumps the screen; the map reports itself ready unless [mapReady] is
+  /// false, and then the overlay fades so the card is reachable.
   Future<void> pumpMap(
     WidgetTester tester,
     MapState state, {
@@ -150,7 +148,6 @@ void main() {
     resumable: plan,
   );
 
-  /// Pumps the ready screen and lets "Continuar rota?" open.
   Future<void> pumpOffer(WidgetTester tester, {ThemeMode? mode}) async {
     await pumpMap(tester, ready, states: Stream.value(offered), mode: mode);
     await tester.pumpAndSettle();

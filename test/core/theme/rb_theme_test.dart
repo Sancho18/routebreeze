@@ -177,7 +177,6 @@ List<TextStyle?> _slots(TextTheme text) => [
   text.labelSmall,
 ];
 
-/// Expects the scheme, component and text colors of one palette's theme.
 void _expectThemeColors(
   ThemeData theme, {
   required Brightness brightness,

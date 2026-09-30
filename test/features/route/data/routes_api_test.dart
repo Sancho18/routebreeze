@@ -11,8 +11,7 @@ import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_planner.dart';
 
-/// Transport stub: answers every call with [body]/[status] and records the
-/// request.
+/// Answers every request with [body] and [status], and records it.
 class FakeAdapter implements HttpClientAdapter {
   FakeAdapter(this.body, [this.status = 200]);
 
@@ -57,15 +56,12 @@ void main() {
     destination: a.point,
     destinationStop: a,
   );
-  // A round trip: every stop is an intermediate and the start the
-  // destination.
   const roundTrip = RouteRequest(
     origin: origin,
     intermediates: [a, b, c],
     destination: origin,
   );
-  // The same round trip recalculated from the driver's position, built as
-  // the repository builds it: with one stop left, and on the way back.
+  // Recalculations of the round trip, built as the repository builds them.
   const current = GeoPoint(-23.59, -46.69);
   final oneStopLeft = const RoutePlanner().buildRequest(current, const [
     b,
@@ -108,7 +104,6 @@ void main() {
     if (polyline != null) 'polyline': {'encodedPolyline': polyline},
   };
 
-  /// A `computeRoutes` answer with one route.
   String body({
     Object? distance = 12345,
     Object? duration = '605s',

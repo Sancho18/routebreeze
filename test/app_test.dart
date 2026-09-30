@@ -39,7 +39,6 @@ class MockConnectivityService extends Mock implements ConnectivityService {}
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
 
-/// Collects the names of the routes pushed on the root navigator.
 class _RecordingObserver extends NavigatorObserver {
   final pushed = <String?>[];
 
@@ -67,8 +66,7 @@ void main() {
         .thenAnswer((_) async => LocationAccess.serviceDisabled);
     getIt.unregister<LocationService>();
     getIt.registerSingleton<LocationService>(location);
-    // First prompt succeeds; a re-prompt after re-lock is canceled so the
-    // Lock screen stays visible.
+    // A re-prompt after re-lock is canceled, so the Lock screen stays visible.
     var prompts = 0;
     when(() => auth.authenticate()).thenAnswer(
       (_) async => prompts++ == 0 ? AuthResult.success : AuthResult.canceled,
@@ -149,9 +147,7 @@ void main() {
       );
 
       expect(find.byType(LockScreen), findsOneWidget);
-      // `onGenerateInitialRoutes` replaced the platform route with `/lock`;
-      // the `_guarded` fallback alone would have pushed a `/map` route that
-      // merely rendered the Lock screen.
+      // A guard alone would keep a `/map` route that renders the Lock screen.
       expect(observer.pushed.first, '/lock');
       expect(observer.pushed, isNot(contains('/map')));
     });
@@ -272,8 +268,7 @@ void main() {
 
     testWidgets('background hands pause and resume to the navigation, which '
         'keeps its position stream and its foreground service', (tester) async {
-      // The navigation from the composition root, over a fake network and
-      // storage; the position stream is the test's.
+      // The real navigation, over fake network, storage and positions.
       SharedPreferences.setMockInitialValues({});
       final connectivity = MockConnectivityService();
       when(() => connectivity.check()).thenAnswer((_) async => true);

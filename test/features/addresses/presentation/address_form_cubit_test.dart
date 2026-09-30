@@ -78,7 +78,6 @@ void main() {
     }
   }
 
-  /// Types, selects the stubbed suggestion and returns the selected stop.
   void fillValid(FakeAsync async, AddressFormCubit cubit, String id, Stop s) {
     final token = field(cubit, id).sessionToken;
     stubDetails(placeId: s.placeId, token: token, result: s);

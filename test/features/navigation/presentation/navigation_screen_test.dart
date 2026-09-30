@@ -98,13 +98,12 @@ void main() {
     at: DateTime(2026, 9, 22, 10, 40),
   );
 
-  /// A refused, then B delivered.
   final done = plan
       .withStart(startedAt)
       .record('pa', refused)
       .record('pb', StopResult.delivered(at: endedAt));
 
-  /// No stop delivered: at 200% text the summary is taller than the panel.
+  /// At 200% text its summary is taller than the panel.
   final noneDelivered = plan
       .withStart(startedAt)
       .record('pa', refused)
@@ -113,8 +112,6 @@ void main() {
         StopResult.failed(FailureReason.recipientAbsent, at: endedAt),
       );
 
-  /// [plan] as a round trip back to [origin], A refused and B delivered: on
-  /// its way back.
   final returning = RoutePlan(
     origin: origin,
     stops: plan.stops,
@@ -127,7 +124,6 @@ void main() {
     returnLeg: const RouteLeg(distanceMeters: 12345, durationSeconds: 605),
   ).record('pa', refused).record('pb', delivered);
 
-  /// What is left of the way back: 3,2 km and 9 min from 15:31.
   final wayBack = RouteProgress(
     next: null,
     toNextMeters: 3200,
@@ -137,7 +133,6 @@ void main() {
     at: DateTime.utc(2026, 9, 22, 15, 31),
   );
 
-  /// The route finished as [plan], 850 m from 10:30 to 10:48.
   NavigationState completed(RoutePlan plan) => NavigationState(
     plan: plan,
     phase: NavigationPhase.completed,
@@ -182,10 +177,8 @@ void main() {
     newRoutes = 0;
   });
 
-  /// A fresh mock and screen key per pump: a kept `State` would keep the
-  /// previous cubit and state. The cubit emits [states] after [state]. The
-  /// screen is in a bare `MaterialApp`, or in the app themes when [mode] is
-  /// given; [settle] waits for the marker icons and the map.
+  /// Uses a fresh mock and screen key per pump, as a kept `State` would keep
+  /// the previous cubit. The cubit emits [states] after [state].
   Future<void> pumpScreen(
     WidgetTester tester,
     NavigationState state, {
@@ -225,7 +218,6 @@ void main() {
   RbPrimaryButton primary(WidgetTester tester, String label) => tester
       .widget<RbPrimaryButton>(find.widgetWithText(RbPrimaryButton, label));
 
-  /// Hands [state] to the app lifecycle as the platform does.
   Future<void> setLifecycle(WidgetTester tester, AppLifecycleState state) =>
       tester.binding.defaultBinaryMessenger.handlePlatformMessage(
         SystemChannels.lifecycle.name,
@@ -233,7 +225,6 @@ void main() {
         (_) {},
       );
 
-  /// The painted fill of the primary button labeled [label].
   Color? fillOf(WidgetTester tester, String label) => tester
       .widget<Material>(
         find
@@ -881,9 +872,6 @@ void main() {
         ),
       );
 
-      // The placeholder map has no hittable content; the detector above it
-      // still receives the pointer events. Touch the map between the card
-      // and the sheet, which cover its edges.
       final point = visibleMap(tester);
       await tester.tapAt(point);
       await tester.dragFrom(point, const Offset(4, 4));
@@ -1197,7 +1185,6 @@ void main() {
           tester.getBottomLeft(returnRow).dy,
           lessThan(tester.getTopLeft(finish).dy),
         );
-        // "Encerrar" stays the last action, right under "Finalizar rota".
         final stop = find.widgetWithText(RbPrimaryButton, 'Encerrar');
         expect(primary(tester, 'Encerrar').enabled, isTrue);
         expect(fillOf(tester, 'Encerrar'), const Color(0xFFD01E23));
@@ -1304,7 +1291,6 @@ void main() {
       testWidgets('"Abrir em outro app" on the return card hands the start '
           'over to the chosen app, with no place id, also once a '
           'recalculation moved the plan origin', (tester) async {
-        // Recalculated on the way back at the current position.
         const current = GeoPoint(-23.58, -46.62);
         final recalculated = RoutePlan(
           origin: current,
@@ -1339,8 +1325,6 @@ void main() {
         'start stays at the start; a one-way route keeps it at its origin', (
       tester,
     ) async {
-      // Recalculated at the current position with A delivered: the plan
-      // origin moved there, the start stays the point of return.
       const current = GeoPoint(-23.58, -46.62);
       RoutePlan recalculated({GeoPoint? returnTo}) => RoutePlan(
         origin: current,
@@ -1390,8 +1374,6 @@ void main() {
       fix: fix,
     );
 
-    /// 1234 m and 250 s from 14:28 to stop 1: "1,2 km · 4 min · chegada às
-    /// 14:32".
     final toA = RouteProgress(
       next: const RouteStop(stop: a, order: 1),
       toNextMeters: 1234,
@@ -1495,8 +1477,8 @@ void main() {
       permission = asked;
       await pumpScreen(tester, waiting);
 
-      // The error leaves the tap as an uncaught async error, which would end
-      // the test before `takeException`; this zone collects it instead.
+      // The uncaught async error would end the test before `takeException`,
+      // so the zone collects it.
       final errors = <Object>[];
       await runZonedGuarded(() async {
         await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
@@ -1811,8 +1793,7 @@ void main() {
       following: false,
     );
 
-    // Each state with a text that proves it is on screen and the panel's
-    // last action.
+    // State, a text that proves it is on screen, and the panel's last action.
     final states = <String, (NavigationState, String, String)>{
       'waiting for GPS': (
         NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
@@ -1873,7 +1854,6 @@ void main() {
       ),
     };
 
-    /// Whether nothing covers the center of [finder]: a tap there reaches it.
     bool uncovered(WidgetTester tester, Finder finder) {
       final target = tester.renderObject(finder);
       return tester
@@ -1882,7 +1862,6 @@ void main() {
           .any((entry) => entry.target == target);
     }
 
-    /// Opens "Abrir em outro app" from the next stop card.
     Future<void> openSheet(WidgetTester tester, ThemeMode mode) async {
       await pumpScreen(tester, navigating(), mode: mode);
       await tester.tap(find.byTooltip(NextStopCard.openInAppTooltip));

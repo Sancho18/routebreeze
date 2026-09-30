@@ -1,13 +1,11 @@
-// Test double for the platform side of `flutter_local_notifications`: the
-// composition root initializes the plugin, so every test that runs it needs
-// the plugin's channel answered.
+// Fake platform side of `flutter_local_notifications`. The composition root
+// initializes the plugin, so every test that runs it needs this installed.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Answers `dexterous.com/flutter/local_notifications` for one test and
-/// records the calls the plugin made on it.
+/// Answers the plugin channel for one test and records the calls on it.
 class FakeLocalNotifications {
   FakeLocalNotifications._();
 
@@ -18,13 +16,10 @@ class FakeLocalNotifications {
   /// Every call the plugin made, in order.
   final List<MethodCall> calls = [];
 
-  /// Registers the plugin's implementation for the current target platform
-  /// (`flutter test` runs no plugin registrant), so install it after any
-  /// platform override. The channel is answered until the test ends; with
-  /// [error], every call fails with it. [answers] gives the result of a
-  /// method by name (a permission request answering false is a denial); a
-  /// function there answers each call, so a call can wait for a future or
-  /// fail with what the function throws.
+  /// Registers the plugin for the current target platform, as `flutter test`
+  /// runs no registrant, so install it after any platform override. Until
+  /// the test ends, every call fails with [error] if given; otherwise
+  /// [answers] gives a method's result, or a function called on each call.
   static FakeLocalNotifications install({
     PlatformException? error,
     Map<String, Object?> answers = const {},

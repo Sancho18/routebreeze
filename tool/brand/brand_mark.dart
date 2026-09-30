@@ -19,10 +19,8 @@ abstract final class BrandMark {
   static const double adaptiveScale = 0.62;
 }
 
-/// The map loader's route drawn as the brand mark, centered in [size]: an
-/// origin ring at the start of the curve and a destination dot at its end.
-/// [BrandMark] sizes are for a 1024 px canvas and follow [size] and [scale].
-/// The ring's hole shows [ringFill], or the canvas below when it is null.
+/// Paints the loader's route as the brand mark, centered in [size] and scaled
+/// by [scale]. The ring's hole shows [ringFill], or the canvas below if null.
 void paintBrandMark(
   Canvas canvas,
   Size size, {

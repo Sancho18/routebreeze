@@ -159,7 +159,6 @@ void main() {
         wrap(RbPrimaryButton(label: label, onPressed: () {})),
       );
 
-      // At 200% the label takes two lines.
       final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
       expect(
         paragraph.textSize.height,
@@ -328,7 +327,6 @@ void main() {
         ),
       );
       expect(paragraph.textScaler.scale(15), 30);
-      // At 200% the label takes two lines.
       expect(
         paragraph.textSize.height,
         closeTo(2 * paragraph.preferredLineHeight, 0.01),
