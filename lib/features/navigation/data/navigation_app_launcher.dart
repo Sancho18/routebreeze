@@ -10,9 +10,8 @@ abstract class NavigationAppLauncher {
   Future<bool> open(NavigationApp app, Stop stop);
 }
 
-/// [NavigationAppLauncher] over `url_launcher`: the universal link goes to
-/// the system as an external application, so the installed app answers it
-/// (or the browser, when the app is missing).
+/// [NavigationAppLauncher] over `url_launcher`: the link opens as an
+/// external application, so the installed app answers it.
 class UrlNavigationAppLauncher implements NavigationAppLauncher {
   @override
   Future<bool> open(NavigationApp app, Stop stop) async {

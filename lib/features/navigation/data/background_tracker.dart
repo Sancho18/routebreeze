@@ -5,17 +5,14 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 abstract class BackgroundTracker {
   Future<void> start();
 
-  /// Shows [title] and [body] on the tracking notification while tracking
-  /// runs.
+  /// Shows [title] and [body] on the tracking notification while it runs.
   Future<void> update(String title, String body);
 
   Future<void> stop();
 }
 
-/// [BackgroundTracker] over an Android foreground service of type location
-/// (`flutter_local_notifications`), shown as the ongoing navigation
-/// notification. When the service cannot start, tracking stays in
-/// foreground and the navigation goes on.
+/// [BackgroundTracker] over an Android foreground service of type location.
+/// If it cannot start, tracking stays in foreground and navigation goes on.
 class ForegroundServiceTracker implements BackgroundTracker {
   ForegroundServiceTracker(this._plugin);
 
@@ -95,8 +92,6 @@ class ForegroundServiceTracker implements BackgroundTracker {
       );
       return true;
     } on PlatformException {
-      // A refused start leaves tracking in foreground as before; a refused
-      // update, the texts shown.
       return false;
     }
   }

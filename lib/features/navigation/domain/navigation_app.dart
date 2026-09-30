@@ -9,10 +9,8 @@ enum NavigationApp {
 
   final String label;
 
-  /// Universal link that starts driving directions to [stop]: it opens the
-  /// app when installed and its website otherwise, so no URL scheme or
-  /// package query is needed. A stop without a place id (the start of a
-  /// round trip) is reached by its coordinates only.
+  /// Universal link for driving directions to [stop]: it opens the app or,
+  /// when missing, its website, so no URL scheme or package query is needed.
   Uri linkTo(Stop stop) {
     final point =
         '${_coordinate(stop.point.lat)},'

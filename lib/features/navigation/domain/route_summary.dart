@@ -12,9 +12,7 @@ class RouteSummary extends Equatable {
     required this.end,
   });
 
-  /// [end] is when the route completed: its last result, or for a round
-  /// trip the return to its start or "Finalizar rota"; the start is the
-  /// plan's.
+  /// [end] is when the route completed; the start is the plan's.
   factory RouteSummary.of(
     RoutePlan plan, {
     required int traveledMeters,
@@ -39,7 +37,7 @@ class RouteSummary extends Equatable {
 
   final int traveledMeters;
 
-  /// Null for routes saved before the start was kept.
+  /// Null for a route saved without its start.
   final DateTime? start;
   final DateTime end;
 

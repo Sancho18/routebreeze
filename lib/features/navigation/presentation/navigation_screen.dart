@@ -46,26 +46,22 @@ class NavigationMapModel {
   final LatLng target;
   final bool following;
 
-  /// Map edges covered by the next stop card and the sheet: the camera
-  /// centers the position in the area left between them.
+  /// Edges covered by the overlays, so the camera centers the position in
+  /// the area between them.
   final EdgeInsets padding;
 
   static const String meMarkerId = 'me';
 }
 
-/// Builds the map; tests inject a placeholder because the real `GoogleMap`
-/// cannot render in widget tests.
+/// Builds the map; tests pass a placeholder because `GoogleMap` cannot
+/// render in widget tests.
 typedef NavigationMapBuilder = Widget Function(
   BuildContext context,
   NavigationMapModel model,
 );
 
-/// Live navigation: map following the position, the [NextStopCard] and status
-/// overlays, and the [RouteSheet] in navigation mode with what is left and
-/// the result buttons. On the way back of a round trip the [ReturnCard]
-/// replaces the card and "Finalizar rota" the result buttons, above
-/// "Encerrar". The [RouteSummarySheet] replaces the sheet once the route
-/// completes.
+/// Live navigation screen: the map, the next stop card and the route sheet,
+/// which the [RouteSummarySheet] replaces once the route completes.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -84,7 +80,8 @@ class NavigationScreen extends StatefulWidget {
 
   final RoutePlan plan;
 
-  /// Called on "Encerrar" once the stream is stopped and the route saved.
+  /// Called on "Encerrar" once the route is saved, so the screen below reads
+  /// it; a failed save still calls it.
   final VoidCallback onExit;
 
   /// "Nova rota" on the summary.
@@ -97,16 +94,12 @@ class NavigationScreen extends StatefulWidget {
 
   final MapMarkers? markers;
 
-  /// Overrides the launcher from `getIt` (tests).
   final NavigationAppLauncher? appLauncher;
 
-  /// Overrides the notifier from `getIt` (tests).
   final CustomerNotifier? customerNotifier;
 
-  /// Overrides the notification permission from `getIt` (tests).
   final NotificationPermission? notificationPermission;
 
-  /// Overrides the route alerts from `getIt` (tests).
   final RouteAlerts? routeAlerts;
 
   /// Overrides the tracker from `getIt`, the one the cubit starts (tests).
@@ -122,14 +115,12 @@ class NavigationScreen extends StatefulWidget {
   static const String notifyFailedMessage =
       'Não foi possível abrir o compartilhamento.';
 
-  /// Sheet totals while navigating:
-  /// `"Faltam 8,4 km · 22 min · término às 15:10"`.
+  /// Sheet totals: `"Faltam 8,4 km · 22 min · término às 15:10"`.
   static String remaining(RouteProgress progress) =>
       'Faltam ${formatDistance(progress.remainingMeters)} · '
       '${formatDuration(progress.remainingSeconds)} · '
       'término às ${formatClock(progress.finalArrival)}';
 
-  /// Camera zoom while following.
   static const double zoom = 16;
 
   @override
@@ -157,18 +148,15 @@ class _NavigationScreenState extends State<NavigationScreen> {
   late final NavigationNotifier _notifier;
   late final AppLifecycleListener _lifecycle;
 
-  /// Hidden or paused: only then does the notifier alert events.
   bool _inBackground = false;
 
   RoutePlan? _iconsPlan;
   Future<_Icons>? _icons;
   Offset? _pointerDown;
 
-  /// Heights of the persistent overlays, measured after layout.
   double _topInset = 0;
   double _bottomInset = 0;
 
-  /// Pointer travel that counts as a map drag.
   static const double dragSlop = 12;
 
   @override
@@ -271,9 +259,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
   Widget _googleMap(BuildContext context, NavigationMapModel model) =>
       _NavigationMap(model: model);
 
-  /// A drag is a pointer that travels more than [dragSlop] while the camera
-  /// follows; camera callbacks are not used because `animateCamera` fires
-  /// them too.
+  /// Drags are detected from pointer events: `animateCamera` fires the camera
+  /// callbacks too.
   void _onPointerMove(PointerMoveEvent event) {
     final down = _pointerDown;
     if (down == null || !_cubit.state.following) return;
@@ -282,12 +269,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _cubit.onMapDragged();
   }
 
-  /// Set by the first "Iniciar" until the permission request ends: a second
-  /// tap meanwhile would ask again and start before the answer.
+  /// Set until the permission request ends: a second "Iniciar" meanwhile
+  /// would ask again and start before the answer.
   bool _starting = false;
 
-  /// "Iniciar": the first time, the notification permission is asked, and
-  /// the navigation starts after the answer, whatever it is.
   Future<void> _start() async {
     if (_starting) return;
     _starting = true;
@@ -303,8 +288,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
   /// screen below too.
   bool _leaving = false;
 
-  /// Leaves once the route is saved, so the screen below reads that save;
-  /// a failed save still leaves.
   Future<void> _stop() async {
     if (_leaving) return;
     _leaving = true;
@@ -315,8 +298,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
     }
   }
 
-  /// "Não entregue": the reason picked records the next stop; closing the
-  /// sheet records nothing.
   Future<void> _notDelivered() async {
     final reason = await FailureReasonSheet.show(context);
     if (reason != null) await _cubit.recordFailed(reason);
@@ -325,9 +306,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
   void _openInApp(Stop stop) =>
       OpenInAppSheet.show(context, stop: stop, launcher: _appLauncher);
 
-  /// "Avisar cliente": the message for the current state through the share
-  /// sheet, anchored to the button at [origin]; a sheet that cannot open
-  /// shows [NavigationScreen.notifyFailedMessage].
   Future<void> _notifyCustomer(Rect origin) async {
     final state = _cubit.state;
     final opened = await _customerNotifier.notify(
@@ -351,8 +329,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
         final completed = state.phase == NavigationPhase.completed;
         final returning = navigating && state.plan.isReturning;
         final progress = navigating ? state.progress : null;
-        // The system back takes the screen's own exits: "Nova rota" on the
-        // summary, "Encerrar" otherwise, so the route is saved first.
+        // System back runs the screen's exits, so the route is saved first.
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) {
@@ -386,9 +363,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     ),
                   ),
                 ),
-                // The bottom overlay takes the space under the top one: with
-                // large text it scrolls, from its actions up, instead of
-                // covering the next stop. Taps outside both reach the map.
+                // With large text the bottom overlay scrolls, from its actions
+                // up, instead of covering the next stop.
                 Positioned.fill(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -404,8 +380,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                           alignment: Alignment.bottomCenter,
                           child: SingleChildScrollView(
                             reverse: true,
-                            // Hits beside the button and the sheet reach the
-                            // map.
+                            // Taps around the button and sheet reach the map.
                             hitTestBehavior: HitTestBehavior.deferToChild,
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -454,10 +429,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                           onNotDelivered: navigating
                                               ? _notDelivered
                                               : null,
-                                          // On the way back every stop has
-                                          // a result, so no result buttons
-                                          // show: "Finalizar rota" takes
-                                          // their place, above "Encerrar".
                                           finishLabel: returning
                                               ? NavigationScreen.finishLabel
                                               : null,
@@ -489,8 +460,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 }
 
-/// `GoogleMap` that follows the position while the model says so; drags
-/// are detected by the screen from pointer events.
+/// `GoogleMap` that follows the position while the model says so.
 class _NavigationMap extends StatefulWidget {
   const _NavigationMap({required this.model});
 
@@ -535,9 +505,7 @@ class _NavigationMapState extends State<_NavigationMap> {
   }
 }
 
-/// Offline banner and, while navigating, the next stop or the way back of a
-/// round trip at the top of the map, with the recalculation badge and the
-/// GPS error under them.
+/// Offline banner, next stop or way back card, and status chips.
 class _TopOverlay extends StatelessWidget {
   const _TopOverlay({
     required this.state,
@@ -550,8 +518,8 @@ class _TopOverlay extends StatelessWidget {
   final ValueChanged<Stop> onOpenInApp;
   final ValueChanged<Rect> onNotifyCustomer;
 
-  /// Size of the banner and the card, which stay while navigating; the
-  /// transient chips are left out so they never shift the map.
+  /// Size of the banner and the card; the transient chips are left out so
+  /// they never shift the map.
   final ValueChanged<Size> onMeasured;
 
   @override
@@ -669,7 +637,6 @@ class _Card extends StatelessWidget {
   }
 }
 
-/// Caption under the sheet actions while the fix is worse than 50 m.
 class _WaitingGps extends StatelessWidget {
   const _WaitingGps();
 

@@ -6,16 +6,15 @@ import 'navigation_cubit.dart';
 import 'notification_copy.dart';
 import 'route_summary_sheet.dart';
 
-/// The ongoing notification's texts for a state, with the key whose change
-/// sends them at once: the next stop, the arrival and the way back.
+/// The ongoing notification's texts, and the key whose changes skip
+/// [NavigationNotifier.throttle].
 typedef _Ongoing = ({
   (String?, bool, bool) key,
   ({String title, String body}) copy,
 });
 
-/// Keeps the driver informed outside the app while navigating: the ongoing
-/// notification follows the next stop, and arrival, recalculation and
-/// completion are alerted while the app is in background.
+/// Keeps the driver informed outside the app: the ongoing notification
+/// follows the navigation, and events are alerted while in background.
 class NavigationNotifier {
   NavigationNotifier({
     required Stream<NavigationState> states,
@@ -41,18 +40,14 @@ class NavigationNotifier {
 
   NavigationState _previous;
 
-  /// What the ongoing notification shows, and since when; null outside a
-  /// navigation.
+  /// What the ongoing notification shows; null outside a navigation.
   _Ongoing? _sent;
   DateTime? _sentAt;
 
-  /// The texts of the last state, sent by [_pending] once [throttle] has
-  /// passed since [_sentAt].
   _Ongoing? _latest;
   Timer? _pending;
 
-  /// The app is back in foreground, where the screen shows what the alerts
-  /// said.
+  /// Clears the alerts: back in foreground, the screen shows what they said.
   void onForeground() => unawaited(_alerts.clear());
 
   /// Stops following the navigation; an update held back is dropped.
@@ -72,8 +67,7 @@ class NavigationNotifier {
     }
   }
 
-  /// Shows the events [state] brings over [previous]. The next stop stays
-  /// the arrived one until a result is recorded.
+  /// The next stop stays the arrived one until a result is recorded.
   void _alert(NavigationState previous, NavigationState state) {
     if (!previous.arrived && state.arrived) {
       _show(RouteAlert.arrival, arrivalCopy(state.plan.nextStop!));

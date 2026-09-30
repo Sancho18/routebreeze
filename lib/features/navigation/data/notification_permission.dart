@@ -9,9 +9,8 @@ abstract class NotificationPermission {
   Future<void> requestOnce();
 }
 
-/// [NotificationPermission] through `flutter_local_notifications`: Android
-/// 13+ `POST_NOTIFICATIONS`, iOS alerts and sounds. [key] records that the
-/// app asked.
+/// [NotificationPermission] for Android 13+ `POST_NOTIFICATIONS` and iOS
+/// alerts and sounds; [key] records that the app asked.
 class PluginNotificationPermission implements NotificationPermission {
   PluginNotificationPermission(this._plugin);
 
@@ -35,7 +34,7 @@ class PluginNotificationPermission implements NotificationPermission {
           >()
           ?.requestPermissions(alert: true, sound: true);
     } on PlatformException {
-      // Android fails only while a request of the plugin is on screen.
+      // Android refuses a second request while the first one is on screen.
     }
     await prefs.setBool(key, true);
   }

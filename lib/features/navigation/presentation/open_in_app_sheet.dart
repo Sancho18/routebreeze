@@ -7,9 +7,8 @@ import '../../addresses/domain/stop.dart';
 import '../data/navigation_app_launcher.dart';
 import '../domain/navigation_app.dart';
 
-/// Bottom sheet that hands [stop] over to another navigation app. It closes
-/// once an app takes the stop; a failure keeps it open with the reason, so
-/// the other app can be tried.
+/// Bottom sheet that hands [stop] to another navigation app. A failure keeps
+/// it open with the reason, so the other app can be tried.
 class OpenInAppSheet extends StatefulWidget {
   const OpenInAppSheet({super.key, required this.stop, required this.launcher});
 

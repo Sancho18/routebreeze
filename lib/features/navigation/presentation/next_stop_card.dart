@@ -8,12 +8,8 @@ import '../../route/presentation/stop_badge.dart';
 import '../domain/progress_estimator.dart';
 import 'notification_copy.dart';
 
-/// The stop the driver is heading to, over the navigation map: its number and
-/// address and, once measured, the distance, time and arrival clock, which
-/// "Você chegou" replaces once [arrived]. [onNotifyCustomer] adds a button to
-/// share a message with the customer, and [onOpenInApp] one to hand the stop
-/// over to another app. The card reads as one merged [semanticsLabel]; the
-/// buttons stay separate tappable nodes.
+/// The next stop over the navigation map, with a button per callback set.
+/// It reads as one merged [semanticsLabel]; the buttons stay separate nodes.
 class NextStopCard extends StatelessWidget {
   const NextStopCard({
     super.key,
@@ -27,12 +23,10 @@ class NextStopCard extends StatelessWidget {
   final RouteStop stop;
   final RouteProgress? progress;
 
-  /// The driver reached the stop; it stays next until a result is recorded.
   final bool arrived;
   final VoidCallback? onOpenInApp;
 
-  /// Gets the button's rect in global coordinates, where the share sheet
-  /// anchors on iPad.
+  /// Gets the button's rect in global coordinates, for the share sheet anchor.
   final ValueChanged<Rect>? onNotifyCustomer;
 
   static const String label = 'Próxima parada';
@@ -43,12 +37,8 @@ class NextStopCard extends StatelessWidget {
   /// Tap target of the card's buttons.
   static const double actionSize = 48;
 
-  /// `"1,2 km · 4 min · chegada às 14:32"`, as in the ongoing notification.
   static String summary(RouteProgress progress) => progressSummary(progress);
 
-  /// The card's merged reading: `"Próxima parada {n}: {address}."`, plus
-  /// `" {distance}, {duration}, chegada às {HH:mm}"` once measured, or
-  /// `" Você chegou"` once [arrived].
   static String semanticsLabel(
     RouteStop stop,
     RouteProgress? progress, {

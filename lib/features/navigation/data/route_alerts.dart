@@ -17,14 +17,11 @@ enum RouteAlert {
 abstract class RouteAlerts {
   Future<void> show(RouteAlert kind, String title, String body);
 
-  /// Removes the alerts shown.
   Future<void> clear();
 }
 
-/// [RouteAlerts] as local notifications: on Android on the "Avisos da rota"
-/// channel (high importance, default sound), which the driver can mute
-/// apart from "Navegação"; on iOS as presented by the plugin setup. A
-/// failing plugin leaves the navigation as it is.
+/// [RouteAlerts] as local notifications. On Android they use a channel the
+/// driver can mute apart from "Navegação"; iOS uses the plugin setup.
 class PluginRouteAlerts implements RouteAlerts {
   PluginRouteAlerts(this._plugin);
 

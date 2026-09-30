@@ -3,9 +3,8 @@ import '../../../core/geo/geo_point.dart';
 import '../../addresses/domain/stop.dart';
 import '../../location/domain/fix.dart';
 
-/// Arrival at a stop or a point: within [radiusMeters] great-circle
-/// distance, counted only for fixes with accuracy of [maxAccuracyMeters] or
-/// better.
+/// Arrival within [radiusMeters] of a stop or a point, on fixes of
+/// [maxAccuracyMeters] or better.
 class ArrivalDetector {
   ArrivalDetector({this.radiusMeters = 40, this.maxAccuracyMeters = 50});
 

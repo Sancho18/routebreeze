@@ -4,8 +4,7 @@ import '../../../core/geo/geo_math.dart';
 import '../../../core/geo/geo_point.dart';
 import '../../route/domain/route_plan.dart';
 
-/// What is left of the route when the position was taken ([at]): the next
-/// stop, the distance and time to reach it and to finish the route.
+/// What is left of the route, to the next stop and to the end, as of [at].
 class RouteProgress extends Equatable {
   const RouteProgress({
     required this.next,
@@ -47,12 +46,8 @@ class RouteProgress extends Equatable {
   bool get stringify => true;
 }
 
-/// Progress from a position: the position is projected on the closest
-/// segment of the leg that arrives at the next stop, and that leg's distance
-/// and duration (Google's) are scaled by the share of its line still ahead.
-/// The legs after it count in full, up to the last unvisited stop, and so
-/// does the way back of a round trip. Once every stop of a round trip has a
-/// result, the way back is the leg measured.
+/// Scales the distance and duration of the leg to the next stop by the share
+/// of its line ahead of the position; the legs after it count in full.
 class ProgressEstimator {
   const ProgressEstimator();
 
@@ -129,9 +124,8 @@ class ProgressEstimator {
     );
   }
 
-  /// Share (0..1) of [line]'s length ahead of [position] projected on the
-  /// closest segment; the first of equally close segments wins. A line with
-  /// no length is all behind.
+  /// Share (0..1) of [line] ahead of [position] projected on its closest
+  /// segment, the first on a tie; 0 for a line with no length.
   static double _shareAhead(GeoPoint position, List<GeoPoint> line) {
     final lengths = [
       for (var i = 1; i < line.length; i++)

@@ -7,9 +7,7 @@ import '../../route/presentation/route_format.dart';
 import '../../route/presentation/stop_result_labels.dart';
 import '../domain/route_summary.dart';
 
-/// What the route came to, in place of the route sheet once the last stop
-/// has a result: the counts, the distance and time, the start and end
-/// clocks, the stops not delivered with their reasons and "Nova rota".
+/// The finished route's summary, in place of the route sheet.
 class RouteSummarySheet extends StatelessWidget {
   const RouteSummarySheet({
     super.key,
@@ -23,8 +21,7 @@ class RouteSummarySheet extends StatelessWidget {
   static const String title = 'Rota concluída';
   static const String newRouteLabel = 'Nova rota';
 
-  /// `"3 entregues · 1 não entregue"`, `"1 entregue"`,
-  /// `"0 entregues · 2 não entregues"`.
+  /// `"3 entregues · 1 não entregue"`, or `"1 entregue"` with no failure.
   static String counts(RouteSummary summary) {
     final delivered = summary.delivered;
     final failed = summary.failed.length;

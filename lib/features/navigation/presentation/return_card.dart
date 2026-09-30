@@ -7,25 +7,17 @@ import '../../route/presentation/stop_badge.dart';
 import '../domain/progress_estimator.dart';
 import 'next_stop_card.dart';
 
-/// The way back to the start of a round trip, over the navigation map once
-/// every stop has a result: "Retorno", a home badge, "Ponto de partida" and,
-/// once measured, the distance, time and arrival clock of the way back.
-/// [onOpenInApp] adds a button to hand the start over to another app. Laid
-/// out like the [NextStopCard], it reads as one merged [semanticsLabel];
-/// the button stays a separate tappable node.
+/// The way back to the start of a round trip, laid out like the
+/// [NextStopCard] and read as one merged [semanticsLabel].
 class ReturnCard extends StatelessWidget {
   const ReturnCard({super.key, this.progress, this.onOpenInApp});
 
-  /// Measured on the way back: its distance and time to the next point are
-  /// what is left of it.
   final RouteProgress? progress;
   final VoidCallback? onOpenInApp;
 
   static const String label = 'Retorno';
   static const String title = 'Ponto de partida';
 
-  /// The card's merged reading: `"Retorno ao ponto de partida."`, plus
-  /// `" {distance}, {duration}, chegada às {HH:mm}"` once measured.
   static String semanticsLabel(RouteProgress? progress) {
     const base = 'Retorno ao ponto de partida.';
     if (progress == null) return base;

@@ -1,9 +1,7 @@
 import '../../route/presentation/route_format.dart';
 import '../domain/progress_estimator.dart';
 
-/// What the driver sends the next stop's customer: once arrived, the
-/// arrival; while measured, the arrival clock the next stop card shows;
-/// before that, that the delivery is on its way.
+/// The message the driver sends the next stop's customer.
 String customerMessage({
   required RouteProgress? progress,
   required bool arrived,
