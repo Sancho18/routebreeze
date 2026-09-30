@@ -698,4 +698,25 @@ void main() {
       ]);
     });
   });
+
+  test('an arrival seen in foreground is not alerted once the app goes to '
+      'background', () {
+    fakeAsync((async) {
+      build(async);
+      emit(async, navigating(plan, progress: toSantos));
+      emit(async, navigating(plan, progress: toSantos, arrived: true));
+
+      background = true;
+      emit(
+        async,
+        navigating(
+          plan,
+          progress: progress(plan.stops[0], 20, 5, const Duration(seconds: 3)),
+          arrived: true,
+        ),
+      );
+
+      expect(alerts.calls, isEmpty);
+    });
+  });
 }
