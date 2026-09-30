@@ -22,9 +22,9 @@ void main() {
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: b, order: 1, visited: false),
-      RouteStop(stop: a, order: 2, visited: false),
-      RouteStop(stop: c, order: 3, visited: false),
+      RouteStop(stop: b, order: 1),
+      RouteStop(stop: a, order: 2),
+      RouteStop(stop: c, order: 3),
     ],
     polyline: polyline,
     distanceMeters: 12345,

@@ -35,11 +35,7 @@ class RouteRepository {
       stops: [
         ...keepVisited,
         for (var i = 0; i < ordered.length; i++)
-          RouteStop(
-            stop: ordered[i],
-            order: keepVisited.length + i + 1,
-            visited: false,
-          ),
+          RouteStop(stop: ordered[i], order: keepVisited.length + i + 1),
       ],
       polyline: response.polyline,
       distanceMeters: response.distanceMeters,

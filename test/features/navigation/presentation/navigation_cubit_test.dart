@@ -13,9 +13,11 @@ import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
+import 'package:routebreeze/features/navigation/domain/route_summary.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 class MockLocationService extends Mock implements LocationService {}
 
@@ -33,8 +35,8 @@ void main() {
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: a, order: 1, visited: false),
-      RouteStop(stop: b, order: 2, visited: false),
+      RouteStop(stop: a, order: 1),
+      RouteStop(stop: b, order: 2),
     ],
     polyline: const [origin, GeoPoint(0, 0), GeoPoint(0, 0.02)],
     distanceMeters: 4448,
@@ -52,8 +54,8 @@ void main() {
   final recalculated = RoutePlan(
     origin: farPoint,
     stops: const [
-      RouteStop(stop: b, order: 1, visited: false),
-      RouteStop(stop: a, order: 2, visited: false),
+      RouteStop(stop: b, order: 1),
+      RouteStop(stop: a, order: 2),
     ],
     polyline: [farPoint, const GeoPoint(0, 0.02), const GeoPoint(0, 0)],
     distanceMeters: 5000,
@@ -131,11 +133,14 @@ void main() {
     async.flushMicrotasks();
   }
 
+  /// "Iniciar" saves the plan with its start; that save is verified here, so
+  /// a test sees only the saves that follow it.
   NavigationCubit navigating(FakeAsync async, [RoutePlan? initial]) {
     final cubit = build(async, initial)..prepare();
     async.flushMicrotasks();
     emitFix(async, onRoute());
     cubit.start();
+    verify(() => routes.save(any()));
     return cubit;
   }
 
@@ -203,61 +208,546 @@ void main() {
   });
 
   group('arrival', () {
-    test('within 40 m of the next stop marks it visited and persists the '
-        'plan', () {
+    test('a fix of 10 m accuracy 30 m from the next stop sets arrived and '
+        'records nothing; a later fix 100 m away keeps it', () {
       fakeAsync((async) {
         final cubit = navigating(async);
+        final before = cubit.state.plan;
+        expect(cubit.state.arrived, isFalse);
 
         final arrival = atStop(a);
         emitFix(async, arrival);
 
         expect(cubit.state.fix, arrival);
-        expect(cubit.state.plan.stops[0].visited, isTrue);
-        expect(cubit.state.plan.stops[1].visited, isFalse);
-        expect(cubit.state.plan.nextStop!.stop, b);
+        expect(cubit.state.arrived, isTrue);
+        expect(cubit.state.plan, before);
+        expect(cubit.state.plan.stops.map((s) => s.result), [null, null]);
+        expect(cubit.state.plan.nextStop!.stop, a);
         expect(cubit.state.phase, NavigationPhase.navigating);
-        final saved =
-            verify(() => routes.save(captureAny())).captured.single
-                as RoutePlan;
-        expect(saved, cubit.state.plan);
-        expect(saved.stops[0].visited, isTrue);
+
+        final away = fix(GeoPoint(lat(100), a.point.lng));
+        emitFix(async, away);
+
+        expect(cubit.state.fix, away);
+        expect(cubit.state.arrived, isTrue);
+        expect(cubit.state.plan, before);
+        verifyNever(() => routes.save(any()));
         cubit.close();
       });
     });
 
-    test('"Marcar como visitado" marks the next stop exactly like the '
-        'automatic case', () {
+    test(
+      'a fix 30 m from the next stop with accuracy 60 m does not arrive',
+      () {
+        fakeAsync((async) {
+          final cubit = navigating(async);
+          final before = cubit.state.plan;
+
+          emitFix(async, fix(GeoPoint(lat(30), a.point.lng), accuracy: 60));
+
+          expect(cubit.state.arrived, isFalse);
+          expect(cubit.state.plan, before);
+          cubit.close();
+        });
+      },
+    );
+
+    test('fixes at the next stop skip the off-route check: three at a stop '
+        '60 m from the line make no request', () {
+      final offLine = RoutePlan(
+        origin: origin,
+        stops: plan.stops,
+        polyline: [
+          for (final point in plan.polyline) GeoPoint(lat(-60), point.lng),
+        ],
+        distanceMeters: plan.distanceMeters,
+        durationSeconds: plan.durationSeconds,
+        legs: plan.legs,
+        computedAt: t0,
+      );
+      stubPlan(recalculated);
       fakeAsync((async) {
-        final cubit = navigating(async);
+        final cubit = navigating(async, offLine);
 
-        cubit.markNextVisited();
-        async.flushMicrotasks();
+        for (var i = 0; i < 3; i++) {
+          emitFix(async, fix(a.point));
+        }
 
-        expect(cubit.state.plan.stops[0].visited, isTrue);
-        expect(cubit.state.plan.nextStop!.stop, b);
-        final saved =
-            verify(() => routes.save(captureAny())).captured.single
-                as RoutePlan;
-        expect(saved.stops[0].visited, isTrue);
-        expect(saved.stops[1].visited, isFalse);
+        expect(cubit.state.arrived, isTrue);
+        verifyNever(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        );
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.badge, isNull);
         cubit.close();
       });
     });
 
-    test('the last stop completes the route: stream stopped, storage '
-        'cleared, navigation no longer active', () {
+    test('recording a result clears arrived', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         emitFix(async, atStop(a));
+        expect(cubit.state.arrived, isTrue);
 
-        emitFix(async, atStop(b));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        expect(cubit.state.arrived, isFalse);
+        expect(cubit.state.plan.nextStop!.stop, b);
+        cubit.close();
+      });
+    });
+
+    test('while arrived, three fixes off the route and away from the stop '
+        'request nothing and keep arrived; after a result the same fixes '
+        'recalculate', () {
+      stubPlan(recalculated);
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        emitFix(async, atStop(a));
+        expect(cubit.state.arrived, isTrue);
+        // 120 m from the line and from A: off the route, not at the stop.
+        final walking = GeoPoint(lat(120), a.point.lng);
+
+        for (var i = 0; i < 3; i++) {
+          emitFix(async, fix(walking));
+        }
+
+        expect(cubit.state.arrived, isTrue);
+        verifyNever(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        );
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.badge, isNull);
+        expect(cubit.state.plan.nextStop!.stop, a);
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        for (var i = 0; i < 3; i++) {
+          emitFix(async, fix(walking));
+        }
+
+        verify(
+          () => routes.plan(
+            walking,
+            [b],
+            keepVisited: [
+              RouteStop(
+                stop: a,
+                order: 1,
+                result: StopResult.delivered(at: t0),
+              ),
+            ],
+          ),
+        ).called(1);
+        expect(cubit.state.badge, NavigationBadge.recalculated);
+        cubit.close();
+      });
+    });
+
+    test('arrival drops a recalculation deferred offline with its badge: '
+        'reconnecting requests nothing; after a result, off-route fixes '
+        'recalculate again', () {
+      stubPlan(recalculated);
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        online.add(false);
+        async.flushMicrotasks();
+        goOffRoute(async);
+        expect(cubit.state.recalcPending, isTrue);
+        expect(cubit.state.badge, NavigationBadge.recalcPending);
+
+        emitFix(async, atStop(a));
+
+        expect(cubit.state.arrived, isTrue);
+        expect(cubit.state.recalcPending, isFalse);
+        expect(cubit.state.badge, isNull);
+
+        online.add(true);
+        async.flushMicrotasks();
+
+        expect(cubit.state.online, isTrue);
+        verifyNever(
+          () =>
+              routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
+        );
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.recalcPending, isFalse);
+        expect(cubit.state.badge, isNull);
+        expect(cubit.state.arrived, isTrue);
+        expect(cubit.state.plan.nextStop!.stop, a);
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        // 120 m from the line and from A: off the route, not at the stop.
+        final walking = GeoPoint(lat(120), a.point.lng);
+        for (var i = 0; i < 3; i++) {
+          emitFix(async, fix(walking));
+        }
+
+        verify(
+          () => routes.plan(
+            walking,
+            [b],
+            keepVisited: [
+              RouteStop(
+                stop: a,
+                order: 1,
+                result: StopResult.delivered(at: t0),
+              ),
+            ],
+          ),
+        ).called(1);
+        expect(cubit.state.badge, NavigationBadge.recalculated);
+        cubit.close();
+      });
+    });
+
+    test('an answer in flight at arrival that makes another stop next '
+        'clears arrived', () {
+      fakeAsync((async) {
+        final pending = Completer<RoutePlan>();
+        stubPlan(pending);
+        final cubit = navigating(async);
+        goOffRoute(async);
+        expect(cubit.state.recalcInFlight, isTrue);
+        emitFix(async, atStop(a));
+        expect(cubit.state.arrived, isTrue);
+
+        pending.complete(recalculated);
+        async.flushMicrotasks();
+
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.plan.polyline, recalculated.polyline);
+        expect(cubit.state.plan.nextStop!.stop, b);
+        expect(cubit.state.arrived, isFalse);
+        cubit.close();
+      });
+    });
+
+    test('an answer in flight at arrival that keeps the same next stop '
+        'keeps arrived', () {
+      final sameNext = RoutePlan(
+        origin: farPoint,
+        stops: const [
+          RouteStop(stop: a, order: 1),
+          RouteStop(stop: b, order: 2),
+        ],
+        polyline: [farPoint, const GeoPoint(0, 0), const GeoPoint(0, 0.02)],
+        distanceMeters: 4600,
+        durationSeconds: 420,
+        legs: const [],
+        computedAt: t0.add(const Duration(minutes: 1)),
+      );
+      fakeAsync((async) {
+        final pending = Completer<RoutePlan>();
+        stubPlan(pending);
+        final cubit = navigating(async);
+        goOffRoute(async);
+        expect(cubit.state.recalcInFlight, isTrue);
+        emitFix(async, atStop(a));
+        expect(cubit.state.arrived, isTrue);
+
+        pending.complete(sameNext);
+        async.flushMicrotasks();
+
+        expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.plan.polyline, sameNext.polyline);
+        expect(cubit.state.plan.nextStop!.stop, a);
+        expect(cubit.state.arrived, isTrue);
+        cubit.close();
+      });
+    });
+  });
+
+  group('results', () {
+    // A third stop so that two results leave the route unfinished.
+    const c = Stop('pc', 'Rua C, 3', GeoPoint(0, 0.04));
+    final three = RoutePlan(
+      origin: origin,
+      stops: const [
+        RouteStop(stop: a, order: 1),
+        RouteStop(stop: b, order: 2),
+        RouteStop(stop: c, order: 3),
+      ],
+      polyline: const [
+        origin,
+        GeoPoint(0, 0),
+        GeoPoint(0, 0.02),
+        GeoPoint(0, 0.04),
+      ],
+      distanceMeters: 6672,
+      durationSeconds: 600,
+      legs: const [],
+      computedAt: t0,
+    );
+
+    test('"Entregue" records the next stop as delivered at the clock time, '
+        'makes the following one next and saves the plan with it', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, three);
+        async.elapse(const Duration(seconds: 5));
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        final saved =
+            verify(() => routes.save(captureAny())).captured.single
+                as RoutePlan;
+        expect(saved.stops.map((s) => s.result), [
+          StopResult.delivered(at: t0.add(const Duration(seconds: 5))),
+          null,
+          null,
+        ]);
+        expect(cubit.state.plan, saved);
+        expect(cubit.state.plan.nextStop!.stop, b);
+        expect(cubit.state.phase, NavigationPhase.navigating);
+        cubit.close();
+      });
+    });
+
+    test('a reason records the next stop as not delivered with that reason '
+        'at the clock time; the save carries every result so far', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, three);
+        async.elapse(const Duration(seconds: 5));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+
+        cubit.recordFailed(FailureReason.refused);
+        async.flushMicrotasks();
+
+        final results = [
+          StopResult.delivered(at: t0.add(const Duration(seconds: 5))),
+          StopResult.failed(
+            FailureReason.refused,
+            at: t0.add(const Duration(seconds: 7)),
+          ),
+          null,
+        ];
+        final saved = verify(() => routes.save(captureAny())).captured
+            .cast<RoutePlan>();
+        expect(saved, hasLength(2));
+        expect(saved.last.stops.map((s) => s.result), results);
+        expect(cubit.state.plan, saved.last);
+        expect(cubit.state.plan.nextStop!.stop, c);
+        cubit.close();
+      });
+    });
+
+    test('a tap within 1 s of the previous result is ignored: at +999 ms '
+        '"Entregue" and a reason record nothing, at +1000 ms the next stop '
+        'is recorded', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, three);
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        final first = cubit.state.plan;
+
+        async.elapse(const Duration(milliseconds: 999));
+        cubit.recordDelivered();
+        cubit.recordFailed(FailureReason.recipientAbsent);
+        async.flushMicrotasks();
+
+        expect(cubit.state.plan, first);
+        expect(cubit.state.plan.nextStop!.stop, b);
+
+        async.elapse(const Duration(milliseconds: 1));
+        cubit.recordFailed(FailureReason.recipientAbsent);
+        async.flushMicrotasks();
+
+        expect(cubit.state.plan.stops.map((s) => s.result), [
+          StopResult.delivered(at: t0),
+          StopResult.failed(
+            FailureReason.recipientAbsent,
+            at: t0.add(const Duration(seconds: 1)),
+          ),
+          null,
+        ]);
+        expect(cubit.state.plan.nextStop!.stop, c);
+        final saved = verify(() => routes.save(captureAny())).captured
+            .cast<RoutePlan>();
+        expect(saved, [first, cubit.state.plan]);
+        cubit.close();
+      });
+    });
+
+    test('the last result completes the route with its summary (counts, '
+        'failed stops, meters, start, end at the last result): stream '
+        'stopped, storage cleared, navigation active until close', () {
+      final start = t0.subtract(const Duration(minutes: 30));
+      final resumed = plan.withStart(start).withTraveled(850);
+      fakeAsync((async) {
+        final cubit = navigating(async, resumed);
+        async.elapse(const Duration(seconds: 5));
+        cubit.recordFailed(FailureReason.recipientAbsent);
+        async.flushMicrotasks();
+        expect(cubit.state.summary, isNull);
+        async.elapse(const Duration(seconds: 5));
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
 
         expect(cubit.state.phase, NavigationPhase.completed);
         expect(cubit.state.plan.isComplete, isTrue);
+        expect(
+          cubit.state.summary,
+          RouteSummary(
+            delivered: 1,
+            failed: [
+              RouteStop(
+                stop: a,
+                order: 1,
+                result: StopResult.failed(
+                  FailureReason.recipientAbsent,
+                  at: t0.add(const Duration(seconds: 5)),
+                ),
+              ),
+            ],
+            traveledMeters: 850,
+            start: start,
+            end: t0.add(const Duration(seconds: 10)),
+          ),
+        );
         expect(fixes.hasListener, isFalse);
-        expect(session.isNavigationActive, isFalse);
         verify(() => routes.clear()).called(1);
         verify(() => routes.save(any())).called(1);
+        expect(session.isNavigationActive, isTrue);
+
+        cubit.close();
+        async.flushMicrotasks();
+
+        expect(session.isNavigationActive, isFalse);
+      });
+    });
+  });
+
+  group('distance and start', () {
+    // Fixes 0.001° apart on the equator are 111.2 m apart.
+    Fix east(double lng) => fix(GeoPoint(0, lng));
+
+    test('no distance while waiting for GPS: only fixes after "Iniciar" '
+        'count', () {
+      fakeAsync((async) {
+        final cubit = build(async)..prepare();
+        async.flushMicrotasks();
+        emitFix(async, east(-0.013));
+        emitFix(async, east(-0.012));
+        emitFix(async, east(-0.011));
+        cubit.start();
+        emitFix(async, east(-0.010));
+        emitFix(async, east(-0.009));
+
+        cubit.pause();
+        async.flushMicrotasks();
+
+        final saved = verify(() => routes.save(captureAny())).captured
+            .cast<RoutePlan>();
+        expect(saved.map((p) => p.traveledMeters), [0, 111]);
+        cubit.close();
+      });
+    });
+
+    test('"Iniciar" stamps the start at the clock time and saves it; a '
+        'result, pause and "Encerrar" save the start with the distance; '
+        'fixes alone write nothing', () {
+      fakeAsync((async) {
+        final cubit = build(async)..prepare();
+        async.flushMicrotasks();
+        emitFix(async, onRoute());
+        async.elapse(const Duration(seconds: 5));
+
+        cubit.start();
+        async.flushMicrotasks();
+
+        final started = t0.add(const Duration(seconds: 5));
+        expect(cubit.state.plan.startedAt, started);
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          plan.withStart(started),
+        );
+        final afterStart = cubit.state.plan;
+
+        emitFix(async, east(-0.009));
+        emitFix(async, east(-0.008));
+        verifyNever(() => routes.save(any()));
+        expect(cubit.state.plan, afterStart);
+
+        async.elapse(const Duration(minutes: 1));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        final delivered = plan
+            .withStart(started)
+            .record(
+              'pa',
+              StopResult.delivered(at: t0.add(const Duration(seconds: 65))),
+            );
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          delivered.withTraveled(111),
+        );
+
+        emitFix(async, east(-0.007));
+        cubit.pause();
+        async.flushMicrotasks();
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          delivered.withTraveled(222),
+        );
+
+        cubit.resume();
+        emitFix(async, east(-0.006));
+        cubit.stop();
+        async.flushMicrotasks();
+        expect(
+          verify(() => routes.save(captureAny())).captured.single,
+          delivered.withTraveled(334),
+        );
+        cubit.close();
+      });
+    });
+
+    test('a cubit built from a saved plan keeps its first start and '
+        'continues its distance up to the summary; background after the end '
+        'saves nothing', () {
+      final first = t0.subtract(const Duration(hours: 1));
+      final resumed = plan.withStart(first).withTraveled(850);
+      fakeAsync((async) {
+        final cubit = navigating(async, resumed);
+        expect(cubit.state.plan.startedAt, first);
+
+        emitFix(async, east(-0.009));
+        emitFix(async, east(-0.008));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        final saved =
+            verify(() => routes.save(captureAny())).captured.single
+                as RoutePlan;
+        expect(saved.startedAt, first);
+        expect(saved.traveledMeters, 961);
+
+        async.elapse(NavigationCubit.recordGuard);
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        expect(
+          cubit.state.summary,
+          RouteSummary(
+            delivered: 2,
+            failed: const [],
+            traveledMeters: 961,
+            start: first,
+            end: t0.add(NavigationCubit.recordGuard),
+          ),
+        );
+
+        cubit.pause();
+        async.flushMicrotasks();
+        verifyNever(() => routes.save(any()));
         cubit.close();
       });
     });
@@ -284,7 +774,7 @@ void main() {
         verify(
           () => routes.plan(farPoint, [a, b], keepVisited: const <RouteStop>[]),
         ).called(1);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         expect(cubit.state.plan.polyline, recalculated.polyline);
         expect(cubit.state.plan.stops.map((s) => s.stop), [b, a]);
         expect(cubit.state.recalcInFlight, isFalse);
@@ -297,7 +787,7 @@ void main() {
         expect(cubit.state.badge, NavigationBadge.recalculated);
         async.elapse(const Duration(seconds: 1));
         expect(cubit.state.badge, isNull);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         cubit.close();
       });
     });
@@ -308,7 +798,8 @@ void main() {
         stubPlan(recalculated);
         fakeAsync((async) {
           final cubit = navigating(async);
-          emitFix(async, atStop(a));
+          cubit.recordDelivered();
+          async.flushMicrotasks();
 
           goOffRoute(async);
 
@@ -316,7 +807,13 @@ void main() {
             () => routes.plan(
               farPoint,
               [b],
-              keepVisited: const [RouteStop(stop: a, order: 1, visited: true)],
+              keepVisited: [
+                RouteStop(
+                  stop: a,
+                  order: 1,
+                  result: StopResult.delivered(at: t0),
+                ),
+              ],
             ),
           ).called(1);
           cubit.close();
@@ -336,7 +833,7 @@ void main() {
           () =>
               routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
         ).called(1);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
         expect(cubit.state.recalcInFlight, isFalse);
         expect(cubit.state.badge, NavigationBadge.recalcFailed);
         expect(cubit.state.badge!.kind, BadgeKind.recalcFailed);
@@ -344,7 +841,7 @@ void main() {
 
         async.elapse(const Duration(seconds: 4));
         expect(cubit.state.badge, isNull);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
 
         async.elapse(const Duration(seconds: 15));
         emitFix(async, far());
@@ -405,12 +902,12 @@ void main() {
           () =>
               routes.plan(any(), any(), keepVisited: any(named: 'keepVisited')),
         ).called(1);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
 
         pending.complete(recalculated);
         async.flushMicrotasks();
         expect(cubit.state.recalcInFlight, isFalse);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         cubit.close();
       });
     });
@@ -436,7 +933,7 @@ void main() {
         expect(cubit.state.badge!.text, 'Recálculo pendente (sem conexão)');
         async.elapse(const Duration(seconds: 4));
         expect(cubit.state.badge, NavigationBadge.recalcPending);
-        expect(cubit.state.plan, plan);
+        expect(cubit.state.plan, plan.withStart(t0));
 
         online.add(true);
         async.flushMicrotasks();
@@ -446,29 +943,48 @@ void main() {
           () => routes.plan(farPoint, [a, b], keepVisited: const <RouteStop>[]),
         ).called(1);
         expect(cubit.state.recalcPending, isFalse);
-        expect(cubit.state.plan, recalculated);
+        expect(cubit.state.plan, recalculated.withStart(t0));
         expect(cubit.state.badge, NavigationBadge.recalculated);
         cubit.close();
       });
     });
 
     test('a stop visited while a recalculation is in flight stays visited '
-        'in the replaced plan', () {
+        'in the replaced plan with its reason, the start and the current '
+        'distance; "Encerrar" then saves them', () {
+      final first = t0.subtract(const Duration(hours: 1));
       fakeAsync((async) {
         final pending = Completer<RoutePlan>();
         stubPlan(pending);
-        final cubit = navigating(async);
+        final cubit = navigating(
+          async,
+          plan.withStart(first).withTraveled(850),
+        );
         goOffRoute(async);
         expect(cubit.state.recalcInFlight, isTrue);
 
-        cubit.markNextVisited();
+        async.elapse(const Duration(seconds: 5));
+        cubit.recordFailed(FailureReason.addressNotFound);
         async.flushMicrotasks();
         expect(cubit.state.plan.stops[0].visited, isTrue);
+        // 111 m after the result, still waiting for the answer.
+        emitFix(async, fix(GeoPoint(lat(120), -0.009)));
 
         pending.complete(recalculated);
         async.flushMicrotasks();
 
+        final kept = recalculated
+            .record(
+              'pa',
+              StopResult.failed(
+                FailureReason.addressNotFound,
+                at: t0.add(const Duration(seconds: 5)),
+              ),
+            )
+            .withStart(first)
+            .withTraveled(961);
         expect(cubit.state.recalcInFlight, isFalse);
+        expect(cubit.state.plan, kept);
         expect(cubit.state.plan.polyline, recalculated.polyline);
         expect(
           cubit.state.plan.stops.singleWhere((s) => s.stop == a).visited,
@@ -483,6 +999,11 @@ void main() {
           saved.last.stops.singleWhere((s) => s.stop == a).visited,
           isTrue,
         );
+
+        cubit.stop();
+        async.flushMicrotasks();
+
+        expect(verify(() => routes.save(captureAny())).captured.single, kept);
         cubit.close();
       });
     });
@@ -493,14 +1014,19 @@ void main() {
         final pending = Completer<RoutePlan>();
         stubPlan(pending);
         final cubit = navigating(async);
-        emitFix(async, atStop(a));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
         goOffRoute(async);
         expect(cubit.state.recalcInFlight, isTrue);
+        async.elapse(NavigationCubit.recordGuard);
 
-        emitFix(async, atStop(b));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
         expect(cubit.state.phase, NavigationPhase.completed);
 
-        pending.complete(recalculated.markVisited('pa'));
+        pending.complete(
+          recalculated.record('pa', StopResult.delivered(at: t0)),
+        );
         async.flushMicrotasks();
 
         expect(cubit.state.phase, NavigationPhase.completed);
@@ -523,8 +1049,11 @@ void main() {
         goOffRoute(async);
         expect(cubit.state.recalcPending, isTrue);
 
-        emitFix(async, atStop(a));
-        emitFix(async, atStop(b));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        async.elapse(NavigationCubit.recordGuard);
+        cubit.recordDelivered();
+        async.flushMicrotasks();
         expect(cubit.state.phase, NavigationPhase.completed);
         expect(cubit.state.recalcPending, isFalse);
         expect(cubit.state.badge, isNull);
@@ -703,7 +1232,8 @@ void main() {
     test('"Encerrar" stops the streams and leaves the route intact', () {
       fakeAsync((async) {
         final cubit = navigating(async);
-        emitFix(async, atStop(a));
+        cubit.recordDelivered();
+        async.flushMicrotasks();
 
         cubit.stop();
 
@@ -713,6 +1243,27 @@ void main() {
         expect(cubit.state.phase, NavigationPhase.idle);
         expect(cubit.state.plan.stops[0].visited, isTrue);
         verifyNever(() => routes.clear());
+        cubit.close();
+      });
+    });
+
+    test('"Encerrar" completes once the route is saved', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        final save = Completer<void>();
+        when(() => routes.save(any())).thenAnswer((_) => save.future);
+        var done = false;
+
+        cubit.stop().then((_) => done = true);
+        async.flushMicrotasks();
+
+        expect(cubit.state.phase, NavigationPhase.idle);
+        verify(() => routes.save(any())).called(1);
+        expect(done, isFalse);
+
+        save.complete();
+        async.flushMicrotasks();
+        expect(done, isTrue);
         cubit.close();
       });
     });
@@ -870,8 +1421,8 @@ void main() {
       ],
       computedAt: t0,
     );
-    const stopA = RouteStop(stop: a, order: 1, visited: false);
-    const stopB = RouteStop(stop: b, order: 2, visited: false);
+    const stopA = RouteStop(stop: a, order: 1);
+    const stopB = RouteStop(stop: b, order: 2);
 
     test('start measures it from the fix that enabled "Iniciar": half of '
         'leg 1 left (1112 m, 100 s), leg 2 in full, A at t0 + 100 s', () {
@@ -932,26 +1483,33 @@ void main() {
       });
     });
 
-    test('arriving at A moves it to B: the whole leg 2 from the arrival '
-        'fix', () {
+    test('arriving at A keeps it next: nothing of leg 1 left from the '
+        'arrival fix, leg 2 in full', () {
       fakeAsync((async) {
         final cubit = navigating(async, tracked);
 
         emitFix(async, atStop(a));
 
-        expect(cubit.state.progress!.next, stopB);
-        expect(cubit.state.progress!.toNextMeters, 2224);
-        expect(cubit.state.progress!.toNextSeconds, 200);
-        expect(cubit.state.progress!.remainingMeters, 2224);
+        expect(
+          cubit.state.progress,
+          RouteProgress(
+            next: stopA,
+            toNextMeters: 0,
+            toNextSeconds: 0,
+            remainingMeters: 2224,
+            remainingSeconds: 200,
+            at: t0,
+          ),
+        );
         cubit.close();
       });
     });
 
-    test('"Marcar como visitado" measures B from the last precise fix', () {
+    test('"Entregue" measures B from the last precise fix', () {
       fakeAsync((async) {
         final cubit = navigating(async, tracked);
 
-        cubit.markNextVisited();
+        cubit.recordDelivered();
         async.flushMicrotasks();
 
         expect(cubit.state.progress!.next, stopB);
@@ -963,8 +1521,11 @@ void main() {
     test('completing the route or "Encerrar" clears it', () {
       fakeAsync((async) {
         final completed = navigating(async, tracked);
-        emitFix(async, atStop(a));
-        emitFix(async, atStop(b));
+        completed.recordDelivered();
+        async.flushMicrotasks();
+        async.elapse(NavigationCubit.recordGuard);
+        completed.recordDelivered();
+        async.flushMicrotasks();
 
         expect(completed.state.phase, NavigationPhase.completed);
         expect(completed.state.progress, isNull);
@@ -986,8 +1547,8 @@ void main() {
       final replaced = RoutePlan(
         origin: farPoint,
         stops: const [
-          RouteStop(stop: b, order: 1, visited: false),
-          RouteStop(stop: a, order: 2, visited: false),
+          RouteStop(stop: b, order: 1),
+          RouteStop(stop: a, order: 2),
         ],
         polyline: [farPoint, const GeoPoint(0, 0.02), const GeoPoint(0, 0)],
         distanceMeters: 5224,
@@ -1005,11 +1566,11 @@ void main() {
 
         goOffRoute(async);
 
-        expect(cubit.state.plan, replaced);
+        expect(cubit.state.plan, replaced.withStart(t0));
         expect(
           cubit.state.progress,
           RouteProgress(
-            next: const RouteStop(stop: b, order: 1, visited: false),
+            next: const RouteStop(stop: b, order: 1),
             toNextMeters: 3000,
             toNextSeconds: 250,
             remainingMeters: 5224,

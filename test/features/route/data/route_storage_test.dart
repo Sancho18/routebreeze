@@ -5,6 +5,7 @@ import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -15,12 +16,11 @@ void main() {
       RouteStop(
         stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
         order: 1,
-        visited: true,
+        result: StopResult.delivered(),
       ),
       RouteStop(
         stop: Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70)),
         order: 2,
-        visited: false,
       ),
     ],
     polyline: const [origin, GeoPoint(-23.60, -46.70)],

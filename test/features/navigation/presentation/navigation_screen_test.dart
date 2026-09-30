@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,11 +14,15 @@ import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
 import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
+import 'package:routebreeze/features/navigation/domain/route_summary.dart';
+import 'package:routebreeze/features/navigation/presentation/failure_reason_sheet.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
 import 'package:routebreeze/features/navigation/presentation/open_in_app_sheet.dart';
+import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
@@ -46,11 +52,12 @@ void main() {
   const origin = GeoPoint(-23.5614, -46.6559);
   const a = Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66));
   const b = Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70));
+  const delivered = StopResult.delivered();
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: a, order: 1, visited: false),
-      RouteStop(stop: b, order: 2, visited: false),
+      RouteStop(stop: a, order: 1),
+      RouteStop(stop: b, order: 2),
     ],
     polyline: const [origin, GeoPoint(-23.60, -46.70)],
     distanceMeters: 12345,
@@ -64,6 +71,37 @@ void main() {
     DateTime.utc(2026, 9, 22, 10, 31),
   );
   const mapKey = Key('map-placeholder');
+  // Local clock times: the summary shows the driver's clock.
+  final startedAt = DateTime(2026, 9, 22, 10, 30);
+  final endedAt = DateTime(2026, 9, 22, 10, 48);
+  final refused = StopResult.failed(
+    FailureReason.refused,
+    at: DateTime(2026, 9, 22, 10, 40),
+  );
+
+  /// A refused, then B delivered.
+  final done = plan
+      .withStart(startedAt)
+      .record('pa', refused)
+      .record('pb', StopResult.delivered(at: endedAt));
+
+  /// No stop delivered: at 200% text the summary is taller than the panel.
+  final noneDelivered = plan
+      .withStart(startedAt)
+      .record('pa', refused)
+      .record(
+        'pb',
+        StopResult.failed(FailureReason.recipientAbsent, at: endedAt),
+      );
+
+  /// The route finished as [plan], 850 m from 10:30 to 10:48.
+  NavigationState completed(RoutePlan plan) => NavigationState(
+    plan: plan,
+    phase: NavigationPhase.completed,
+    fix: fix,
+    following: false,
+    summary: RouteSummary.of(plan, traveledMeters: 850, end: endedAt),
+  );
 
   late MockNavigationCubit cubit;
   late MockNavigationAppLauncher launcher;
@@ -74,6 +112,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(NavigationApp.waze);
     registerFallbackValue(a);
+    registerFallbackValue(FailureReason.other);
   });
 
   setUp(() {
@@ -94,7 +133,9 @@ void main() {
     bool settle = true,
   }) async {
     cubit = MockNavigationCubit();
-    when(() => cubit.markNextVisited()).thenAnswer((_) async {});
+    when(() => cubit.stop()).thenAnswer((_) async {});
+    when(() => cubit.recordDelivered()).thenAnswer((_) async {});
+    when(() => cubit.recordFailed(any())).thenAnswer((_) async {});
     whenListen(
       cubit,
       const Stream<NavigationState>.empty(),
@@ -161,7 +202,8 @@ void main() {
       final caption = tester.widget<Text>(find.text('Aguardando sinal de GPS'));
       expect(caption.style!.fontSize, 13);
       expect(caption.style!.color, RbColors.inkMuted);
-      expect(find.text('Marcar como visitado'), findsNothing);
+      expect(find.text('Entregue'), findsNothing);
+      expect(find.text('Não entregue'), findsNothing);
       expect(find.text('Encerrar'), findsNothing);
       expect(find.text('Recentralizar'), findsNothing);
       expect(find.byType(RbBanner), findsNothing);
@@ -193,7 +235,8 @@ void main() {
 
       expect(primary(tester, 'Iniciar').enabled, isTrue);
       expect(fillOf(tester, 'Iniciar'), RbColors.brand);
-      expect(find.text('Marcar como visitado'), findsNothing);
+      expect(find.text('Entregue'), findsNothing);
+      expect(find.text('Não entregue'), findsNothing);
       expect(find.text('Aguardando sinal de GPS'), findsNothing);
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
       verify(() => cubit.start()).called(1);
@@ -207,11 +250,11 @@ void main() {
       expect(model.target, const LatLng(-23.562, -46.656));
     });
 
-    testWidgets('navigating: "Encerrar" stops and exits, "Marcar como '
-        'visitado" marks the next stop, visited stops leave the map', (
+    testWidgets('navigating: "Encerrar" stops and exits, "Entregue" records '
+        'the next stop as delivered, visited stops leave the map', (
       tester,
     ) async {
-      final visited = plan.markVisited('pa');
+      final visited = plan.record('pa', delivered);
       await pumpScreen(
         tester,
         NavigationState(
@@ -229,30 +272,27 @@ void main() {
       expect(find.byIcon(Icons.check), findsOneWidget);
       expect(find.text('Visitado'), findsNothing);
 
-      final markVisited = find.widgetWithText(
-        RbPrimaryButton,
-        'Marcar como visitado',
-      );
+      final deliver = find.widgetWithText(RbPrimaryButton, 'Entregue');
       expect(
         tester
             .widget<Material>(
               find
-                  .descendant(of: markVisited, matching: find.byType(Material))
+                  .descendant(of: deliver, matching: find.byType(Material))
                   .first,
             )
             .color,
         RbColors.brand,
       );
       expect(
-        tester.getBottomLeft(markVisited).dy,
+        tester.getBottomLeft(deliver).dy,
         lessThan(
           tester
               .getTopLeft(find.widgetWithText(RbPrimaryButton, 'Encerrar'))
               .dy,
         ),
       );
-      await tester.tap(markVisited);
-      verify(() => cubit.markNextVisited()).called(1);
+      await tester.tap(deliver);
+      verify(() => cubit.recordDelivered()).called(1);
 
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
       verify(() => cubit.stop()).called(1);
@@ -264,6 +304,170 @@ void main() {
         (m) => m.markerId.value == 'stop-pb',
       );
       expect(second.icon.toJson(), ['defaultMarker', 20.0]);
+    });
+
+    testWidgets('"Encerrar" leaves only once the stop has saved the route, so '
+        'the route screen reads that save', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final saved = Completer<void>();
+      when(() => cubit.stop()).thenAnswer((_) => saved.future);
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
+      await tester.pump();
+
+      verify(() => cubit.stop()).called(1);
+      expect(exits, 0);
+
+      saved.complete();
+      await tester.pump();
+      expect(exits, 1);
+    });
+
+    testWidgets('a failed save on "Encerrar" still leaves the navigation', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final failure = StateError('storage');
+      when(() => cubit.stop()).thenAnswer((_) => Future<void>.error(failure));
+      final errors = <Object>[];
+
+      // The error still surfaces, uncaught; the zone takes it here.
+      runZonedGuarded(
+        primary(tester, 'Encerrar').onPressed!,
+        (error, _) => errors.add(error),
+      );
+      await tester.pump();
+
+      expect(exits, 1);
+      expect(errors, [failure]);
+    });
+
+    testWidgets('the system back while navigating runs "Encerrar": it leaves '
+        'only once the stop has saved the route', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final saved = Completer<void>();
+      when(() => cubit.stop()).thenAnswer((_) => saved.future);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      verify(() => cubit.stop()).called(1);
+      expect(exits, 0);
+
+      saved.complete();
+      await tester.pump();
+      expect(exits, 1);
+      expect(newRoutes, 0);
+    });
+
+    testWidgets('a second exit while the stop save is pending does nothing: '
+        'the screen stops and leaves once', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      final saved = Completer<void>();
+      when(() => cubit.stop()).thenAnswer((_) => saved.future);
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Encerrar'));
+      await tester.binding.handlePopRoute();
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      verify(() => cubit.stop()).called(1);
+      expect(exits, 0);
+
+      saved.complete();
+      await tester.pump();
+      expect(exits, 1);
+    });
+
+    testWidgets('the system back on the summary runs "Nova rota"', (
+      tester,
+    ) async {
+      await pumpScreen(tester, completed(done));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(newRoutes, 1);
+      expect(exits, 0);
+    });
+
+    testWidgets('navigating: "Não entregue" asks "Por que não foi entregue?" '
+        'and "Recusado" records the next stop as not delivered, refused', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(RbSecondaryButton, 'Não entregue'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FailureReasonSheet), findsOneWidget);
+      expect(find.text('Por que não foi entregue?'), findsOneWidget);
+      verifyNever(() => cubit.recordFailed(any()));
+
+      await tester.tap(find.text('Recusado'));
+      await tester.pumpAndSettle();
+
+      verify(() => cubit.recordFailed(FailureReason.refused)).called(1);
+      verifyNever(() => cubit.recordDelivered());
+      expect(find.byType(FailureReasonSheet), findsNothing);
+    });
+
+    testWidgets('closing the reason sheet without a reason records nothing', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+      await tester.tap(find.widgetWithText(RbSecondaryButton, 'Não entregue'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FailureReasonSheet), findsOneWidget);
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FailureReasonSheet), findsNothing);
+      verifyNever(() => cubit.recordFailed(any()));
+      verifyNever(() => cubit.recordDelivered());
     });
 
     testWidgets('shows the badge text per kind: warning for recalculated and '
@@ -536,22 +740,21 @@ void main() {
       verifyNever(() => cubit.onMapDragged());
     });
 
-    testWidgets('completed replaces the sheet with "Rota concluída" in '
-        'successStrong and "Nova rota"', (tester) async {
-      final done = plan.markVisited('pa').markVisited('pb');
-      await pumpScreen(
-        tester,
-        NavigationState(
-          plan: done,
-          phase: NavigationPhase.completed,
-          fix: fix,
-          following: false,
-        ),
-      );
+    testWidgets('completed replaces the sheet with the route summary, '
+        '"Rota concluída" in successStrong, and "Nova rota"', (tester) async {
+      final state = completed(done);
+      await pumpScreen(tester, state);
 
+      expect(
+        tester
+            .widget<RouteSummarySheet>(find.byType(RouteSummarySheet))
+            .summary,
+        state.summary,
+      );
       final title = tester.widget<Text>(find.text('Rota concluída'));
       expect(title.style!.color, const Color(0xFF0D7F4A));
       expect(title.style!.fontSize, 17);
+      expect(find.text('1 entregue · 1 não entregue'), findsOneWidget);
       expect(find.byType(RouteSheet), findsNothing);
       expect(find.text('Encerrar'), findsNothing);
       expect(find.text('Recentralizar'), findsNothing);
@@ -562,7 +765,7 @@ void main() {
     });
     group('next stop and what is left', () {
       final progress = RouteProgress(
-        next: const RouteStop(stop: a, order: 1, visited: false),
+        next: const RouteStop(stop: a, order: 1),
         toNextMeters: 1234,
         toNextSeconds: 250,
         remainingMeters: 8400,
@@ -598,19 +801,39 @@ void main() {
         expect(cardTop.dx, 16);
       });
 
+      testWidgets('arrived: the card shows "Você chegou" in place of the '
+          'distance line', (tester) async {
+        await pumpScreen(
+          tester,
+          NavigationState(
+            plan: plan,
+            phase: NavigationPhase.navigating,
+            fix: fix,
+            progress: progress,
+            arrived: true,
+          ),
+        );
+
+        final card = tester.widget<NextStopCard>(find.byType(NextStopCard));
+        expect(card.stop, plan.stops.first);
+        expect(card.arrived, isTrue);
+        expect(find.text('Você chegou'), findsOneWidget);
+        expect(find.text('1,2 km · 4 min · chegada às 14:32'), findsNothing);
+      });
+
       testWidgets('navigating without progress yet: the card shows the stop '
           'only and the sheet keeps the plan totals', (tester) async {
         await pumpScreen(
           tester,
           NavigationState(
-            plan: plan.markVisited('pa'),
+            plan: plan.record('pa', delivered),
             phase: NavigationPhase.navigating,
             fix: fix,
           ),
         );
 
         final card = tester.widget<NextStopCard>(find.byType(NextStopCard));
-        expect(card.stop, const RouteStop(stop: b, order: 2, visited: false));
+        expect(card.stop, const RouteStop(stop: b, order: 2));
         expect(card.progress, isNull);
         expect(find.textContaining('chegada às'), findsNothing);
         expect(find.text('12,3 km · 10 min'), findsOneWidget);
@@ -661,7 +884,7 @@ void main() {
     });
     group('map padding', () {
       final progress = RouteProgress(
-        next: const RouteStop(stop: a, order: 1, visited: false),
+        next: const RouteStop(stop: a, order: 1),
         toNextMeters: 1234,
         toNextSeconds: 250,
         remainingMeters: 8400,
@@ -738,7 +961,7 @@ void main() {
       await pumpScreen(
         tester,
         NavigationState(
-          plan: plan.markVisited('pa'),
+          plan: plan.record('pa', delivered),
           phase: NavigationPhase.navigating,
           fix: fix,
         ),
@@ -878,16 +1101,7 @@ void main() {
 
     testWidgets('the completed sheet is #1A1D23 with "Rota concluída" in '
         '#12B76A', (tester) async {
-      await pumpScreen(
-        tester,
-        NavigationState(
-          plan: plan.markVisited('pa').markVisited('pb'),
-          phase: NavigationPhase.completed,
-          fix: fix,
-          following: false,
-        ),
-        mode: ThemeMode.dark,
-      );
+      await pumpScreen(tester, completed(done), mode: ThemeMode.dark);
 
       final sheet = tester.widget<Container>(
         find
@@ -910,7 +1124,7 @@ void main() {
 
   group('NavigationScreen accessibility', () {
     final progress = RouteProgress(
-      next: const RouteStop(stop: a, order: 1, visited: false),
+      next: const RouteStop(stop: a, order: 1),
       toNextMeters: 1234,
       toNextSeconds: 250,
       remainingMeters: 8400,
@@ -922,6 +1136,7 @@ void main() {
       NavigationBadge? badge,
       bool online = true,
       String? error,
+      bool arrived = false,
     }) => NavigationState(
       plan: plan,
       phase: NavigationPhase.navigating,
@@ -931,6 +1146,7 @@ void main() {
       badge: badge,
       online: online,
       error: error,
+      arrived: arrived,
     );
 
     // Each state with a text that proves it is on screen and the panel's
@@ -944,6 +1160,11 @@ void main() {
       'navigating with the next stop card': (
         navigating(),
         '1,2 km · 4 min · chegada às 14:32',
+        NavigationScreen.stopLabel,
+      ),
+      'arrived at the next stop': (
+        navigating(arrived: true),
+        NextStopCard.arrivedText,
         NavigationScreen.stopLabel,
       ),
       'with "Rota recalculada"': (
@@ -971,15 +1192,17 @@ void main() {
         'Perdemos o sinal de GPS',
         NavigationScreen.stopLabel,
       ),
-      'completed': (
-        NavigationState(
-          plan: plan.markVisited('pa').markVisited('pb'),
-          phase: NavigationPhase.completed,
-          fix: fix,
-          following: false,
-        ),
-        NavigationScreen.completedTitle,
-        NavigationScreen.newRouteLabel,
+      // With one stop not delivered the whole summary fits at 200%.
+      'completed with its summary': (
+        completed(done),
+        RouteSummarySheet.title,
+        RouteSummarySheet.newRouteLabel,
+      ),
+      // At 200% the panel opens at "Nova rota" with the last stop above it.
+      'completed with every stop not delivered': (
+        completed(noneDelivered),
+        'Destinatário ausente',
+        RouteSummarySheet.newRouteLabel,
       ),
     };
 

@@ -8,18 +8,21 @@ import '../../../core/widgets/rb_button.dart';
 import '../domain/route_plan.dart';
 import 'route_format.dart';
 import 'stop_badge.dart';
+import 'stop_result_labels.dart';
 
 /// Bottom sheet with the optimized stop order, totals and the primary action.
-/// [onMarkVisited] adds the "Marcar como visitado" button above the primary
-/// action for the next stop; [totals] replaces the plan's distance and
-/// duration line; [footer] is rendered below the actions.
+/// While a stop is left, [onDelivered] and [onNotDelivered] add the
+/// "Entregue" and "Não entregue" buttons side by side above the primary
+/// action; [totals] replaces the plan's distance and duration line; [footer]
+/// is rendered below the actions.
 class RouteSheet extends StatelessWidget {
   const RouteSheet({
     super.key,
     required this.plan,
     required this.startEnabled,
     required this.onStart,
-    this.onMarkVisited,
+    this.onDelivered,
+    this.onNotDelivered,
     this.startLabel = 'Iniciar',
     this.startColor,
     this.totals,
@@ -29,7 +32,8 @@ class RouteSheet extends StatelessWidget {
   final RoutePlan plan;
   final bool startEnabled;
   final VoidCallback onStart;
-  final VoidCallback? onMarkVisited;
+  final VoidCallback? onDelivered;
+  final VoidCallback? onNotDelivered;
   final String startLabel;
 
   /// Fill of the primary action; the palette's `brand` when null.
@@ -39,7 +43,8 @@ class RouteSheet extends StatelessWidget {
 
   static const String heading = 'Ordem otimizada';
 
-  static const String markVisitedLabel = 'Marcar como visitado';
+  static const String deliveredLabel = 'Entregue';
+  static const String notDeliveredLabel = 'Não entregue';
 
   static const double rowGap = RbSpace.s2;
 
@@ -99,10 +104,28 @@ class RouteSheet extends StatelessWidget {
               style: RbText.caption.copyWith(color: rb.inkMuted),
             ),
             const SizedBox(height: RbSpace.s3),
-            if (onMarkVisited != null && !plan.isComplete) ...[
-              RbPrimaryButton(
-                label: markVisitedLabel,
-                onPressed: onMarkVisited,
+            if ((onDelivered != null || onNotDelivered != null) &&
+                !plan.isComplete) ...[
+              // Both buttons take the height of the taller label.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: RbPrimaryButton(
+                        label: deliveredLabel,
+                        onPressed: onDelivered,
+                      ),
+                    ),
+                    const SizedBox(width: RbSpace.s2),
+                    Expanded(
+                      child: RbSecondaryButton(
+                        label: notDeliveredLabel,
+                        onPressed: onNotDelivered,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: RbSpace.s2),
             ],
@@ -120,7 +143,8 @@ class RouteSheet extends StatelessWidget {
   }
 }
 
-/// One stop row; a visited stop gets a check badge and a muted address.
+/// One stop row; a stop with a result gets its result badge and a muted
+/// address, and a stop not delivered its reason under the address.
 class _StopRow extends StatelessWidget {
   const _StopRow(this.stop);
 
@@ -130,15 +154,29 @@ class _StopRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final rb = context.rb;
     final visited = stop.visited;
+    final reason = stop.result?.reason;
     return Row(
       key: RouteSheet.stopKey(stop.stop.placeId),
       children: [
-        StopBadge(order: stop.order, visited: visited),
+        StopBadge(order: stop.order, result: stop.result),
         const SizedBox(width: RbSpace.s2),
         Expanded(
-          child: Text(
-            stop.stop.address,
-            style: RbText.body.copyWith(color: visited ? rb.inkMuted : rb.ink),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                stop.stop.address,
+                style: RbText.body.copyWith(
+                  color: visited ? rb.inkMuted : rb.ink,
+                ),
+              ),
+              if (reason != null)
+                Text(
+                  reason.label,
+                  style: RbText.caption.copyWith(color: rb.inkMuted),
+                ),
+            ],
           ),
         ),
       ],

@@ -6,6 +6,7 @@ import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/route_cubit.dart';
 
 class MockRouteRepository extends Mock implements RouteRepository {}
@@ -18,8 +19,8 @@ void main() {
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: a, order: 1, visited: false),
-      RouteStop(stop: b, order: 2, visited: false),
+      RouteStop(stop: a, order: 1),
+      RouteStop(stop: b, order: 2),
     ],
     polyline: const [origin, GeoPoint(-23.60, -46.70)],
     distanceMeters: 6000,
@@ -31,6 +32,30 @@ void main() {
     computedAt: DateTime.utc(2026, 9, 22, 10, 30),
   );
   const failure = ApiFailure(null, 'Resposta inválida da Routes API');
+  const c = Stop('pc', 'Rua C, 3', GeoPoint(-23.58, -46.68));
+  final ready = RouteState(status: RouteStatus.ready, plan: plan);
+
+  /// What a navigation over [stops] saved: recalculated from a point on
+  /// the way, the first stop delivered, 850 m since the first "Iniciar".
+  RoutePlan savedWith(List<Stop> stops) => RoutePlan(
+    origin: const GeoPoint(-23.58, -46.67),
+    stops: [
+      RouteStop(
+        stop: stops.first,
+        order: 1,
+        result: StopResult.delivered(at: DateTime.utc(2026, 9, 22, 10, 50)),
+      ),
+      for (var i = 1; i < stops.length; i++)
+        RouteStop(stop: stops[i], order: i + 1),
+    ],
+    polyline: const [GeoPoint(-23.58, -46.67), GeoPoint(-23.565, -46.66)],
+    distanceMeters: 2500,
+    durationSeconds: 300,
+    legs: const [RouteLeg(distanceMeters: 2500, durationSeconds: 300)],
+    computedAt: DateTime.utc(2026, 9, 22, 10, 45),
+    startedAt: DateTime.utc(2026, 9, 22, 10, 35),
+    traveledMeters: 850,
+  );
 
   late MockRouteRepository repository;
 
@@ -122,6 +147,84 @@ void main() {
       act: (cubit) => cubit.retry(),
       expect: () => const <RouteState>[],
       verify: (_) => verifyZeroInteractions(repository),
+    );
+  });
+
+  group('refreshFromSaved', () {
+    // B first: a recalculation reordered the stops before B was delivered.
+    final sameStops = savedWith(const [b, a]);
+
+    blocTest<RouteCubit, RouteState>(
+      'takes the saved route of the same stops, reordered, with its result, '
+      'start and distance as the ready plan',
+      build: () {
+        when(() => repository.loadActive()).thenAnswer((_) async => sameStops);
+        return RouteCubit(repository);
+      },
+      seed: () => ready,
+      act: (cubit) => cubit.refreshFromSaved(),
+      expect: () => [RouteState(status: RouteStatus.ready, plan: sameStops)],
+      verify: (cubit) {
+        final adopted = cubit.state.plan!;
+        expect(adopted.stops.map((s) => s.stop), const [b, a]);
+        expect(
+          adopted.stops.first.result,
+          StopResult.delivered(at: DateTime.utc(2026, 9, 22, 10, 50)),
+        );
+        expect(adopted.stops.last.result, isNull);
+        expect(adopted.startedAt, DateTime.utc(2026, 9, 22, 10, 35));
+        expect(adopted.traveledMeters, 850);
+      },
+    );
+
+    for (final (name, stops) in [
+      ('another stop in place of one of them', const [a, c]),
+      ('one stop more', const [b, a, c]),
+    ]) {
+      blocTest<RouteCubit, RouteState>(
+        'keeps the current plan when the saved route has $name',
+        build: () {
+          when(() => repository.loadActive())
+              .thenAnswer((_) async => savedWith(stops));
+          return RouteCubit(repository);
+        },
+        seed: () => ready,
+        act: (cubit) => cubit.refreshFromSaved(),
+        expect: () => const <RouteState>[],
+        verify: (cubit) {
+          verify(() => repository.loadActive()).called(1);
+          expect(cubit.state, ready);
+        },
+      );
+    }
+
+    blocTest<RouteCubit, RouteState>(
+      'keeps the current plan when nothing is saved',
+      build: () {
+        when(() => repository.loadActive()).thenAnswer((_) async => null);
+        return RouteCubit(repository);
+      },
+      seed: () => ready,
+      act: (cubit) => cubit.refreshFromSaved(),
+      expect: () => const <RouteState>[],
+      verify: (cubit) {
+        verify(() => repository.loadActive()).called(1);
+        expect(cubit.state, ready);
+      },
+    );
+
+    blocTest<RouteCubit, RouteState>(
+      'does nothing before a plan exists',
+      build: () {
+        when(() => repository.loadActive()).thenAnswer((_) async => sameStops);
+        return RouteCubit(repository);
+      },
+      act: (cubit) => cubit.refreshFromSaved(),
+      expect: () => const <RouteState>[],
+      verify: (cubit) {
+        verifyZeroInteractions(repository);
+        expect(cubit.state, const RouteState());
+      },
     );
   });
 }

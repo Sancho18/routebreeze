@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
@@ -8,6 +9,7 @@ import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/stop_badge.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 void main() {
@@ -18,14 +20,12 @@ void main() {
       GeoPoint(-23.553, -46.653),
     ),
     order: 2,
-    visited: false,
   );
 
   /// Matches the spec's own example sentence verbatim.
   const shortStop = RouteStop(
     stop: Stop('pa', 'Rua Augusta, 500', GeoPoint(-23.553, -46.653)),
     order: 2,
-    visited: false,
   );
   final progress = RouteProgress(
     next: stop,
@@ -41,6 +41,7 @@ void main() {
   Future<void> pumpCard(
     WidgetTester tester, {
     RouteProgress? progress,
+    bool arrived = false,
     VoidCallback? onOpenInApp,
     ThemeMode? mode,
   }) {
@@ -50,6 +51,7 @@ void main() {
         child: NextStopCard(
           stop: stop,
           progress: progress,
+          arrived: arrived,
           onOpenInApp: onOpenInApp,
         ),
       ),
@@ -98,7 +100,7 @@ void main() {
 
       final badge = tester.widget<StopBadge>(find.byType(StopBadge));
       expect(badge.order, 2);
-      expect(badge.visited, isFalse);
+      expect(badge.result, isNull);
 
       final address = text(tester, 'Rua Augusta, 500 - Consolação, São Paulo');
       expect(address.style!.fontSize, 15);
@@ -188,6 +190,35 @@ void main() {
 
       expect(find.byType(IconButton), findsNothing);
     });
+
+    testWidgets('arrived: "Você chegou" in caption/successStrong #0D7F4A '
+        'replaces the distance line, under the address and aligned with it', (
+      tester,
+    ) async {
+      await pumpCard(tester, progress: progress, arrived: true);
+
+      expect(find.text('1,2 km · 4 min · chegada às 14:32'), findsNothing);
+      final arrivedLine = text(tester, 'Você chegou');
+      expect(arrivedLine.style!.fontSize, 13);
+      expect(arrivedLine.style!.fontWeight, FontWeight.w400);
+      expect(arrivedLine.style!.color, const Color(0xFF0D7F4A));
+      final address = find.text('Rua Augusta, 500 - Consolação, São Paulo');
+      expect(
+        tester.getTopLeft(find.text('Você chegou')).dx,
+        tester.getTopLeft(address).dx,
+      );
+      expect(
+        tester.getTopLeft(find.text('Você chegou')).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(address).dy + RbSpace.s2),
+      );
+    });
+
+    testWidgets('arrived before a first measure: "Você chegou" shows all the '
+        'same', (tester) async {
+      await pumpCard(tester, arrived: true);
+
+      expect(find.text('Você chegou'), findsOneWidget);
+    });
   });
 
   group('NextStopCard semantics', () {
@@ -205,6 +236,40 @@ void main() {
         NextStopCard.semanticsLabel(shortStop, null),
         'Próxima parada 2: Rua Augusta, 500.',
       );
+    });
+
+    test('semanticsLabel: "Você chegou" after the address once arrived, in '
+        'place of the distance', () {
+      expect(
+        NextStopCard.semanticsLabel(shortStop, progress, arrived: true),
+        'Próxima parada 2: Rua Augusta, 500. Você chegou',
+      );
+      expect(
+        NextStopCard.semanticsLabel(shortStop, null, arrived: true),
+        'Próxima parada 2: Rua Augusta, 500. Você chegou',
+      );
+    });
+
+    testWidgets('arrived, it reads as one merged sentence ending in "Você '
+        'chegou"', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NextStopCard(
+              stop: shortStop,
+              progress: progress,
+              arrived: true,
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSemantics(find.byType(NextStopCard)).label,
+        'Próxima parada 2: Rua Augusta, 500. Você chegou',
+      );
+      semantics.dispose();
     });
 
     testWidgets('reads as one merged sentence once measured', (tester) async {
@@ -299,6 +364,57 @@ void main() {
         ),
       );
       expect(icon.color, const Color(0xFF7EA6F8));
+    });
+
+    testWidgets('"Você chegou" is #12B76A', (tester) async {
+      await pumpCard(
+        tester,
+        progress: progress,
+        arrived: true,
+        mode: ThemeMode.dark,
+      );
+
+      expect(text(tester, 'Você chegou').style!.color, const Color(0xFF12B76A));
+    });
+  });
+
+  group('NextStopCard accessibility', () {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      testWidgets('arrived, it meets the contrast, tap target and label '
+          'guidelines in ${mode.name} mode', (tester) async {
+        await pumpCard(
+          tester,
+          progress: progress,
+          arrived: true,
+          onOpenInApp: () {},
+          mode: mode,
+        );
+        expect(find.text('Você chegou'), findsOneWidget);
+
+        await expectAccessibleGuidelines(tester);
+      });
+    }
+
+    testWidgets('arrived, it lays out at 200% text on a 360×800 phone with '
+        '"Você chegou" whole at the system scale', (tester) async {
+      await setLargeTextPhone(tester);
+      await pumpCard(
+        tester,
+        progress: progress,
+        arrived: true,
+        onOpenInApp: () {},
+        mode: ThemeMode.light,
+      );
+
+      expect(tester.takeException(), isNull);
+      expectNoClippedText(tester);
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text('Você chegou'))
+            .textScaler
+            .scale(13),
+        26,
+      );
     });
   });
 }

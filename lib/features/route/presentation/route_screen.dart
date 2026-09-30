@@ -30,7 +30,8 @@ typedef RouteMapBuilder = Widget Function(
 );
 
 /// Route screen: computes the optimized route on open and, once ready, draws
-/// it on the map under the [RouteSheet]; "Iniciar" hands the plan to [onStart].
+/// it on the map under the [RouteSheet]; "Iniciar" hands the plan to [onStart]
+/// and, when the navigation closes, the screen shows the route it saved.
 class RouteScreen extends StatefulWidget {
   const RouteScreen({
     super.key,
@@ -45,7 +46,9 @@ class RouteScreen extends StatefulWidget {
 
   final Fix start;
   final List<Stop> stops;
-  final void Function(RoutePlan plan) onStart;
+
+  /// Opens the navigation with the plan; completes when it closes.
+  final Future<void> Function(RoutePlan plan) onStart;
 
   /// Overrides the cubit from `getIt` (tests).
   final RouteCubit? cubit;
@@ -107,6 +110,14 @@ class _RouteScreenState extends State<RouteScreen> {
     setState(() => _isOnline = online);
   }
 
+  /// Once the navigation closes ("Encerrar" or the system back), the saved
+  /// route of the same stops replaces [plan], so the sheet shows its results
+  /// and "Iniciar" continues it.
+  Future<void> _start(RoutePlan plan) async {
+    await widget.onStart(plan);
+    if (mounted) await _cubit.refreshFromSaved();
+  }
+
   /// Cached per plan and route color: a theme change repaints the route line
   /// with the icons already drawn.
   Future<RouteMapObjects> _objectsFor(RoutePlan plan, Color routeColor) {
@@ -148,7 +159,7 @@ class _RouteScreenState extends State<RouteScreen> {
                   plan: state.plan!,
                   objects: _objectsFor(state.plan!, context.rb.brand),
                   mapBuilder: widget.mapBuilder ?? _googleMap,
-                  onStart: () => widget.onStart(state.plan!),
+                  onStart: () => _start(state.plan!),
                 ),
               },
             ),

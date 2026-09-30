@@ -19,9 +19,12 @@ import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
+import 'package:routebreeze/features/navigation/domain/route_summary.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
+import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 class MockLocalAuthService extends Mock implements LocalAuthService {}
 
@@ -199,7 +202,7 @@ void main() {
           RouteStop(
             stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
             order: 1,
-            visited: true,
+            result: StopResult.delivered(),
           ),
         ],
         polyline: const [origin, GeoPoint(-23.565, -46.66)],
@@ -216,6 +219,11 @@ void main() {
           plan: completed,
           phase: NavigationPhase.completed,
           fix: start,
+          summary: RouteSummary.of(
+            completed,
+            traveledMeters: 600,
+            end: DateTime(2026, 9, 22, 10, 5),
+          ),
         ),
       );
       getIt.unregister<NavigationCubit>();
@@ -233,9 +241,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(NavigationScreen.completedTitle), findsOneWidget);
+      expect(find.text(RouteSummarySheet.title), findsOneWidget);
 
-      await tester.tap(find.text(NavigationScreen.newRouteLabel));
+      await tester.tap(find.text(RouteSummarySheet.newRouteLabel));
       await tester.pumpAndSettle();
 
       expect(find.byType(MapScreen), findsOneWidget);

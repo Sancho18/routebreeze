@@ -48,6 +48,25 @@ class RouteCubit extends Cubit<RouteState> {
     }
   }
 
+  /// Takes the saved route when it holds the current plan's stops, in any
+  /// order (a recalculation may reorder them), with the results, start and
+  /// distance the navigation saved. Otherwise, and before a plan exists,
+  /// the state stays as it is.
+  Future<void> refreshFromSaved() async {
+    final plan = state.plan;
+    if (plan == null) return;
+    final saved = await _repository.loadActive();
+    if (isClosed || saved == null) return;
+    final ids = _placeIds(plan);
+    final savedIds = _placeIds(saved);
+    if (savedIds.length != ids.length || !savedIds.containsAll(ids)) return;
+    emit(RouteState(status: RouteStatus.ready, plan: saved));
+  }
+
+  static Set<String> _placeIds(RoutePlan plan) => {
+    for (final stop in plan.stops) stop.stop.placeId,
+  };
+
   /// Re-runs the last [compute] once. No-op before the first request.
   Future<void> retry() {
     final last = _last;

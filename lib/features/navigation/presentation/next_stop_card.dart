@@ -8,24 +8,29 @@ import '../../route/presentation/stop_badge.dart';
 import '../domain/progress_estimator.dart';
 
 /// The stop the driver is heading to, over the navigation map: its number and
-/// address and, once measured, the distance, time and arrival clock.
-/// [onOpenInApp] adds a button to hand the stop over to another app. The
-/// card reads as one merged [semanticsLabel]; the open-in-app button stays a
-/// separate tappable node.
+/// address and, once measured, the distance, time and arrival clock, which
+/// "Você chegou" replaces once [arrived]. [onOpenInApp] adds a button to hand
+/// the stop over to another app. The card reads as one merged
+/// [semanticsLabel]; the open-in-app button stays a separate tappable node.
 class NextStopCard extends StatelessWidget {
   const NextStopCard({
     super.key,
     required this.stop,
     this.progress,
+    this.arrived = false,
     this.onOpenInApp,
   });
 
   final RouteStop stop;
   final RouteProgress? progress;
+
+  /// The driver reached the stop; it stays next until a result is recorded.
+  final bool arrived;
   final VoidCallback? onOpenInApp;
 
   static const String label = 'Próxima parada';
   static const String openInAppTooltip = 'Abrir em outro app';
+  static const String arrivedText = 'Você chegou';
 
   /// Tap target of the open-in-app button.
   static const double actionSize = 48;
@@ -37,9 +42,15 @@ class NextStopCard extends StatelessWidget {
       'chegada às ${formatClock(progress.nextArrival)}';
 
   /// The card's merged reading: `"Próxima parada {n}: {address}."`, plus
-  /// `" {distance}, {duration}, chegada às {HH:mm}"` once measured.
-  static String semanticsLabel(RouteStop stop, RouteProgress? progress) {
+  /// `" {distance}, {duration}, chegada às {HH:mm}"` once measured, or
+  /// `" Você chegou"` once [arrived].
+  static String semanticsLabel(
+    RouteStop stop,
+    RouteProgress? progress, {
+    bool arrived = false,
+  }) {
     final base = 'Próxima parada ${stop.order}: ${stop.stop.address}.';
+    if (arrived) return '$base $arrivedText';
     if (progress == null) return base;
     return '$base ${formatDistance(progress.toNextMeters)}, '
         '${formatDuration(progress.toNextSeconds)}, '
@@ -54,9 +65,14 @@ class NextStopCard extends StatelessWidget {
     final rb = context.rb;
     final progress = this.progress;
     final onOpenInApp = this.onOpenInApp;
+    final details = arrived
+        ? arrivedText
+        : progress == null
+        ? null
+        : summary(progress);
     return Semantics(
       container: true,
-      label: semanticsLabel(stop, progress),
+      label: semanticsLabel(stop, progress, arrived: arrived),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(RbSpace.s3),
@@ -105,14 +121,16 @@ class NextStopCard extends StatelessWidget {
                 ],
               ],
             ),
-            if (progress != null) ...[
+            if (details != null) ...[
               const SizedBox(height: RbSpace.s2),
               Padding(
                 padding: const EdgeInsets.only(left: detailsIndent),
                 child: ExcludeSemantics(
                   child: Text(
-                    summary(progress),
-                    style: RbText.caption.copyWith(color: rb.inkMuted),
+                    details,
+                    style: RbText.caption.copyWith(
+                      color: arrived ? rb.successStrong : rb.inkMuted,
+                    ),
                   ),
                 ),
               ),

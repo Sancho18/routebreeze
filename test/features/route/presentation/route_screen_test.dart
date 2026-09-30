@@ -14,16 +14,21 @@ import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/route_repository.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_cubit.dart';
 import 'package:routebreeze/features/route/presentation/route_map_objects.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
+import 'package:routebreeze/features/route/presentation/stop_badge.dart';
 
 import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockRouteCubit extends MockCubit<RouteState> implements RouteCubit {}
+
+class MockRouteRepository extends Mock implements RouteRepository {}
 
 class MockConnectivityService extends Mock implements ConnectivityService {}
 
@@ -43,8 +48,8 @@ void main() {
   final plan = RoutePlan(
     origin: origin,
     stops: const [
-      RouteStop(stop: b, order: 1, visited: false),
-      RouteStop(stop: a, order: 2, visited: false),
+      RouteStop(stop: b, order: 1),
+      RouteStop(stop: a, order: 2),
     ],
     polyline: const [origin, GeoPoint(-23.60, -46.70)],
     distanceMeters: 12345,
@@ -70,6 +75,7 @@ void main() {
     started = [];
     when(() => cubit.compute(any(), any())).thenAnswer((_) async {});
     when(() => cubit.retry()).thenAnswer((_) async {});
+    when(() => cubit.refreshFromSaved()).thenAnswer((_) async {});
     when(() => connectivity.check()).thenAnswer((_) async => true);
     when(() => connectivity.isOnline).thenAnswer((_) => online.stream);
   });
@@ -102,7 +108,7 @@ void main() {
         paddings.add(padding);
         return const SizedBox.expand(key: mapKey);
       },
-      onStart: started.add,
+      onStart: (plan) async => started.add(plan),
     );
     await tester.pumpWidget(
       mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
@@ -192,6 +198,69 @@ void main() {
 
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
       expect(started, [plan]);
+    });
+
+    testWidgets('when the navigation opened by "Iniciar" closes, the sheet '
+        'shows the saved route of the same stops ("Parada 1, entregue") and '
+        '"Iniciar" hands that route over', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final saved = plan
+          .withStart(DateTime.utc(2026, 9, 22, 10, 35))
+          .record(
+            'pb',
+            StopResult.delivered(at: DateTime.utc(2026, 9, 22, 10, 50)),
+          )
+          .withTraveled(850);
+      final repository = MockRouteRepository();
+      when(() => repository.plan(origin, stops)).thenAnswer((_) async => plan);
+      when(() => repository.loadActive()).thenAnswer((_) async => saved);
+      final routeCubit = RouteCubit(repository);
+      addTearDown(routeCubit.close);
+      final navigation = Completer<void>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RouteScreen(
+            start: start,
+            stops: stops,
+            cubit: routeCubit,
+            connectivity: connectivity,
+            markers: FakeMapMarkers(),
+            mapBuilder: (_, _, _) => const SizedBox.expand(key: mapKey),
+            onStart: (plan) {
+              started.add(plan);
+              return navigation.future;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      String firstBadge() => tester
+          .getSemantics(
+            find.descendant(
+              of: find.byKey(RouteSheet.stopKey('pb')),
+              matching: find.byType(StopBadge),
+            ),
+          )
+          .label;
+      expect(firstBadge(), 'Parada 1');
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pumpAndSettle();
+      expect(started, [plan]);
+      verifyNever(() => repository.loadActive());
+      expect(firstBadge(), 'Parada 1');
+
+      navigation.complete();
+      await tester.pumpAndSettle();
+
+      verify(() => repository.loadActive()).called(1);
+      expect(tester.widget<RouteSheet>(find.byType(RouteSheet)).plan, saved);
+      expect(firstBadge(), 'Parada 1, entregue');
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pumpAndSettle();
+      expect(started, [plan, saved]);
+      semantics.dispose();
     });
 
     testWidgets('the map is padded at the bottom by the sheet, so the route '

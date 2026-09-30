@@ -2,45 +2,54 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
+import '../domain/stop_result.dart';
+import 'stop_result_labels.dart';
 
-/// A stop's place in the optimized order: its number on a `brand` circle,
-/// or a check on `successStrong` once visited, both in `onFill`. Announced
-/// as [label]. The circle scales with the system text, so the number fits.
+/// A stop's place in the optimized order: its number on a `brand` circle
+/// until it has a [result], then a check on `successStrong` (delivered) or
+/// an "×" on `dangerStrong` (not delivered), all in `onFill`. Announced as
+/// [resultBadgeLabel]. The circle scales with the system text, so the
+/// number fits.
 class StopBadge extends StatelessWidget {
-  const StopBadge({super.key, required this.order, this.visited = false});
+  const StopBadge({super.key, required this.order, this.result});
 
   final int order;
-  final bool visited;
+  final StopResult? result;
 
   /// Diameter at 100% text.
   static const double size = 24;
-  static const double checkSize = 16;
-
-  /// Semantics label: "Parada {n}" pending, "Parada {n}, visitada" visited.
-  static String label(int order, {bool visited = false}) =>
-      visited ? 'Parada $order, visitada' : 'Parada $order';
+  static const double iconSize = 16;
 
   @override
   Widget build(BuildContext context) {
     final rb = context.rb;
+    final result = this.result;
     final side = MediaQuery.textScalerOf(context).scale(size);
     return Semantics(
       container: true,
-      label: label(order, visited: visited),
+      label: resultBadgeLabel(order, result),
       child: ExcludeSemantics(
         child: Container(
           width: side,
           height: side,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: visited ? rb.successStrong : rb.brand,
+            color: switch (result) {
+              null => rb.brand,
+              StopResult(delivered: true) => rb.successStrong,
+              StopResult() => rb.dangerStrong,
+            },
             shape: BoxShape.circle,
           ),
-          child: visited
-              ? Icon(Icons.check, size: checkSize, color: rb.onFill)
-              : Text(
+          child: result == null
+              ? Text(
                   '$order',
                   style: RbText.bodyStrong.copyWith(color: rb.onFill),
+                )
+              : Icon(
+                  result.delivered ? Icons.check : Icons.close,
+                  size: iconSize,
+                  color: rb.onFill,
                 ),
         ),
       ),

@@ -1,17 +1,21 @@
 // Smoke test of the main flow on a device: unlock → map ready → three
 // addresses picked from suggestions → optimized route with three numbered
-// stops. Device and network boundaries (biometrics, GPS, connectivity,
-// Places, Routes) are fakes registered over the production wiring; the
-// `GoogleMap` widgets are real, so the run needs the API key:
+// stops → navigation: arrival at the first stop, "Entregue", "Não entregue"
+// with a reason and the summary. Device and network boundaries
+// (biometrics, GPS, connectivity, Places, Routes) are fakes registered over
+// the production wiring; the `GoogleMap` widgets are real, so the run needs
+// the API key:
 //
 //   flutter test integration_test -d <deviceId> --dart-define-from-file=env.json
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:routebreeze/app.dart';
 import 'package:routebreeze/core/di/injector.dart';
+import 'package:routebreeze/core/geo/geo_math.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/geo/polyline_codec.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
@@ -26,6 +30,11 @@ import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/domain/auth_result.dart';
+import 'package:routebreeze/features/navigation/presentation/failure_reason_sheet.dart';
+import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
+import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
+import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
+import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
@@ -67,6 +76,9 @@ class FakeLocalAuthService implements LocalAuthService {
 }
 
 class FakeLocationService implements LocationService {
+  /// Positions of the live navigation; the test adds them.
+  final StreamController<Fix> positions = StreamController<Fix>.broadcast();
+
   @override
   Future<LocationAccess> checkAccess() async => LocationAccess.granted;
 
@@ -78,7 +90,7 @@ class FakeLocationService implements LocationService {
       Future.value(Fix(start, 10, DateTime.now()));
 
   @override
-  Stream<Fix> watch({int distanceFilterMeters = 5}) => const Stream.empty();
+  Stream<Fix> watch({int distanceFilterMeters = 5}) => positions.stream;
 
   @override
   Future<void> openAppSettings() async {}
@@ -220,16 +232,39 @@ String orderOf(WidgetTester tester, Stop stop) {
   return badge.data!;
 }
 
+/// [finder] inside the sheet row of [stop].
+Finder inRow(Stop stop, Finder finder) => find.descendant(
+  of: find.byKey(RouteSheet.stopKey(stop.placeId)),
+  matching: finder,
+);
+
+/// A text whose whole content matches [pattern].
+Finder textMatching(RegExp pattern) => find.byWidgetPredicate(
+  (widget) => widget is Text && pattern.hasMatch(widget.data ?? ''),
+);
+
+/// A fix of 10 m accuracy [metersNorth] north of [point], taken now.
+Fix fixNorthOf(GeoPoint point, double metersNorth) => Fix(
+  GeoPoint(
+    point.lat + metersNorth / earthRadiusMeters * 180 / math.pi,
+    point.lng,
+  ),
+  10,
+  DateTime.now(),
+);
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late FakeRoutesApi routesApi;
+  late FakeLocationService location;
 
   setUp(() async {
     await configureDependencies();
     routesApi = FakeRoutesApi();
+    location = FakeLocationService();
     _replace<LocalAuthService>(FakeLocalAuthService());
-    _replace<LocationService>(FakeLocationService());
+    _replace<LocationService>(location);
     _replace<ConnectivityService>(FakeConnectivityService());
     _replace<PlacesApi>(FakePlacesApi());
     _replace<RoutesApi>(routesApi);
@@ -238,13 +273,13 @@ void main() {
   });
 
   tearDown(() async {
+    await location.positions.close();
     await getIt<RouteStorage>().clear();
     await resetDependencies();
   });
 
-  testWidgets('unlock → map → three addresses → optimized route', (
-    tester,
-  ) async {
+  testWidgets('unlock → map → three addresses → optimized route → arrival, '
+      '"Entregue", "Não entregue" with a reason → summary', (tester) async {
     await tester.pumpWidget(const RouteBreezeApp());
 
     // Lock: the prompt runs on the first frame and succeeds.
@@ -284,5 +319,74 @@ void main() {
     expect(orderOf(tester, augusta), '3');
     expect(find.text('4,2 km · 15 min'), findsOneWidget);
     expect(primaryButton('Iniciar'), findsOneWidget);
+
+    // Navigation: "Iniciar" waits for a fix of 50 m or better.
+    await tester.tap(primaryButton('Iniciar'));
+    await pumpUntil(tester, find.byType(NavigationScreen));
+    await pumpUntilGone(tester, find.byType(RouteScreen));
+    location.positions.add(Fix(start, 10, DateTime.now()));
+    await pumpUntil(tester, enabledPrimaryButton(NavigationScreen.startLabel));
+    await tester.tap(primaryButton(NavigationScreen.startLabel));
+    await pumpUntil(tester, primaryButton(NavigationScreen.stopLabel));
+
+    // Arrival 30 m from the first stop: "Você chegou", no result yet.
+    final card = find.byType(NextStopCard);
+    expect(
+      find.descendant(of: card, matching: find.text(oscarFreire.address)),
+      findsOneWidget,
+    );
+    location.positions.add(fixNorthOf(oscarFreire.point, 30));
+    await pumpUntil(
+      tester,
+      find.descendant(of: card, matching: find.text('Você chegou')),
+    );
+    expect(find.byIcon(Icons.check), findsNothing);
+
+    // "Entregue": the first stop is delivered and the second one is next.
+    await tester.tap(primaryButton(RouteSheet.deliveredLabel));
+    await pumpUntil(
+      tester,
+      find.descendant(of: card, matching: find.text(paulista.address)),
+    );
+    expect(inRow(oscarFreire, find.byIcon(Icons.check)), findsOneWidget);
+    expect(find.text('Você chegou'), findsNothing);
+
+    // "Não entregue", past the 1 s double-tap guard: the reason picked
+    // records the second stop and the third one is next.
+    await tester.pump(
+      NavigationCubit.recordGuard + const Duration(milliseconds: 100),
+    );
+    await tester.tap(
+      find.widgetWithText(RbSecondaryButton, RouteSheet.notDeliveredLabel),
+    );
+    await pumpUntil(tester, find.text(FailureReasonSheet.title));
+    // Let the sheet finish sliding in before tapping a reason.
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Destinatário ausente'));
+    await pumpUntilGone(tester, find.byType(FailureReasonSheet));
+    await pumpUntil(
+      tester,
+      find.descendant(of: card, matching: find.text(augusta.address)),
+    );
+    expect(inRow(paulista, find.byIcon(Icons.close)), findsOneWidget);
+    expect(inRow(paulista, find.text('Destinatário ausente')), findsOneWidget);
+
+    // The last result ends the route: the summary replaces the sheet.
+    await tester.pump(
+      NavigationCubit.recordGuard + const Duration(milliseconds: 100),
+    );
+    await tester.tap(primaryButton(RouteSheet.deliveredLabel));
+    await pumpUntil(tester, find.text(RouteSummarySheet.title));
+    expect(find.byType(RouteSheet), findsNothing);
+    expect(find.text('2 entregues · 1 não entregue'), findsOneWidget);
+    // Only the arrival fix came after "Iniciar"; the times are the device's.
+    expect(textMatching(RegExp(r'^0 m percorridos · ')), findsOneWidget);
+    expect(
+      textMatching(RegExp(r'^Início às \d\d:\d\d · fim às \d\d:\d\d$')),
+      findsOneWidget,
+    );
+    expect(find.text('Parada 2 · ${paulista.address}'), findsOneWidget);
+    expect(find.text('Destinatário ausente'), findsOneWidget);
+    expect(primaryButton(RouteSummarySheet.newRouteLabel), findsOneWidget);
   });
 }

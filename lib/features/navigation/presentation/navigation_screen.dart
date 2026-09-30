@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -7,7 +9,6 @@ import '../../../core/theme/map_style.dart';
 import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/measure_size.dart';
-import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
 import '../../addresses/domain/stop.dart';
 import '../../route/domain/route_plan.dart';
@@ -17,9 +18,11 @@ import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
 import '../data/navigation_app_launcher.dart';
 import '../domain/progress_estimator.dart';
+import 'failure_reason_sheet.dart';
 import 'navigation_cubit.dart';
 import 'next_stop_card.dart';
 import 'open_in_app_sheet.dart';
+import 'route_summary_sheet.dart';
 
 /// What the navigation map draws and where its camera goes.
 class NavigationMapModel {
@@ -51,7 +54,9 @@ typedef NavigationMapBuilder = Widget Function(
 );
 
 /// Live navigation: map following the position, the [NextStopCard] and status
-/// overlays, and the [RouteSheet] in navigation mode with what is left.
+/// overlays, and the [RouteSheet] in navigation mode with what is left and
+/// the result buttons; the [RouteSummarySheet] replaces the sheet once every
+/// stop has a result.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -66,9 +71,10 @@ class NavigationScreen extends StatefulWidget {
 
   final RoutePlan plan;
 
-  /// Called on "Encerrar" once the stream is stopped.
+  /// Called on "Encerrar" once the stream is stopped and the route saved.
   final VoidCallback onExit;
 
+  /// "Nova rota" on the summary.
   final VoidCallback onNewRoute;
 
   /// Overrides the cubit from `getIt` (tests).
@@ -87,8 +93,6 @@ class NavigationScreen extends StatefulWidget {
   static const String waitingGpsCaption = 'Aguardando sinal de GPS';
   static const String recenterLabel = 'Recentralizar';
   static const String offlineBanner = 'Sem conexão';
-  static const String completedTitle = 'Rota concluída';
-  static const String newRouteLabel = 'Nova rota';
 
   /// Sheet totals while navigating:
   /// `"Faltam 8,4 km · 22 min · término às 15:10"`.
@@ -225,9 +229,27 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _cubit.onMapDragged();
   }
 
-  void _stop() {
-    _cubit.stop();
-    widget.onExit();
+  /// Set by the first exit: a second one while the save runs would pop the
+  /// screen below too.
+  bool _leaving = false;
+
+  /// Leaves once the route is saved, so the screen below reads that save;
+  /// a failed save still leaves.
+  Future<void> _stop() async {
+    if (_leaving) return;
+    _leaving = true;
+    try {
+      await _cubit.stop();
+    } finally {
+      if (mounted) widget.onExit();
+    }
+  }
+
+  /// "Não entregue": the reason picked records the next stop; closing the
+  /// sheet records nothing.
+  Future<void> _notDelivered() async {
+    final reason = await FailureReasonSheet.show(context);
+    if (reason != null) await _cubit.recordFailed(reason);
   }
 
   void _openInApp(Stop stop) =>
@@ -243,111 +265,130 @@ class _NavigationScreenState extends State<NavigationScreen> {
         final navigating = state.phase == NavigationPhase.navigating;
         final completed = state.phase == NavigationPhase.completed;
         final progress = navigating ? state.progress : null;
-        return Scaffold(
-          appBar: AppBar(title: const Text(NavigationScreen.title)),
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (event) => _pointerDown = event.position,
-                  onPointerMove: _onPointerMove,
-                  child: FutureBuilder<_Icons>(
-                    future: _iconsFor(state.plan),
-                    builder: (context, snapshot) {
-                      final icons = snapshot.data;
-                      return icons == null
-                          ? ColoredBox(color: context.rb.surface100)
-                          : mapBuilder(
-                              context,
-                              _model(state, icons, context.rb.brand),
-                            );
-                    },
+        // The system back takes the screen's own exits: "Nova rota" on the
+        // summary, "Encerrar" otherwise, so the route is saved first.
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (completed) {
+              widget.onNewRoute();
+            } else {
+              unawaited(_stop());
+            }
+          },
+          child: Scaffold(
+            appBar: AppBar(title: const Text(NavigationScreen.title)),
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (event) => _pointerDown = event.position,
+                    onPointerMove: _onPointerMove,
+                    child: FutureBuilder<_Icons>(
+                      future: _iconsFor(state.plan),
+                      builder: (context, snapshot) {
+                        final icons = snapshot.data;
+                        return icons == null
+                            ? ColoredBox(color: context.rb.surface100)
+                            : mapBuilder(
+                                context,
+                                _model(state, icons, context.rb.brand),
+                              );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              // The bottom overlay takes the space under the top one: with
-              // large text it scrolls, from its actions up, instead of
-              // covering the next stop. Taps outside both reach the map.
-              Positioned.fill(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _TopOverlay(
-                      state: state,
-                      onMeasured: _onTopMeasured,
-                      onOpenInApp: _openInApp,
-                    ),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: SingleChildScrollView(
-                          reverse: true,
-                          // Hits beside the button and the sheet reach the
-                          // map.
-                          hitTestBehavior: HitTestBehavior.deferToChild,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              if (!state.following && !completed)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    right: RbSpace.s3,
-                                    bottom: RbSpace.s2,
-                                  ),
-                                  child: FloatingActionButton.extended(
-                                    onPressed: _cubit.recenter,
-                                    backgroundColor: rb.surface200,
-                                    foregroundColor: rb.brandStrong,
-                                    icon: Icon(
-                                      Icons.my_location,
-                                      color: rb.brand,
+                // The bottom overlay takes the space under the top one: with
+                // large text it scrolls, from its actions up, instead of
+                // covering the next stop. Taps outside both reach the map.
+                Positioned.fill(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TopOverlay(
+                        state: state,
+                        onMeasured: _onTopMeasured,
+                        onOpenInApp: _openInApp,
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: SingleChildScrollView(
+                            reverse: true,
+                            // Hits beside the button and the sheet reach the
+                            // map.
+                            hitTestBehavior: HitTestBehavior.deferToChild,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                if (!state.following && !completed)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      right: RbSpace.s3,
+                                      bottom: RbSpace.s2,
                                     ),
-                                    label: const Text(
-                                      NavigationScreen.recenterLabel,
-                                    ),
-                                  ),
-                                ),
-                              MeasureSize(
-                                onChange: _onBottomMeasured,
-                                child: completed
-                                    ? _Completed(onNewRoute: widget.onNewRoute)
-                                    : RouteSheet(
-                                        plan: state.plan,
-                                        startEnabled:
-                                            navigating || state.canStart,
-                                        startLabel: navigating
-                                            ? NavigationScreen.stopLabel
-                                            : NavigationScreen.startLabel,
-                                        startColor: navigating
-                                            ? rb.dangerStrong
-                                            : null,
-                                        onStart: navigating
-                                            ? _stop
-                                            : _cubit.start,
-                                        onMarkVisited: navigating
-                                            ? _cubit.markNextVisited
-                                            : null,
-                                        totals: progress == null
-                                            ? null
-                                            : NavigationScreen.remaining(
-                                                progress,
-                                              ),
-                                        footer: navigating || state.canStart
-                                            ? null
-                                            : const _WaitingGps(),
+                                    child: FloatingActionButton.extended(
+                                      onPressed: _cubit.recenter,
+                                      backgroundColor: rb.surface200,
+                                      foregroundColor: rb.brandStrong,
+                                      icon: Icon(
+                                        Icons.my_location,
+                                        color: rb.brand,
                                       ),
-                              ),
-                            ],
+                                      label: const Text(
+                                        NavigationScreen.recenterLabel,
+                                      ),
+                                    ),
+                                  ),
+                                MeasureSize(
+                                  onChange: _onBottomMeasured,
+                                  child: completed
+                                      ? RouteSummarySheet(
+                                          summary: state.summary!,
+                                          onNewRoute: widget.onNewRoute,
+                                        )
+                                      : RouteSheet(
+                                          plan: state.plan,
+                                          startEnabled:
+                                              navigating || state.canStart,
+                                          startLabel: navigating
+                                              ? NavigationScreen.stopLabel
+                                              : NavigationScreen.startLabel,
+                                          startColor: navigating
+                                              ? rb.dangerStrong
+                                              : null,
+                                          onStart: navigating
+                                              ? _stop
+                                              : _cubit.start,
+                                          onDelivered: navigating
+                                              ? _cubit.recordDelivered
+                                              : null,
+                                          onNotDelivered: navigating
+                                              ? _notDelivered
+                                              : null,
+                                          totals: progress == null
+                                              ? null
+                                              : NavigationScreen.remaining(
+                                                  progress,
+                                                ),
+                                          footer: navigating || state.canStart
+                                              ? null
+                                              : const _WaitingGps(),
+                                        ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -471,6 +512,7 @@ class _TopOverlay extends StatelessWidget {
                   child: NextStopCard(
                     stop: next,
                     progress: state.progress,
+                    arrived: state.arrived,
                     onOpenInApp: () => onOpenInApp(next.stop),
                   ),
                 ),
@@ -531,44 +573,6 @@ class _WaitingGps extends StatelessWidget {
         NavigationScreen.waitingGpsCaption,
         textAlign: TextAlign.center,
         style: RbText.caption.copyWith(color: context.rb.inkMuted),
-      ),
-    );
-  }
-}
-
-class _Completed extends StatelessWidget {
-  const _Completed({required this.onNewRoute});
-
-  final VoidCallback onNewRoute;
-
-  @override
-  Widget build(BuildContext context) {
-    final rb = context.rb;
-    return Container(
-      padding: const EdgeInsets.all(RbSpace.s3),
-      decoration: BoxDecoration(
-        color: rb.surface200,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(RbRadius.lg),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              NavigationScreen.completedTitle,
-              style: RbText.heading.copyWith(color: rb.successStrong),
-            ),
-            const SizedBox(height: RbSpace.s3),
-            RbPrimaryButton(
-              label: NavigationScreen.newRouteLabel,
-              onPressed: onNewRoute,
-            ),
-          ],
-        ),
       ),
     );
   }

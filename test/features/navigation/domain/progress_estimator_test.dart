@@ -6,6 +6,7 @@ import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 
 void main() {
   // Route along the equator, 0.01° (≈ 1112 m) between stops:
@@ -16,6 +17,7 @@ void main() {
   const a = Stop('pa', 'Rua A, 1', GeoPoint(0, 0.01));
   const b = Stop('pb', 'Rua B, 2', GeoPoint(0, 0.02));
   const c = Stop('pc', 'Rua C, 3', GeoPoint(0, 0.03));
+  const delivered = StopResult.delivered();
   final at = DateTime.utc(2026, 9, 28, 14);
   double lat(double meters) => meters / earthRadiusMeters * 180 / math.pi;
 
@@ -43,9 +45,9 @@ void main() {
     computedAt: at,
   );
 
-  const stopA = RouteStop(stop: a, order: 1, visited: false);
-  const stopB = RouteStop(stop: b, order: 2, visited: false);
-  const stopC = RouteStop(stop: c, order: 3, visited: false);
+  const stopA = RouteStop(stop: a, order: 1);
+  const stopB = RouteStop(stop: b, order: 2);
+  const stopC = RouteStop(stop: c, order: 3);
   final plan = planOf(const [stopA, stopB, stopC]);
 
   const estimator = ProgressEstimator();
@@ -99,7 +101,11 @@ void main() {
     });
 
     test('with A visited, B is next over leg 1: the whole leg from A', () {
-      final progress = estimator.estimate(plan.markVisited('pa'), a.point, at)!;
+      final progress = estimator.estimate(
+        plan.record('pa', delivered),
+        a.point,
+        at,
+      )!;
 
       expect(progress.next, stopB);
       expect(progress.toNextMeters, 1500);
@@ -109,7 +115,11 @@ void main() {
     });
 
     test('a position behind the next leg counts that whole leg', () {
-      final progress = estimator.estimate(plan.markVisited('pa'), origin, at)!;
+      final progress = estimator.estimate(
+        plan.record('pa', delivered),
+        origin,
+        at,
+      )!;
 
       expect(progress.toNextMeters, 1500);
       expect(progress.toNextSeconds, 360);
@@ -120,9 +130,9 @@ void main() {
       // Recalculated at A: C before B.
       final recalculated = planOf(
         const [
-          RouteStop(stop: a, order: 1, visited: true),
-          RouteStop(stop: c, order: 2, visited: false),
-          RouteStop(stop: b, order: 3, visited: false),
+          RouteStop(stop: a, order: 1, result: delivered),
+          RouteStop(stop: c, order: 2),
+          RouteStop(stop: b, order: 3),
         ],
         polyline: const [
           GeoPoint(0, 0.01),
@@ -137,7 +147,7 @@ void main() {
 
       final progress = estimator.estimate(recalculated, a.point, at)!;
 
-      expect(progress.next, const RouteStop(stop: c, order: 2, visited: false));
+      expect(progress.next, const RouteStop(stop: c, order: 2));
       expect(progress.toNextMeters, 2400);
       expect(progress.toNextSeconds, 500);
       expect(progress.remainingMeters, 2400 + 1300);
@@ -146,7 +156,11 @@ void main() {
 
     test('legs of visited stops after the last unvisited one are not '
         'left to go', () {
-      final progress = estimator.estimate(plan.markVisited('pc'), origin, at)!;
+      final progress = estimator.estimate(
+        plan.record('pc', delivered),
+        origin,
+        at,
+      )!;
 
       expect(progress.next, stopA);
       expect(progress.remainingMeters, 1200 + 1500);
@@ -157,9 +171,9 @@ void main() {
       const twin = Stop('pa2', 'Rua A, 1 - fundos', GeoPoint(0, 0.01));
       final withTwin = planOf(
         const [
-          RouteStop(stop: a, order: 1, visited: true),
-          RouteStop(stop: twin, order: 2, visited: false),
-          RouteStop(stop: b, order: 3, visited: false),
+          RouteStop(stop: a, order: 1, result: delivered),
+          RouteStop(stop: twin, order: 2),
+          RouteStop(stop: b, order: 3),
         ],
         legs: const [
           RouteLeg(distanceMeters: 1200, durationSeconds: 300, endIndex: 2),
@@ -178,7 +192,10 @@ void main() {
 
     group('no estimate (null)', () {
       test('every stop visited', () {
-        final done = plan.markVisited('pa').markVisited('pb').markVisited('pc');
+        final done = plan
+            .record('pa', delivered)
+            .record('pb', delivered)
+            .record('pc', delivered);
 
         expect(estimator.estimate(done, origin, at), isNull);
       });
@@ -195,7 +212,7 @@ void main() {
 
         expect(estimator.estimate(legacy, origin, at), isNull);
         expect(
-          estimator.estimate(legacy.markVisited('pa'), origin, at),
+          estimator.estimate(legacy.record('pa', delivered), origin, at),
           isNull,
         );
       });
@@ -226,7 +243,7 @@ void main() {
 
         expect(estimator.estimate(beyond, origin, at), isNull);
         expect(
-          estimator.estimate(backwards.markVisited('pa'), origin, at),
+          estimator.estimate(backwards.record('pa', delivered), origin, at),
           isNull,
         );
       });

@@ -231,4 +231,149 @@ void main() {
       expect(labelStyle(tester).color, const Color(0xFF0F1115));
     });
   });
+
+  group('RbSecondaryButton', () {
+    const secondaryLabel = 'Não entregue';
+
+    Material outline(WidgetTester tester) => tester.widget<Material>(
+      find
+          .descendant(
+            of: find.byType(RbSecondaryButton),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+
+    RoundedRectangleBorder shapeOf(WidgetTester tester) =>
+        outline(tester).shape! as RoundedRectangleBorder;
+
+    TextStyle secondaryStyle(WidgetTester tester) =>
+        tester.widget<Text>(find.text(secondaryLabel)).style!;
+
+    testWidgets('enabled: transparent fill, 1 px brand #2A6DF4 outline, '
+        'radius-lg, #1B63F3 body-strong label, height 52, calls onPressed', (
+      tester,
+    ) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        wrap(RbSecondaryButton(label: secondaryLabel, onPressed: () => taps++)),
+      );
+
+      expect(outline(tester).color, Colors.transparent);
+      expect(shapeOf(tester).borderRadius, BorderRadius.circular(24));
+      expect(shapeOf(tester).side.color, const Color(0xFF2A6DF4));
+      expect(shapeOf(tester).side.width, 1);
+
+      final style = secondaryStyle(tester);
+      expect(style.color, const Color(0xFF1B63F3));
+      expect(style.fontSize, 15);
+      expect(style.height, 22 / 15);
+      expect(style.fontWeight, FontWeight.w600);
+
+      expect(tester.getSize(find.byType(RbSecondaryButton)).height, 52);
+
+      await tester.tap(find.byType(RbSecondaryButton));
+      await tester.pump();
+      expect(taps, 1);
+    });
+
+    testWidgets('disabled: border-colored outline, ink-muted label, tap '
+        'ignored, same size and position as enabled', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        wrap(RbSecondaryButton(label: secondaryLabel, onPressed: () => taps++)),
+      );
+      final enabledRect = tester.getRect(find.byType(RbSecondaryButton));
+
+      await tester.pumpWidget(
+        wrap(
+          RbSecondaryButton(
+            label: secondaryLabel,
+            enabled: false,
+            onPressed: () => taps++,
+          ),
+        ),
+      );
+
+      expect(outline(tester).color, Colors.transparent);
+      expect(shapeOf(tester).borderRadius, BorderRadius.circular(24));
+      expect(shapeOf(tester).side.color, RbColors.border);
+      expect(secondaryStyle(tester).color, RbColors.inkMuted);
+      expect(tester.getRect(find.byType(RbSecondaryButton)), enabledRect);
+
+      await tester.tap(find.byType(RbSecondaryButton));
+      await tester.pump();
+      expect(taps, 0);
+    });
+
+    testWidgets('at 200% text a label that wraps shows whole at the system '
+        'scale and the button grows like the primary one', (tester) async {
+      await setLargeTextPhone(tester);
+      await tester.pumpWidget(
+        wrap(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RbPrimaryButton(label: secondaryLabel, onPressed: () {}),
+              RbSecondaryButton(label: secondaryLabel, onPressed: () {}),
+            ],
+          ),
+        ),
+      );
+
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(
+          of: find.byType(RbSecondaryButton),
+          matching: find.text(secondaryLabel),
+        ),
+      );
+      expect(paragraph.textScaler.scale(15), 30);
+      // At 200% the label takes two lines.
+      expect(
+        paragraph.textSize.height,
+        closeTo(2 * paragraph.preferredLineHeight, 0.01),
+      );
+      final height = tester.getSize(find.byType(RbSecondaryButton)).height;
+      expect(height, greaterThan(52));
+      expect(tester.getSize(find.byType(RbPrimaryButton)).height, height);
+      expect(
+        tester.getCenter(
+          find.descendant(
+            of: find.byType(RbSecondaryButton),
+            matching: find.text(secondaryLabel),
+          ),
+        ),
+        tester.getCenter(find.byType(RbSecondaryButton)),
+      );
+      expectNoClippedText(tester);
+    });
+
+    testWidgets('dark mode: #7EA6F8 outline and label on a transparent '
+        'fill', (tester) async {
+      await tester.pumpWidget(
+        wrapDark(RbSecondaryButton(label: secondaryLabel, onPressed: () {})),
+      );
+
+      expect(outline(tester).color, Colors.transparent);
+      expect(shapeOf(tester).side.color, const Color(0xFF7EA6F8));
+      expect(secondaryStyle(tester).color, const Color(0xFF7EA6F8));
+    });
+
+    testWidgets('dark mode disabled: #2F343D outline with a #A4ACB9 label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapDark(
+          RbSecondaryButton(
+            label: secondaryLabel,
+            enabled: false,
+            onPressed: () {},
+          ),
+        ),
+      );
+
+      expect(shapeOf(tester).side.color, const Color(0xFF2F343D));
+      expect(secondaryStyle(tester).color, const Color(0xFFA4ACB9));
+    });
+  });
 }

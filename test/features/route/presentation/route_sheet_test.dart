@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/core/theme/rb_palette.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
+import 'package:routebreeze/features/route/domain/stop_result.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 import 'package:routebreeze/features/route/presentation/stop_badge.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 void main() {
@@ -15,14 +19,16 @@ void main() {
   const a = Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66));
   const b = Stop('pb', 'Rua B, 2', GeoPoint(-23.60, -46.70));
   const c = Stop('pc', 'Rua C, 3', GeoPoint(-23.70, -46.80));
+  const delivered = StopResult.delivered();
+  const refused = StopResult.failed(FailureReason.refused);
 
   /// Typed order was a, b, c; optimized order is b, a, c.
   RoutePlan plan({bool firstVisited = false}) => RoutePlan(
     origin: origin,
     stops: [
-      RouteStop(stop: b, order: 1, visited: firstVisited),
-      const RouteStop(stop: a, order: 2, visited: false),
-      const RouteStop(stop: c, order: 3, visited: false),
+      RouteStop(stop: b, order: 1, result: firstVisited ? delivered : null),
+      const RouteStop(stop: a, order: 2),
+      const RouteStop(stop: c, order: 3),
     ],
     polyline: const [origin],
     distanceMeters: 12345,
@@ -32,9 +38,10 @@ void main() {
   );
 
   final startFinder = find.widgetWithText(RbPrimaryButton, 'Iniciar');
-  final markVisitedFinder = find.widgetWithText(
-    RbPrimaryButton,
-    'Marcar como visitado',
+  final deliveredFinder = find.widgetWithText(RbPrimaryButton, 'Entregue');
+  final notDeliveredFinder = find.widgetWithText(
+    RbSecondaryButton,
+    'Não entregue',
   );
 
   /// The sheet in a bare `MaterialApp`, or in the app themes when [mode] is
@@ -44,7 +51,8 @@ void main() {
     required RoutePlan plan,
     bool startEnabled = true,
     VoidCallback? onStart,
-    VoidCallback? onMarkVisited,
+    VoidCallback? onDelivered,
+    VoidCallback? onNotDelivered,
     String startLabel = 'Iniciar',
     Color? startColor,
     String? totals,
@@ -58,7 +66,8 @@ void main() {
           plan: plan,
           startEnabled: startEnabled,
           onStart: onStart ?? () {},
-          onMarkVisited: onMarkVisited,
+          onDelivered: onDelivered,
+          onNotDelivered: onNotDelivered,
           startLabel: startLabel,
           startColor: startColor,
           totals: totals,
@@ -216,8 +225,8 @@ void main() {
       expect(totals.style!.color, RbColors.inkMuted);
     });
 
-    testWidgets('visited stop: successStrong badge with a white check '
-        '(semantics "Parada 1, visitada") instead of the number, address in '
+    testWidgets('delivered stop: successStrong badge with a white check '
+        '(semantics "Parada 1, entregue") instead of the number, address in '
         'ink-muted, no chip', (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpSheet(tester, plan: plan(firstVisited: true));
@@ -234,7 +243,7 @@ void main() {
               find.descendant(of: row('pb'), matching: find.byType(StopBadge)),
             )
             .label,
-        'Parada 1, visitada',
+        'Parada 1, entregue',
       );
       expect(find.text('Visitado'), findsNothing);
       expect(
@@ -255,6 +264,70 @@ void main() {
       expect(textIn(tester, row('pa'), 'Rua A, 1').style!.color, RbColors.ink);
       final unvisited = badgeIn(tester, row('pa'), find.text('2'));
       expect((unvisited.decoration! as BoxDecoration).color, RbColors.brand);
+      semantics.dispose();
+    });
+
+    testWidgets('stop not delivered: dangerStrong "×" badge (semantics '
+        '"Parada 1, não entregue"), address in ink-muted and the reason '
+        'under it in caption/ink-muted; other rows have no reason', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpSheet(
+        tester,
+        plan: plan().record('pb', refused).record('pa', delivered),
+      );
+
+      final cross = find.descendant(
+        of: row('pb'),
+        matching: find.byIcon(Icons.close),
+      );
+      expect(cross, findsOneWidget);
+      final badge = badgeIn(tester, row('pb'), find.byIcon(Icons.close));
+      expect(
+        (badge.decoration! as BoxDecoration).color,
+        const Color(0xFFD01E23),
+      );
+      expect(
+        tester
+            .getSemantics(
+              find.descendant(of: row('pb'), matching: find.byType(StopBadge)),
+            )
+            .label,
+        'Parada 1, não entregue',
+      );
+
+      final address = find.descendant(
+        of: row('pb'),
+        matching: find.text('Rua B, 2'),
+      );
+      expect(tester.widget<Text>(address).style!.color, RbColors.inkMuted);
+      final reason = find.descendant(
+        of: row('pb'),
+        matching: find.text('Recusado'),
+      );
+      expect(reason, findsOneWidget);
+      final caption = tester.widget<Text>(reason);
+      expect(caption.style!.fontSize, 13);
+      expect(caption.style!.height, 18 / 13);
+      expect(caption.style!.fontWeight, FontWeight.w400);
+      expect(caption.style!.color, RbColors.inkMuted);
+      expect(
+        tester.getTopLeft(reason).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(address).dy),
+      );
+      expect(tester.getTopLeft(reason).dx, tester.getTopLeft(address).dx);
+
+      // Only the address in the delivered row, the number and the address
+      // in the pending one.
+      expect(
+        find.descendant(of: row('pa'), matching: find.byType(Text)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row('pc'), matching: find.byType(Text)),
+        findsNWidgets(2),
+      );
       semantics.dispose();
     });
 
@@ -290,42 +363,52 @@ void main() {
       expect(started, 0);
     });
 
-    testWidgets('"Marcar como visitado" appears only with onMarkVisited, as '
-        'a brand primary button above the start action, and calls it', (
-      tester,
-    ) async {
+    testWidgets('"Entregue" and "Não entregue" appear only with their '
+        'callbacks: primary and outlined, side by side across the width '
+        'above the start action, each calling its own', (tester) async {
       await pumpSheet(tester, plan: plan());
-      expect(find.text('Marcar como visitado'), findsNothing);
+      expect(find.text('Entregue'), findsNothing);
+      expect(find.text('Não entregue'), findsNothing);
       expect(find.byType(RbPrimaryButton), findsOneWidget);
+      expect(find.byType(RbSecondaryButton), findsNothing);
 
-      var marked = 0;
+      var deliveredTaps = 0;
+      var notDeliveredTaps = 0;
       var started = 0;
       await pumpSheet(
         tester,
         plan: plan(),
         onStart: () => started++,
-        onMarkVisited: () => marked++,
+        onDelivered: () => deliveredTaps++,
+        onNotDelivered: () => notDeliveredTaps++,
       );
 
-      expect(markVisitedFinder, findsOneWidget);
-      expect(find.byType(TextButton), findsNothing);
-      expect(materialOf(tester, markVisitedFinder).color, RbColors.brand);
+      expect(deliveredFinder, findsOneWidget);
+      expect(notDeliveredFinder, findsOneWidget);
+      expect(find.text('Marcar como visitado'), findsNothing);
+      expect(materialOf(tester, deliveredFinder).color, RbColors.brand);
       expect(
-        tester.widget<Text>(find.text('Marcar como visitado')).style!.color,
+        tester.widget<Text>(find.text('Entregue')).style!.color,
         Colors.white,
       );
-      expect(
-        tester.getBottomLeft(markVisitedFinder).dy,
-        lessThan(tester.getTopLeft(startFinder).dy),
-      );
-      expect(
-        tester.getTopLeft(startFinder).dy -
-            tester.getBottomLeft(markVisitedFinder).dy,
-        RbSpace.s2,
-      );
 
-      await tester.tap(markVisitedFinder);
-      expect(marked, 1);
+      final deliveredRect = tester.getRect(deliveredFinder);
+      final notDeliveredRect = tester.getRect(notDeliveredFinder);
+      final startRect = tester.getRect(startFinder);
+      expect(notDeliveredRect.top, deliveredRect.top);
+      expect(notDeliveredRect.height, deliveredRect.height);
+      expect(notDeliveredRect.width, deliveredRect.width);
+      expect(notDeliveredRect.left - deliveredRect.right, RbSpace.s2);
+      expect(deliveredRect.left, startRect.left);
+      expect(notDeliveredRect.right, startRect.right);
+      expect(startRect.top - deliveredRect.bottom, RbSpace.s2);
+
+      await tester.tap(deliveredFinder);
+      expect(deliveredTaps, 1);
+      expect(notDeliveredTaps, 0);
+      await tester.tap(notDeliveredFinder);
+      expect(notDeliveredTaps, 1);
+      expect(deliveredTaps, 1);
       expect(started, 0);
       await tester.tap(startFinder);
       expect(started, 1);
@@ -341,7 +424,8 @@ void main() {
         startLabel: 'Encerrar',
         startColor: RbColors.danger,
         onStart: () => stopped++,
-        onMarkVisited: () {},
+        onDelivered: () {},
+        onNotDelivered: () {},
       );
 
       final stop = find.widgetWithText(RbPrimaryButton, 'Encerrar');
@@ -352,28 +436,39 @@ void main() {
         tester.widget<Text>(find.text('Encerrar')).style!.color,
         Colors.white,
       );
-      expect(materialOf(tester, markVisitedFinder).color, RbColors.brand);
+      expect(materialOf(tester, deliveredFinder).color, RbColors.brand);
       expect(
-        tester.getBottomLeft(markVisitedFinder).dy,
+        tester.getBottomLeft(deliveredFinder).dy,
+        lessThan(tester.getTopLeft(stop).dy),
+      );
+      expect(
+        tester.getBottomLeft(notDeliveredFinder).dy,
         lessThan(tester.getTopLeft(stop).dy),
       );
       await tester.tap(stop);
       expect(stopped, 1);
     });
 
-    testWidgets('"Marcar como visitado" is hidden once every stop is visited', (
-      tester,
-    ) async {
+    testWidgets('"Entregue" and "Não entregue" are hidden once every stop has '
+        'a result', (tester) async {
       final complete = plan()
-          .markVisited('pb')
-          .markVisited('pa')
-          .markVisited('pc');
+          .record('pb', delivered)
+          .record('pa', refused)
+          .record('pc', delivered);
 
-      await pumpSheet(tester, plan: complete, onMarkVisited: () {});
+      await pumpSheet(
+        tester,
+        plan: complete,
+        onDelivered: () {},
+        onNotDelivered: () {},
+      );
 
-      expect(find.text('Marcar como visitado'), findsNothing);
-      expect(find.byIcon(Icons.check), findsNWidgets(3));
+      expect(find.text('Entregue'), findsNothing);
+      expect(find.text('Não entregue'), findsNothing);
+      expect(find.byIcon(Icons.check), findsNWidgets(2));
+      expect(find.byIcon(Icons.close), findsOneWidget);
       expect(find.byType(RbPrimaryButton), findsOneWidget);
+      expect(find.byType(RbSecondaryButton), findsNothing);
     });
 
     testWidgets('with 12 stops on a 640 px screen the heading, totals and '
@@ -393,7 +488,6 @@ void main() {
                 origin,
               ),
               order: i,
-              visited: false,
             ),
         ],
         polyline: const [origin],
@@ -415,7 +509,8 @@ void main() {
                     plan: many,
                     startEnabled: true,
                     onStart: () {},
-                    onMarkVisited: () {},
+                    onDelivered: () {},
+                    onNotDelivered: () {},
                   ),
                 ),
               ],
@@ -519,6 +614,76 @@ void main() {
       await pumpSheet(tester, plan: plan(), mode: ThemeMode.dark);
 
       expect(materialOf(tester, startFinder).color, const Color(0xFF7EA6F8));
+    });
+
+    testWidgets('the reason of a stop not delivered is #A4ACB9', (
+      tester,
+    ) async {
+      await pumpSheet(
+        tester,
+        plan: plan().record('pb', refused),
+        mode: ThemeMode.dark,
+      );
+
+      expect(
+        textIn(tester, row('pb'), 'Recusado').style!.color,
+        const Color(0xFFA4ACB9),
+      );
+    });
+  });
+
+  group('RouteSheet accessibility', () {
+    /// The sheet while navigating: a stop not delivered, a delivered one and
+    /// the next one, with the result buttons above "Encerrar".
+    Future<void> pumpNavigating(WidgetTester tester, ThemeMode mode) =>
+        pumpSheet(
+          tester,
+          plan: plan().record('pb', refused).record('pa', delivered),
+          startLabel: 'Encerrar',
+          startColor:
+              (mode == ThemeMode.dark ? RbPalette.dark : RbPalette.light)
+                  .dangerStrong,
+          onDelivered: () {},
+          onNotDelivered: () {},
+          mode: mode,
+        );
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      testWidgets('with the result buttons and a reason it meets the '
+          'contrast, tap target and label guidelines in ${mode.name} mode', (
+        tester,
+      ) async {
+        await pumpNavigating(tester, mode);
+        expect(deliveredFinder, findsOneWidget);
+        expect(notDeliveredFinder, findsOneWidget);
+        expect(find.text('Recusado'), findsOneWidget);
+
+        await expectAccessibleGuidelines(tester);
+      });
+    }
+
+    testWidgets('at 200% text on a 360×800 phone it lays out whole and the '
+        'result buttons share the height of the taller label', (tester) async {
+      await setLargeTextPhone(tester);
+      await pumpNavigating(tester, ThemeMode.light);
+
+      expect(tester.takeException(), isNull);
+      expectNoClippedText(tester);
+      final shortLabel = tester.renderObject<RenderParagraph>(
+        find.text('Entregue'),
+      );
+      final longLabel = tester.renderObject<RenderParagraph>(
+        find.text('Não entregue'),
+      );
+      expect(longLabel.textScaler.scale(15), 30);
+      // The labels wrap to different heights; the shorter one is stretched.
+      expect(shortLabel.textSize.height, lessThan(longLabel.textSize.height));
+      final delivered = tester.getRect(deliveredFinder);
+      final notDelivered = tester.getRect(notDeliveredFinder);
+      expect(notDelivered.height, greaterThan(52));
+      expect(notDelivered.height, longLabel.textSize.height);
+      expect(delivered.height, notDelivered.height);
+      expect(delivered.top, notDelivered.top);
     });
   });
 }

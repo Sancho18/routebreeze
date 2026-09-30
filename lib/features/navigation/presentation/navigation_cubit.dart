@@ -10,9 +10,12 @@ import '../../location/domain/fix.dart';
 import '../../location/domain/location_service.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/domain/route_repository.dart';
+import '../../route/domain/stop_result.dart';
 import '../domain/deviation_detector.dart';
+import '../domain/odometer.dart';
 import '../domain/progress_estimator.dart';
 import '../domain/recalc_policy.dart';
+import '../domain/route_summary.dart';
 
 enum NavigationPhase { idle, waitingGps, navigating, completed }
 
@@ -55,6 +58,8 @@ class NavigationState extends Equatable {
     this.error,
     this.lastRecalcAt,
     this.progress,
+    this.arrived = false,
+    this.summary,
   });
 
   final NavigationPhase phase;
@@ -68,7 +73,8 @@ class NavigationState extends Equatable {
   final NavigationBadge? badge;
   final bool online;
 
-  /// Off-route while offline: recalculate on reconnect.
+  /// Off-route while offline: recalculate on reconnect, unless the driver
+  /// arrives at the next stop first.
   final bool recalcPending;
   final bool recalcInFlight;
 
@@ -79,6 +85,14 @@ class NavigationState extends Equatable {
   /// navigating, measured from the last fix of
   /// [NavigationCubit.maxStartAccuracyMeters] or better.
   final RouteProgress? progress;
+
+  /// A fix of 50 m or better came within 40 m of the next stop; kept until
+  /// a result is recorded.
+  final bool arrived;
+
+  /// The numbers of the finished route; set when the last stop gets its
+  /// result.
+  final RouteSummary? summary;
 
   /// "Iniciar" is enabled only on a fix of 50 m or better.
   bool get canStart =>
@@ -101,6 +115,8 @@ class NavigationState extends Equatable {
     DateTime? lastRecalcAt,
     RouteProgress? progress,
     bool clearProgress = false,
+    bool? arrived,
+    RouteSummary? summary,
   }) => NavigationState(
     phase: phase ?? this.phase,
     plan: plan ?? this.plan,
@@ -113,6 +129,8 @@ class NavigationState extends Equatable {
     error: clearError ? null : error ?? this.error,
     lastRecalcAt: lastRecalcAt ?? this.lastRecalcAt,
     progress: clearProgress ? null : progress ?? this.progress,
+    arrived: arrived ?? this.arrived,
+    summary: summary ?? this.summary,
   );
 
   @override
@@ -128,6 +146,8 @@ class NavigationState extends Equatable {
     error,
     lastRecalcAt,
     progress,
+    arrived,
+    summary,
   ];
 
   @override
@@ -135,7 +155,8 @@ class NavigationState extends Equatable {
 }
 
 /// Live navigation over one [RoutePlan]: position stream, arrival,
-/// off-route recalculation, offline deferral and progress to the next stop.
+/// results, off-route recalculation, offline deferral, progress to the next
+/// stop and the distance traveled.
 class NavigationCubit extends Cubit<NavigationState> {
   NavigationCubit({
     required RoutePlan plan,
@@ -152,6 +173,7 @@ class NavigationCubit extends Cubit<NavigationState> {
        _arrival = arrival ?? ArrivalDetector(),
        _policy = policy ?? RecalcPolicy(),
        _now = now ?? DateTime.now,
+       _odometer = Odometer(meters: plan.traveledMeters),
        super(NavigationState(plan: plan));
 
   final LocationService _location;
@@ -164,6 +186,10 @@ class NavigationCubit extends Cubit<NavigationState> {
   final ProgressEstimator _estimator;
   final DateTime Function() _now;
 
+  /// Distance traveled while navigating, from the plan's saved value; it
+  /// reaches the plan only when the plan is saved, never per fix.
+  final Odometer _odometer;
+
   static const double maxStartAccuracyMeters = 50;
 
   /// Position stream distance filter; skipping sub-5 m moves saves battery.
@@ -174,6 +200,10 @@ class NavigationCubit extends Cubit<NavigationState> {
   static const String gpsLostMessage = 'Perdemos o sinal de GPS';
 
   static const Duration resubscribeDelay = Duration(seconds: 5);
+
+  /// A result recorded sooner than this after the previous one is a double
+  /// tap and is ignored.
+  static const Duration recordGuard = Duration(seconds: 1);
 
   StreamSubscription<Fix>? _positions;
   StreamSubscription<bool>? _online;
@@ -188,6 +218,9 @@ class NavigationCubit extends Cubit<NavigationState> {
   /// from it.
   Fix? _lastPrecise;
 
+  /// When the last result was recorded; [recordGuard] counts from it.
+  DateTime? _lastRecordAt;
+
   void prepare() {
     emit(state.copyWith(phase: NavigationPhase.waitingGps));
     _session
@@ -200,38 +233,60 @@ class NavigationCubit extends Cubit<NavigationState> {
     _online ??= _connectivity.isOnline.listen(onOnlineChanged);
   }
 
+  /// Navigates; the first "Iniciar" of the route stamps its start, which is
+  /// saved with it.
   void start() {
     if (!state.canStart) return;
     _session.isNavigationActive = true;
+    final plan = _traveled(state.plan.withStart(_now()));
     emit(
       _measured(
-        state.copyWith(phase: NavigationPhase.navigating, following: true),
+        state.copyWith(
+          phase: NavigationPhase.navigating,
+          following: true,
+          plan: plan,
+        ),
       ),
     );
+    unawaited(_routes.save(plan));
   }
 
-  /// Stops the streams and leaves the route intact.
-  void stop() {
+  /// Stops the streams and leaves the route intact; while navigating it is
+  /// saved with its start and distance, and the future completes with that
+  /// save.
+  Future<void> stop() {
+    final save = state.phase == NavigationPhase.navigating
+        ? _routes.save(_traveled(state.plan))
+        : Future<void>.value();
     _cancelAll();
     emit(_measured(state.copyWith(phase: NavigationPhase.idle)));
+    return save;
   }
 
-  Future<void> markNextVisited() async {
-    final next = state.plan.nextStop;
-    if (next != null) await _visit(next);
-  }
+  /// "Entregue": the next stop delivered at the clock time.
+  Future<void> recordDelivered() =>
+      _record((at) => StopResult.delivered(at: at));
+
+  /// A reason picked after "Não entregue": the next stop not delivered at
+  /// the clock time.
+  Future<void> recordFailed(FailureReason reason) =>
+      _record((at) => StopResult.failed(reason, at: at));
 
   void recenter() => emit(state.copyWith(following: true));
 
   void onMapDragged() => emit(state.copyWith(following: false));
 
   /// Pauses the position stream while the app is in the background; state
-  /// is kept.
+  /// is kept. While navigating the route is saved with its start and
+  /// distance.
   void pause() {
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
     _positions?.cancel();
     _positions = null;
+    if (state.phase == NavigationPhase.navigating) {
+      unawaited(_routes.save(_traveled(state.plan)));
+    }
   }
 
   void resume() {
@@ -310,6 +365,9 @@ class NavigationCubit extends Cubit<NavigationState> {
     return next.copyWith(progress: progress, clearProgress: progress == null);
   }
 
+  /// [plan] with the distance traveled so far.
+  RoutePlan _traveled(RoutePlan plan) => plan.withTraveled(_odometer.meters);
+
   void _onStreamError(Object error) => _onStreamEnded();
 
   /// Keeps the last position, shows the message and listens again after
@@ -325,12 +383,25 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
+  /// While arrived the driver may walk away from the road to deliver, so no
+  /// fix is checked for a deviation until a result is recorded. Arrival
+  /// drops a recalculation deferred offline, with its badge: the deviation
+  /// it answered is over.
   Future<void> _navigate(Fix fix) async {
+    _odometer.add(fix);
     if (fix.accuracyMeters <= _deviation.maxAccuracyMeters) _lastAccepted = fix;
     final next = state.plan.nextStop;
     if (next != null && _arrival.isArrived(fix, next.stop)) {
-      return _visit(next);
+      emit(
+        state.copyWith(
+          arrived: true,
+          recalcPending: false,
+          clearBadge: state.recalcPending,
+        ),
+      );
+      return;
     }
+    if (state.arrived) return;
     final offRoute = _deviation.feed(fix, state.plan.polyline);
     final decision = _policy.decide(
       offRoute: offRoute,
@@ -355,15 +426,25 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
-  /// Once every stop is visited the stream stops and storage is cleared.
-  Future<void> _visit(RouteStop next) async {
-    final plan = state.plan.markVisited(next.stop.placeId);
+  /// Gives the next stop the [result] built for the clock time, unless the
+  /// previous result is less than [recordGuard] old. Once every stop has a
+  /// result the stream stops, storage is cleared and the summary is built;
+  /// the navigation stays active, so no re-lock hides the summary, until
+  /// [close] or [stop].
+  Future<void> _record(StopResult Function(DateTime at) result) async {
+    final next = state.plan.nextStop;
+    final now = _now();
+    final last = _lastRecordAt;
+    if (next == null || (last != null && now.difference(last) < recordGuard)) {
+      return;
+    }
+    _lastRecordAt = now;
+    final plan = _traveled(state.plan.record(next.stop.placeId, result(now)));
     _deviation.reset();
     if (plan.isComplete) {
       _positions?.cancel();
       _positions = null;
       _badgeTimer?.cancel();
-      _session.isNavigationActive = false;
       emit(
         _measured(
           state.copyWith(
@@ -371,20 +452,27 @@ class NavigationCubit extends Cubit<NavigationState> {
             phase: NavigationPhase.completed,
             recalcPending: false,
             clearBadge: true,
+            arrived: false,
+            summary: RouteSummary.of(
+              plan,
+              traveledMeters: _odometer.meters,
+              end: now,
+            ),
           ),
         ),
       );
       await _routes.clear();
     } else {
-      emit(_measured(state.copyWith(plan: plan)));
+      emit(_measured(state.copyWith(plan: plan, arrived: false)));
       await _routes.save(plan);
     }
   }
 
   /// One request from [origin] through the unvisited stops; the visited
-  /// ones keep their numbers. Stops visited while the request is in flight
-  /// stay visited in the answer; an answer that arrives after the route
-  /// completed is dropped and storage cleared again.
+  /// ones keep their numbers. The answer takes the results recorded while
+  /// the request was in flight, the start and the current distance, and
+  /// clears the arrival when it makes another stop next; an answer that
+  /// arrives after the route completed is dropped and storage cleared again.
   Future<void> _recalculate(GeoPoint origin) async {
     final plan = state.plan;
     if (plan.unvisited.isEmpty) return;
@@ -412,17 +500,16 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
     if (replaced != null) {
       _deviation.reset();
-      final visitedNow = [
-        for (final stop in state.plan.stops)
-          if (stop.visited) stop.stop.placeId,
-      ];
-      final merged = visitedNow.fold(replaced, (p, id) => p.markVisited(id));
+      final merged = _traveled(replaced.withProgressFrom(state.plan));
       if (merged != replaced) {
         await _routes.save(merged);
         if (isClosed) return;
         replaced = merged;
       }
     }
+    final sameNext =
+        replaced == null ||
+        replaced.nextStop?.stop == state.plan.nextStop?.stop;
     emit(
       _measured(
         state.copyWith(
@@ -430,6 +517,7 @@ class NavigationCubit extends Cubit<NavigationState> {
           recalcInFlight: false,
           lastRecalcAt: _now(),
           badge: badge,
+          arrived: state.arrived && sameNext,
         ),
       ),
     );
