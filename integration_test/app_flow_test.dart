@@ -22,6 +22,7 @@ import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
+import 'package:routebreeze/features/addresses/data/round_trip_preference.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
 import 'package:routebreeze/features/addresses/presentation/address_field_widget.dart';
@@ -284,6 +285,9 @@ void main() {
     _replace<RoutesApi>(routesApi);
     // A route left by an earlier run would trigger "Continuar rota?".
     await getIt<RouteStorage>().clear();
+    // A round trip left on by an earlier session would change the route
+    // request that the fake Routes API answers.
+    await getIt<RoundTripPreference>().save(false);
   });
 
   tearDown(() async {
