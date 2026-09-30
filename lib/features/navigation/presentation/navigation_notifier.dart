@@ -2,8 +2,8 @@ import 'dart:async';
 
 import '../data/background_tracker.dart';
 import '../data/route_alerts.dart';
-import '../domain/notification_copy.dart';
 import 'navigation_cubit.dart';
+import 'notification_copy.dart';
 import 'route_summary_sheet.dart';
 
 /// The ongoing notification's texts for a state, with the key whose change

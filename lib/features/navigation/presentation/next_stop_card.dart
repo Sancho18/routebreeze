@@ -5,8 +5,8 @@ import '../../../core/theme/rb_tokens.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/presentation/route_format.dart';
 import '../../route/presentation/stop_badge.dart';
-import '../domain/notification_copy.dart';
 import '../domain/progress_estimator.dart';
+import 'notification_copy.dart';
 
 /// The stop the driver is heading to, over the navigation map: its number and
 /// address and, once measured, the distance, time and arrival clock, which

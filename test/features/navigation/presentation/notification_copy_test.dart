@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
-import 'package:routebreeze/features/navigation/domain/notification_copy.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
+import 'package:routebreeze/features/navigation/presentation/notification_copy.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 
 void main() {

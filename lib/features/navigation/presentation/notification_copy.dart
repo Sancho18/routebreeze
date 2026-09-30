@@ -1,6 +1,6 @@
 import '../../route/domain/route_plan.dart';
 import '../../route/presentation/route_format.dart';
-import 'progress_estimator.dart';
+import '../domain/progress_estimator.dart';
 
 const String _wayBack = 'Retorno ao ponto de partida';
 

@@ -225,10 +225,11 @@ lib/
                         BackgroundTracker, NotificationPermission, RouteAlerts
                         (flutter_local_notifications)
                   domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator,
-                          NavigationApp, Odometer, RouteSummary, textos das notificações
+                          NavigationApp, Odometer, RouteSummary
                   presentation: NavigationCubit, NavigationNotifier, NavigationScreen,
                                 NextStopCard, OpenInAppSheet, FailureReasonSheet,
-                                RouteSummarySheet, ReturnCard, customerMessage
+                                RouteSummarySheet, ReturnCard, customerMessage,
+                                textos das notificações
 test/            espelha lib/ (unidade, bloc_test, widget)
 integration_test/ fluxo principal com fakes, roda no aparelho
 tool/            set_api_key.sh, coverage_report.py, brand/ (ícone e abertura)
