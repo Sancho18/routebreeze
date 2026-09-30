@@ -1473,6 +1473,45 @@ void main() {
       await tester.pump();
 
       verify(() => cubit.start()).called(1);
+
+      // The mock cubit keeps "Iniciar" on screen: a later tap starts
+      // without asking again.
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pump();
+
+      verify(() => cubit.start()).called(1);
+      expect(
+        [for (final call in notifications.calls) call.method],
+        ['requestNotificationsPermission'],
+      );
+    });
+
+    testWidgets('a failed permission request frees "Iniciar": the error '
+        'surfaces and nothing starts, and the next tap asks again and '
+        'starts', (tester) async {
+      final asked = MockNotificationPermission();
+      when(asked.requestOnce)
+          .thenAnswer((_) async => throw StateError('no answer'));
+      permission = asked;
+      await pumpScreen(tester, waiting);
+
+      // The error leaves the tap as an uncaught async error, which would end
+      // the test before `takeException`; this zone collects it instead.
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+        await tester.pump();
+      }, (error, _) => errors.add(error));
+
+      expect(errors, [isA<StateError>()]);
+      verifyNever(() => cubit.start());
+
+      when(asked.requestOnce).thenAnswer((_) async {});
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pump();
+
+      verify(asked.requestOnce).called(2);
+      verify(() => cubit.start()).called(1);
     });
 
     testWidgets('a screen closed while the permission is asked does not '

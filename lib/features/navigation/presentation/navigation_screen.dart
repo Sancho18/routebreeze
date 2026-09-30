@@ -282,7 +282,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _cubit.onMapDragged();
   }
 
-  /// Set by the first "Iniciar" until the permission is answered: a second
+  /// Set by the first "Iniciar" until the permission request ends: a second
   /// tap meanwhile would ask again and start before the answer.
   bool _starting = false;
 
@@ -291,8 +291,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
   Future<void> _start() async {
     if (_starting) return;
     _starting = true;
-    await _permission.requestOnce();
-    _starting = false;
+    try {
+      await _permission.requestOnce();
+    } finally {
+      _starting = false;
+    }
     if (mounted) _cubit.start();
   }
 
