@@ -24,6 +24,7 @@ import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
+import 'package:routebreeze/features/addresses/presentation/address_field_widget.dart';
 import 'package:routebreeze/features/addresses/presentation/addresses_screen.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
@@ -213,11 +214,14 @@ Finder enabledPrimaryButton(String label) => find.byWidgetPredicate(
 );
 
 /// Types [query] into the [index]-th field, waits past the debounce and
-/// picks the single suggestion.
+/// picks the single suggestion under that field.
 Future<void> pickAddress(WidgetTester tester, int index, String query) async {
   await tester.enterText(find.byType(TextField).at(index), query);
   await tester.pump(const Duration(milliseconds: 400));
-  final suggestion = find.byType(ListTile);
+  final suggestion = find.descendant(
+    of: find.byType(AddressFieldWidget).at(index),
+    matching: find.byType(ListTile),
+  );
   await pumpUntil(tester, suggestion);
   expect(suggestion, findsOneWidget);
   await tester.tap(suggestion);
