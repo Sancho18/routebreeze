@@ -23,6 +23,7 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 
 - **Progresso até a próxima parada** (`feature/live-progress`). Durante a navegação, um card "Próxima parada" mostra o número e o endereço da parada e quanto falta até ela ("1,2 km · 4 min · chegada às 14:32"). O painel da rota troca os totais pelo que falta até o fim ("Faltam 8,4 km · 22 min · término às 15:10"). Tudo sai da resposta da Routes API que o app já pedia, sem chamada extra. Detalhes em "Progresso até a próxima parada", nas decisões técnicas. Na mesma branch, o mapa passou a respeitar o espaço do painel e do card (antes, a posição do entregador e o logo do Google ficavam atrás do painel), e o fluxo foi validado no simulador do iOS.
 - **Abrir a próxima parada no Google Maps ou no Waze** (`feature/open-in-maps`). Um botão no card da próxima parada abre "Abrir em outro app", com Google Maps e Waze. O RouteBreeze continua acompanhando a rota e, na volta, não pede o desbloqueio de novo (há uma navegação ativa). Detalhes em "Abrir em outro app", nas decisões técnicas.
+- **Ícone, nome e abertura** (`feature/app-icon`). O app ganhou ícone próprio (a rota do loading, com a partida e a chegada, em branco sobre o azul `brand`), o nome "RouteBreeze" embaixo dele e uma tela de abertura na cor da tela de bloqueio. Detalhes em "Ícone e abertura", nas decisões técnicas.
 
 ## Demonstração
 
@@ -121,7 +122,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 489 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`. Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 517 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -195,7 +196,8 @@ lib/
                   presentation: NavigationCubit, NavigationScreen, NextStopCard, OpenInAppSheet
 test/            espelha lib/ (unidade, bloc_test, widget)
 integration_test/ fluxo principal com fakes, roda no aparelho
-tool/            set_api_key.sh
+tool/            set_api_key.sh, coverage_report.py, brand/ (ícone e abertura)
+assets/brand/    imagens de origem do ícone e da abertura
 docs/            decisions.md
 ```
 
@@ -288,6 +290,26 @@ Uma extensão que o DS não lista: o botão "Encerrar" da navegação usa `dange
 Zoom 16 na partida. Na tela de rota a câmera enquadra a rota inteira. Na navegação ela segue o usuário; arrastar o mapa solta a câmera e mostra "Recentralizar", que volta a seguir.
 
 O painel da rota e o card da próxima parada ficam por cima do mapa. As alturas deles são medidas depois do layout e passadas ao `GoogleMap` como `padding`, então a rota enquadrada e a posição seguida ficam na parte visível, e o logo do Google não some atrás do painel. Chips temporários ("Rota recalculada") e o "Recentralizar" ficam de fora da medida para não deslocar o mapa quando aparecem.
+
+### Ícone e abertura
+
+O ícone é a mesma curva do loading da tela de mapa (`RouteLoaderPainter.route`), com um anel na partida e um ponto na chegada, em branco sobre o `brand`. `tool/brand/brand_mark.dart` desenha a marca e `tool/brand/render_brand_assets_test.dart` grava as imagens de origem em `assets/brand/`. Os arquivos de cada plataforma saem de dois geradores, que são dependências só de desenvolvimento:
+
+```bash
+flutter test tool/brand/render_brand_assets_test.dart
+dart run flutter_launcher_icons
+dart run flutter_native_splash:create
+git checkout ios/Runner.xcodeproj/project.pbxproj
+```
+
+O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca no projeto do Xcode (`ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS` vira `AppIcon`, um valor inválido). Com ele, regenerar não muda nenhum arquivo versionado.
+
+- **Android.** Ícone adaptativo (fundo `brand`, a marca como primeiro plano dentro da zona segura de 66 dp), camada monocromática para os ícones temáticos do Android 13+ e PNGs de 48 a 192 px para o Android 7 (minSdk 24).
+- **iOS.** Todos os tamanhos do catálogo, sem canal alfa.
+- **Nome.** "RouteBreeze" no Android e no iOS.
+- **Abertura.** O círculo do ícone no centro, sobre a cor da tela de bloqueio (`surface-200`): #FFFFFF no modo claro e #1A1D23 no escuro. No Android 12+, a abertura do sistema mostra a marca sobre o círculo azul.
+
+`test/tool/` confere as imagens (tamanhos, cores e a zona segura) e `test/platform/` os arquivos gerados (XML do ícone adaptativo, PNGs sem alfa no iOS, nome e cores da abertura).
 
 ## Tratamento de erros e casos extremos
 
