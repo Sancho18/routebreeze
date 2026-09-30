@@ -11,6 +11,7 @@ import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
+import 'package:routebreeze/features/navigation/data/customer_notifier.dart';
 import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
 import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
@@ -33,6 +34,8 @@ class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
 
 class MockNavigationAppLauncher extends Mock implements NavigationAppLauncher {}
+
+class MockCustomerNotifier extends Mock implements CustomerNotifier {}
 
 /// Canvas drawing needs real async; the fake answers with a hue per number
 /// and a fixed hue for the position dot.
@@ -105,6 +108,7 @@ void main() {
 
   late MockNavigationCubit cubit;
   late MockNavigationAppLauncher launcher;
+  late MockCustomerNotifier notifier;
   late List<NavigationMapModel> mapsBuilt;
   late int exits;
   late int newRoutes;
@@ -113,10 +117,14 @@ void main() {
     registerFallbackValue(NavigationApp.waze);
     registerFallbackValue(a);
     registerFallbackValue(FailureReason.other);
+    registerFallbackValue(Rect.zero);
   });
 
   setUp(() {
     launcher = MockNavigationAppLauncher();
+    notifier = MockCustomerNotifier();
+    when(() => notifier.notify(any(), origin: any(named: 'origin')))
+        .thenAnswer((_) async => true);
     mapsBuilt = [];
     exits = 0;
     newRoutes = 0;
@@ -147,6 +155,7 @@ void main() {
       cubit: cubit,
       markers: FakeMapMarkers(),
       appLauncher: launcher,
+      customerNotifier: notifier,
       mapBuilder: (_, model) {
         mapsBuilt.add(model);
         return const SizedBox.expand(key: mapKey);
@@ -417,6 +426,110 @@ void main() {
 
       expect(newRoutes, 1);
       expect(exits, 0);
+    });
+
+    group('"Avisar cliente"', () {
+      final measured = RouteProgress(
+        next: const RouteStop(stop: a, order: 1),
+        toNextMeters: 1234,
+        toNextSeconds: 250,
+        remainingMeters: 8400,
+        remainingSeconds: 1320,
+        at: DateTime.utc(2026, 9, 22, 14, 28),
+      );
+      NavigationState navigating({
+        RouteProgress? progress,
+        bool arrived = false,
+      }) => NavigationState(
+        plan: plan,
+        phase: NavigationPhase.navigating,
+        fix: fix,
+        progress: progress,
+        arrived: arrived,
+      );
+      final button = find.byTooltip('Avisar cliente');
+
+      testWidgets('shares the arrival clock the card shows, anchored to the '
+          'button', (tester) async {
+        await pumpScreen(tester, navigating(progress: measured));
+        expect(find.text('1,2 km · 4 min · chegada às 14:32'), findsOneWidget);
+
+        await tester.tap(button);
+        await tester.pump();
+
+        verify(
+          () => notifier.notify(
+            'Olá! Sua entrega chega por volta das 14:32.',
+            origin: tester.getRect(button),
+          ),
+        ).called(1);
+      });
+
+      testWidgets('before a first measure it says the delivery is on its way', (
+        tester,
+      ) async {
+        await pumpScreen(tester, navigating());
+
+        await tester.tap(button);
+        await tester.pump();
+
+        verify(
+          () => notifier.notify(
+            'Olá! Sua entrega está a caminho.',
+            origin: any(named: 'origin'),
+          ),
+        ).called(1);
+      });
+
+      testWidgets('once arrived it says so', (tester) async {
+        await pumpScreen(tester, navigating(progress: measured, arrived: true));
+
+        await tester.tap(button);
+        await tester.pump();
+
+        verify(
+          () => notifier.notify(
+            'Olá! Cheguei com a sua entrega.',
+            origin: any(named: 'origin'),
+          ),
+        ).called(1);
+      });
+
+      testWidgets('a share sheet that cannot open shows "Não foi possível '
+          'abrir o compartilhamento."', (tester) async {
+        when(() => notifier.notify(any(), origin: any(named: 'origin')))
+            .thenAnswer((_) async => false);
+        await pumpScreen(tester, navigating(progress: measured));
+
+        await tester.tap(button);
+        await tester.pump();
+
+        expect(
+          find.widgetWithText(
+            SnackBar,
+            'Não foi possível abrir o compartilhamento.',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('an opened sheet shows no snackbar', (tester) async {
+        await pumpScreen(tester, navigating(progress: measured));
+
+        await tester.tap(button);
+        await tester.pump();
+
+        expect(find.byType(SnackBar), findsNothing);
+      });
+
+      testWidgets('there is no button while waiting for GPS', (tester) async {
+        await pumpScreen(
+          tester,
+          NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
+        );
+
+        expect(button, findsNothing);
+      });
     });
 
     testWidgets('navigating: "Não entregue" asks "Por que não foi entregue?" '

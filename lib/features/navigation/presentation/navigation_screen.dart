@@ -16,8 +16,10 @@ import '../../route/presentation/map_markers.dart';
 import '../../route/presentation/route_format.dart';
 import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
+import '../data/customer_notifier.dart';
 import '../data/navigation_app_launcher.dart';
 import '../domain/progress_estimator.dart';
+import 'customer_message.dart';
 import 'failure_reason_sheet.dart';
 import 'navigation_cubit.dart';
 import 'next_stop_card.dart';
@@ -67,6 +69,7 @@ class NavigationScreen extends StatefulWidget {
     this.mapBuilder,
     this.markers,
     this.appLauncher,
+    this.customerNotifier,
   });
 
   final RoutePlan plan;
@@ -87,12 +90,17 @@ class NavigationScreen extends StatefulWidget {
   /// Overrides the launcher from `getIt` (tests).
   final NavigationAppLauncher? appLauncher;
 
+  /// Overrides the notifier from `getIt` (tests).
+  final CustomerNotifier? customerNotifier;
+
   static const String title = 'Navegação';
   static const String startLabel = 'Iniciar';
   static const String stopLabel = 'Encerrar';
   static const String waitingGpsCaption = 'Aguardando sinal de GPS';
   static const String recenterLabel = 'Recentralizar';
   static const String offlineBanner = 'Sem conexão';
+  static const String notifyFailedMessage =
+      'Não foi possível abrir o compartilhamento.';
 
   /// Sheet totals while navigating:
   /// `"Faltam 8,4 km · 22 min · término às 15:10"`.
@@ -122,6 +130,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
   late final MapMarkers _markers = widget.markers ?? MapMarkers();
   late final NavigationAppLauncher _appLauncher =
       widget.appLauncher ?? getIt<NavigationAppLauncher>();
+  late final CustomerNotifier _customerNotifier =
+      widget.customerNotifier ?? getIt<CustomerNotifier>();
 
   RoutePlan? _iconsPlan;
   Future<_Icons>? _icons;
@@ -255,6 +265,21 @@ class _NavigationScreenState extends State<NavigationScreen> {
   void _openInApp(Stop stop) =>
       OpenInAppSheet.show(context, stop: stop, launcher: _appLauncher);
 
+  /// "Avisar cliente": the message for the current state through the share
+  /// sheet, anchored to the button at [origin]; a sheet that cannot open
+  /// shows [NavigationScreen.notifyFailedMessage].
+  Future<void> _notifyCustomer(Rect origin) async {
+    final state = _cubit.state;
+    final opened = await _customerNotifier.notify(
+      customerMessage(progress: state.progress, arrived: state.arrived),
+      origin: origin,
+    );
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(NavigationScreen.notifyFailedMessage)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mapBuilder = widget.mapBuilder ?? _googleMap;
@@ -311,6 +336,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         state: state,
                         onMeasured: _onTopMeasured,
                         onOpenInApp: _openInApp,
+                        onNotifyCustomer: _notifyCustomer,
                       ),
                       Expanded(
                         child: Align(
@@ -449,10 +475,12 @@ class _TopOverlay extends StatelessWidget {
     required this.state,
     required this.onMeasured,
     required this.onOpenInApp,
+    required this.onNotifyCustomer,
   });
 
   final NavigationState state;
   final ValueChanged<Stop> onOpenInApp;
+  final ValueChanged<Rect> onNotifyCustomer;
 
   /// Size of the banner and the card, which stay while navigating; the
   /// transient chips are left out so they never shift the map.
@@ -514,6 +542,7 @@ class _TopOverlay extends StatelessWidget {
                     progress: state.progress,
                     arrived: state.arrived,
                     onOpenInApp: () => onOpenInApp(next.stop),
+                    onNotifyCustomer: onNotifyCustomer,
                   ),
                 ),
             ],

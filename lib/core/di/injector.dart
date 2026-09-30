@@ -10,6 +10,7 @@ import '../../features/location/domain/location_service.dart';
 import '../../features/location/presentation/map_cubit.dart';
 import '../../features/lock/data/local_auth_service.dart';
 import '../../features/lock/presentation/lock_cubit.dart';
+import '../../features/navigation/data/customer_notifier.dart';
 import '../../features/navigation/data/navigation_app_launcher.dart';
 import '../../features/navigation/presentation/navigation_cubit.dart';
 import '../../features/route/data/route_storage.dart';
@@ -47,6 +48,7 @@ Future<void> configureDependencies({String? apiKey}) async {
       () => RouteRepository(getIt<RoutesApi>(), getIt<RouteStorage>()),
     )
     ..registerLazySingleton<NavigationAppLauncher>(UrlNavigationAppLauncher.new)
+    ..registerLazySingleton<CustomerNotifier>(SharePlusCustomerNotifier.new)
     ..registerFactory<MapCubit>(
       () =>
           MapCubit(getIt<LocationService>(), routes: getIt<RouteRepository>()),

@@ -9,9 +9,10 @@ import '../domain/progress_estimator.dart';
 
 /// The stop the driver is heading to, over the navigation map: its number and
 /// address and, once measured, the distance, time and arrival clock, which
-/// "Você chegou" replaces once [arrived]. [onOpenInApp] adds a button to hand
-/// the stop over to another app. The card reads as one merged
-/// [semanticsLabel]; the open-in-app button stays a separate tappable node.
+/// "Você chegou" replaces once [arrived]. [onNotifyCustomer] adds a button to
+/// share a message with the customer, and [onOpenInApp] one to hand the stop
+/// over to another app. The card reads as one merged [semanticsLabel]; the
+/// buttons stay separate tappable nodes.
 class NextStopCard extends StatelessWidget {
   const NextStopCard({
     super.key,
@@ -19,6 +20,7 @@ class NextStopCard extends StatelessWidget {
     this.progress,
     this.arrived = false,
     this.onOpenInApp,
+    this.onNotifyCustomer,
   });
 
   final RouteStop stop;
@@ -28,11 +30,16 @@ class NextStopCard extends StatelessWidget {
   final bool arrived;
   final VoidCallback? onOpenInApp;
 
+  /// Gets the button's rect in global coordinates, where the share sheet
+  /// anchors on iPad.
+  final ValueChanged<Rect>? onNotifyCustomer;
+
   static const String label = 'Próxima parada';
   static const String openInAppTooltip = 'Abrir em outro app';
+  static const String notifyCustomerTooltip = 'Avisar cliente';
   static const String arrivedText = 'Você chegou';
 
-  /// Tap target of the open-in-app button.
+  /// Tap target of the card's buttons.
   static const double actionSize = 48;
 
   /// `"1,2 km · 4 min · chegada às 14:32"`.
@@ -65,6 +72,7 @@ class NextStopCard extends StatelessWidget {
     final rb = context.rb;
     final progress = this.progress;
     final onOpenInApp = this.onOpenInApp;
+    final onNotifyCustomer = this.onNotifyCustomer;
     final details = arrived
         ? arrivedText
         : progress == null
@@ -106,8 +114,30 @@ class NextStopCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (onOpenInApp != null) ...[
+                if (onNotifyCustomer != null) ...[
                   const SizedBox(width: RbSpace.s2),
+                  Builder(
+                    builder: (button) => IconButton(
+                      onPressed: () {
+                        final box = button.findRenderObject()! as RenderBox;
+                        onNotifyCustomer(
+                          box.localToGlobal(Offset.zero) & box.size,
+                        );
+                      },
+                      tooltip: notifyCustomerTooltip,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: actionSize,
+                        height: actionSize,
+                      ),
+                      icon: Icon(Icons.adaptive.share, color: rb.brand),
+                    ),
+                  ),
+                ],
+                if (onOpenInApp != null) ...[
+                  SizedBox(
+                    width: onNotifyCustomer == null ? RbSpace.s2 : RbSpace.s1,
+                  ),
                   IconButton(
                     onPressed: onOpenInApp,
                     tooltip: openInAppTooltip,

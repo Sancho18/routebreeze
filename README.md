@@ -27,6 +27,7 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Tema escuro** (`feature/dark-theme`). O app segue o tema do aparelho. A paleta escura estende o DS Rota sem mudar os valores do claro, todo par de texto e fundo passa de 4,5:1, e o mapa, as barras do sistema e a abertura acompanham o tema. Detalhes em "Tema escuro", nas decisões técnicas.
 - **Acessibilidade** (`feature/accessibility`). Todo texto passa de 4,5:1 nos dois temas, todo controle tem área de toque de pelo menos 48 dp e um rótulo, as telas cabem com o texto do sistema em 200 % e o leitor de tela lê o card da próxima parada numa frase só. Um grupo de testes em cada tela confere isso. Detalhes em "Acessibilidade", nas decisões técnicas.
 - **Resultado da entrega e resumo da rota** (`feature/delivery-outcome`). O entregador registra cada parada como "Entregue" ou "Não entregue", com o motivo ("Destinatário ausente", "Endereço não encontrado", "Recusado" ou "Outro"). Chegar à parada só mostra "Você chegou" no card: nada é registrado sem um toque. No fim, um resumo mostra as entregas, as paradas não entregues com o motivo, a distância percorrida, o tempo total e os horários de início e fim. Resultados, distância e início ficam salvos com a rota. Detalhes em "Resultado da entrega e resumo", nas decisões técnicas.
+- **Avisar o cliente** (`feature/notify-customer`). Um botão "Avisar cliente" no card da próxima parada abre a folha de compartilhamento do sistema com uma mensagem pronta e o horário de chegada que o card mostra ("Olá! Sua entrega chega por volta das 14:32."). O entregador escolhe o app (WhatsApp, SMS) e o contato ali; o app não pede permissão nem guarda telefone. Detalhes em "Avisar o cliente", nas decisões técnicas.
 
 ## Demonstração
 
@@ -125,7 +126,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 854 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 875 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -138,15 +139,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 446 | 446 | 100,0 % |
+| lib/core | 447 | 447 | 100,0 % |
 | lib (raiz: `app.dart`, `main.dart`) | 83 | 81 | 97,6 % |
 | lib/features/addresses | 313 | 311 | 99,4 % |
 | lib/features/location | 202 | 202 | 100,0 % |
 | lib/features/lock | 77 | 77 | 100,0 % |
-| lib/features/navigation | 663 | 658 | 99,2 % |
+| lib/features/navigation | 691 | 686 | 99,3 % |
 | lib/features/route | 550 | 548 | 99,6 % |
-| **Total (todos os arquivos)** | 2334 | 2323 | 99,5 % |
-| **Total (sem native-only)** | 2329 | 2320 | 99,6 % |
+| **Total (todos os arquivos)** | 2363 | 2352 | 99,5 % |
+| **Total (sem native-only)** | 2358 | 2349 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -196,11 +197,11 @@ lib/
     route/        data: RoutesApi, RouteStorage (shared_preferences)
                   domain: RoutePlan, StopResult, RoutePlanner, RouteRepository
                   presentation: RouteCubit, RouteScreen, RouteSheet, StopBadge, MapMarkers
-    navigation/   data: NavigationAppLauncher (url_launcher)
+    navigation/   data: NavigationAppLauncher (url_launcher), CustomerNotifier (share_plus)
                   domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator,
                           NavigationApp, Odometer, RouteSummary
                   presentation: NavigationCubit, NavigationScreen, NextStopCard, OpenInAppSheet,
-                                FailureReasonSheet, RouteSummarySheet
+                                FailureReasonSheet, RouteSummarySheet, customerMessage
 test/            espelha lib/ (unidade, bloc_test, widget)
 integration_test/ fluxo principal com fakes, roda no aparelho
 tool/            set_api_key.sh, coverage_report.py, brand/ (ícone e abertura)
@@ -263,6 +264,12 @@ A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas so
 - **Destino.** Coordenadas com seis casas decimais (sem notação exponencial) e, no Google Maps, o `placeId` da parada, para o app mostrar o lugar certo.
 - **Sem checar antes.** O app chama `launchUrl` direto e trata o `false` (ou um erro da plataforma) mostrando "Não foi possível abrir o <app>." no próprio sheet, que continua aberto para tentar o outro app. É o que a documentação do `url_launcher` recomenda no lugar de `canLaunchUrl`.
 - **Na volta.** Sair para o outro app pausa o stream de posição como qualquer ida ao segundo plano, e a volta retoma. Com a navegação ativa não há rebloqueio.
+
+### Avisar o cliente
+
+- **Mensagem.** O botão "Avisar cliente" do card da próxima parada monta a mensagem com o estado da navegação: com a chegada medida, "Olá! Sua entrega chega por volta das 14:32.", com o mesmo horário do card; antes da primeira medida, "Olá! Sua entrega está a caminho."; depois de "Você chegou", "Olá! Cheguei com a sua entrega.".
+- **Canal.** A folha de compartilhamento do sistema (`share_plus`): o entregador escolhe WhatsApp, SMS ou outro app e o contato ali. Sem SMS automático nem API paga, o app não precisa de backend, de permissão nem de guardar o telefone do cliente. Um teste fixa as permissões do Android e as descrições de uso do iOS no conjunto de hoje.
+- **Folha.** Ela abre ancorada no botão, como o iPad exige; no iPhone e no Android sobe da parte de baixo. Se não abrir, a tela mostra "Não foi possível abrir o compartilhamento.".
 
 ### Resultado da entrega e resumo
 

@@ -43,6 +43,7 @@ void main() {
     RouteProgress? progress,
     bool arrived = false,
     VoidCallback? onOpenInApp,
+    ValueChanged<Rect>? onNotifyCustomer,
     ThemeMode? mode,
   }) {
     final home = Scaffold(
@@ -53,6 +54,7 @@ void main() {
           progress: progress,
           arrived: arrived,
           onOpenInApp: onOpenInApp,
+          onNotifyCustomer: onNotifyCustomer,
         ),
       ),
     );
@@ -185,6 +187,55 @@ void main() {
       expect(taps, 1);
     });
 
+    testWidgets('onNotifyCustomer adds a brand share button, 48 px, between '
+        'the address and the open-in-app button, "Avisar cliente", that hands '
+        'over its own rect', (tester) async {
+      final origins = <Rect>[];
+      await pumpCard(
+        tester,
+        progress: progress,
+        onOpenInApp: () {},
+        onNotifyCustomer: origins.add,
+      );
+
+      final button = find.byTooltip('Avisar cliente');
+      expect(button, findsOneWidget);
+      expect(tester.getSize(button), const Size.square(48));
+      final icon = tester.widget<Icon>(
+        find.descendant(of: button, matching: find.byType(Icon)),
+      );
+      expect(icon.icon, Icons.share);
+      expect(icon.color, RbColors.brand);
+      final address = find.text('Rua Augusta, 500 - Consolação, São Paulo');
+      expect(
+        tester.getTopLeft(button).dx,
+        greaterThan(tester.getTopRight(address).dx),
+      );
+      expect(
+        tester.getTopRight(button).dx,
+        lessThanOrEqualTo(
+          tester.getTopLeft(find.byTooltip('Abrir em outro app')).dx,
+        ),
+      );
+
+      await tester.tap(button);
+      expect(origins, [tester.getRect(button)]);
+    });
+
+    testWidgets('on iOS the share button uses the iOS share icon', (
+      tester,
+    ) async {
+      await pumpCard(tester, progress: progress, onNotifyCustomer: (_) {});
+
+      final icon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byTooltip('Avisar cliente'),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(icon.icon, Icons.ios_share);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
     testWidgets('without onOpenInApp there is no button', (tester) async {
       await pumpCard(tester, progress: progress);
 
@@ -305,6 +356,27 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('the share button stays reachable with its tooltip, outside '
+        'the merged label', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpCard(
+        tester,
+        progress: progress,
+        onOpenInApp: () {},
+        onNotifyCustomer: (_) {},
+      );
+
+      expect(
+        tester.getSemantics(find.byTooltip('Avisar cliente')).tooltip,
+        'Avisar cliente',
+      );
+      expect(
+        tester.getSemantics(find.byType(NextStopCard)).label,
+        isNot(contains('Avisar cliente')),
+      );
+      semantics.dispose();
+    });
+
     testWidgets('the open-in-app button stays reachable with its tooltip, '
         'outside the merged label', (tester) async {
       final semantics = tester.ensureSemantics();
@@ -331,6 +403,7 @@ void main() {
         tester,
         progress: progress,
         onOpenInApp: () {},
+        onNotifyCustomer: (_) {},
         mode: ThemeMode.dark,
       );
 
@@ -364,6 +437,13 @@ void main() {
         ),
       );
       expect(icon.color, const Color(0xFF7EA6F8));
+      final share = tester.widget<Icon>(
+        find.descendant(
+          of: find.byTooltip('Avisar cliente'),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(share.color, const Color(0xFF7EA6F8));
     });
 
     testWidgets('"Você chegou" is #12B76A', (tester) async {
@@ -393,7 +473,50 @@ void main() {
 
         await expectAccessibleGuidelines(tester);
       });
+
+      testWidgets('with both buttons it meets the contrast, tap target and '
+          'label guidelines in ${mode.name} mode', (tester) async {
+        await pumpCard(
+          tester,
+          progress: progress,
+          onOpenInApp: () {},
+          onNotifyCustomer: (_) {},
+          mode: mode,
+        );
+
+        await expectAccessibleGuidelines(tester);
+      });
     }
+
+    testWidgets('with both buttons at 200% text on a 360×800 phone, the '
+        'address wraps to at most 2 lines with an ellipsis and nothing '
+        'overflows', (tester) async {
+      await setLargeTextPhone(tester);
+      await pumpCard(
+        tester,
+        progress: progress,
+        onOpenInApp: () {},
+        onNotifyCustomer: (_) {},
+        mode: ThemeMode.light,
+      );
+
+      expect(tester.takeException(), isNull);
+      expectNoClippedText(tester);
+      final address = tester.renderObject<RenderParagraph>(
+        find.text('Rua Augusta, 500 - Consolação, São Paulo'),
+      );
+      expect(address.maxLines, 2);
+      expect(address.overflow, TextOverflow.ellipsis);
+      expect(address.didExceedMaxLines, isTrue);
+      expect(
+        tester.getSize(find.byTooltip('Avisar cliente')),
+        const Size.square(48),
+      );
+      expect(
+        tester.getSize(find.byTooltip('Abrir em outro app')),
+        const Size.square(48),
+      );
+    });
 
     testWidgets('arrived, it lays out at 200% text on a 360×800 phone with '
         '"Você chegou" whole at the system scale', (tester) async {
