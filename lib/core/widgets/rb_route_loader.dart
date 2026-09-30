@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/rb_palette.dart';
 
-/// Looping "route being drawn" indicator: a faint track in `border`, the
-/// travelled stretch in `brand` and a dot at its head. The head runs the
-/// whole path first, then the tail catches up, so the loop has no jump.
+/// Looping "route being drawn" loading indicator.
 class RbRouteLoader extends StatefulWidget {
   const RbRouteLoader({
     super.key,
@@ -73,9 +71,8 @@ class RouteLoaderPainter extends CustomPainter {
   static const double strokeWidth = 4;
   static const double dotRadius = 5;
 
-  /// Fractions of the path length that are drawn at cycle position [t]
-  /// (0..1): the head travels during the first half, the tail during the
-  /// second, both eased.
+  /// Drawn stretch at cycle position [t] (0..1), as path fractions; the tail
+  /// moves only once the head has arrived, so the loop never jumps.
   static ({double tail, double head}) segmentFor(double t) {
     if (t < 0.5) {
       return (tail: 0, head: Curves.easeInOut.transform(t * 2));

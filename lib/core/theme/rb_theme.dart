@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'rb_palette.dart';
 import 'rb_tokens.dart';
 
-/// Material 3 theme built from one Rota palette, attached to it as a theme
-/// extension.
+/// Material 3 theme from [palette], which it also carries as an extension.
 ThemeData buildRbTheme([RbPalette palette = RbPalette.light]) {
   final scheme = ColorScheme(
     brightness: palette.brightness,
@@ -57,9 +56,8 @@ ThemeData buildRbTheme([RbPalette palette = RbPalette.light]) {
     extensions: [palette],
   );
 
-  // Replace (not merge) the text theme: `ThemeData()` merges over
-  // `Typography.black` (`.white` in dark), which would leak a platform
-  // `fontFamily`.
+  // Replaces the text theme instead of merging it: `ThemeData()` merges over
+  // `Typography.black`/`.white`, which would leak a platform `fontFamily`.
   return base.copyWith(
     textTheme: _textTheme.apply(
       bodyColor: palette.ink,
@@ -73,9 +71,7 @@ OutlineInputBorder _outline(Color color) => OutlineInputBorder(
   borderSide: BorderSide(color: color),
 );
 
-/// Rota styles mapped onto the Material slots. Primary mapping:
-/// display → displaySmall, title → titleLarge, heading → titleMedium,
-/// bodyStrong → bodyLarge, body → bodyMedium, caption → bodySmall.
+/// Rota text styles mapped onto the Material slots.
 const TextTheme _textTheme = TextTheme(
   displayLarge: RbText.display,
   displayMedium: RbText.display,

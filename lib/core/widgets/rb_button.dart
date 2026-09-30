@@ -3,12 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/rb_palette.dart';
 import '../theme/rb_tokens.dart';
 
-/// Primary action button.
-///
-/// Enabled and disabled states share the same radius and a height of 52 so
-/// the button never moves between states; a label that wraps (large text)
-/// grows it. While [loading] a spinner covers the hidden label, which keeps
-/// the height, and taps are ignored.
+/// Primary action button that keeps its size across states; while [loading]
+/// a spinner replaces the label and taps are ignored.
 class RbPrimaryButton extends StatelessWidget {
   const RbPrimaryButton({
     super.key,
@@ -87,10 +83,7 @@ class RbPrimaryButton extends StatelessWidget {
   }
 }
 
-/// Secondary action button: a 1 px `brand` outline on a transparent fill
-/// with its label in `brandStrong`, sized like [RbPrimaryButton] (at least
-/// 52 high, growing with a label that wraps). Disabled, the outline takes
-/// `border` and the label `inkMuted`, and taps are ignored.
+/// Secondary action button: outlined, sized like [RbPrimaryButton].
 class RbSecondaryButton extends StatelessWidget {
   const RbSecondaryButton({
     super.key,

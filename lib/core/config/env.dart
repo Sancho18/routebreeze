@@ -1,7 +1,5 @@
-/// Build-time configuration injected with `--dart-define-from-file=env.json`.
-///
-/// The key never lives in source control: `env.json` is gitignored and
-/// created from `env.example.json` (or with `tool/set_api_key.sh <KEY>`).
+/// Build-time configuration from `--dart-define-from-file=env.json`; the file
+/// is gitignored, so the key stays out of source control.
 abstract final class Env {
   static const String googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',

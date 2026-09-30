@@ -23,7 +23,7 @@ class AddressFieldWidget extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<Suggestion> onSuggestionSelected;
 
-  /// Present only for fields beyond the first three.
+  /// Shows a remove button when set.
   final VoidCallback? onRemove;
 
   @override

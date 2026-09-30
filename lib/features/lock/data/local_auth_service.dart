@@ -30,14 +30,10 @@ class LocalAuthServiceImpl implements LocalAuthService {
     }
   }
 
-  // noBiometricHardware/noBiometricsEnrolled map to `unavailable`, not to
-  // noCredentials: with biometricOnly=false a missing credential surfaces as
-  // noCredentialsSet, so these codes mean the platform could not
-  // authenticate at all, and "configure a screen lock" would mislead a user
-  // who has one.
+  // With biometricOnly false, a missing screen lock comes as noCredentialsSet,
+  // so the no-biometrics codes mean `unavailable`, not a missing lock.
   static AuthResult _map(LocalAuthExceptionCode code) => switch (code) {
-    // authInProgress: another prompt is already open and will answer; this
-    // attempt is a no-op, not a failure.
+    // authInProgress: another open prompt will answer; not a failure.
     LocalAuthExceptionCode.userCanceled ||
     LocalAuthExceptionCode.systemCanceled ||
     LocalAuthExceptionCode.timeout ||

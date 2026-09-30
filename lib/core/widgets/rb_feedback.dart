@@ -57,8 +57,7 @@ class RbStatusChip extends StatelessWidget {
   }
 }
 
-/// Full-width banner at the top of a screen (e.g. "Sem conexão"); announced
-/// as a live region.
+/// Full-width banner (e.g. "Sem conexão"), announced as a live region.
 class RbBanner extends StatelessWidget {
   const RbBanner({super.key, required this.text, required this.tone});
 

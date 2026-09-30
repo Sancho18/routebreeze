@@ -19,12 +19,8 @@ double haversineMeters(GeoPoint a, GeoPoint b) {
   return 2 * earthRadiusMeters * math.asin(math.min(1, math.sqrt(h)));
 }
 
-/// Minimum distance in meters from [point] to the polyline [line].
-///
-/// Each vertex is projected onto a local equirectangular plane centered on
-/// [point] (x = Δlng·cos(lat)·R, y = Δlat·R), then the smallest
-/// point-to-segment distance is taken. A single-point line yields the
-/// distance to that point; an empty line yields `double.infinity`.
+/// Minimum distance in meters from [point] to the polyline [line], on a local
+/// plane around [point]; `double.infinity` when [line] is empty.
 double distanceToPolylineMeters(GeoPoint point, List<GeoPoint> line) {
   if (line.isEmpty) return double.infinity;
   if (line.length == 1) return haversineMeters(point, line.first);
@@ -40,10 +36,8 @@ double distanceToPolylineMeters(GeoPoint point, List<GeoPoint> line) {
   return best;
 }
 
-/// Where [point] falls on the segment [a]→[b]: the distance in meters to the
-/// closest point of the segment and how far along the segment that point
-/// lies (`fraction` 0 at [a], 1 at [b]). Same plane as
-/// [distanceToPolylineMeters].
+/// Distance in meters from [point] to the segment [a]→[b], and where the
+/// closest point lies along it (`fraction` 0 at [a], 1 at [b]).
 ({double meters, double fraction}) projectOntoSegment(
   GeoPoint point,
   GeoPoint a,
@@ -54,8 +48,7 @@ double distanceToPolylineMeters(GeoPoint point, List<GeoPoint> line) {
   return (meters: closest.distance, fraction: closest.t);
 }
 
-/// Local equirectangular plane centered on [origin]:
-/// x = Δlng·cos(lat)·R, y = Δlat·R.
+/// Projection onto a local equirectangular plane (meters) around [origin].
 math.Point<double> Function(GeoPoint) _planeAround(GeoPoint origin) {
   final cosLat = math.cos(_radians(origin.lat));
   return (p) => math.Point(
@@ -64,9 +57,8 @@ math.Point<double> Function(GeoPoint) _planeAround(GeoPoint origin) {
   );
 }
 
-/// The point of segment [a]→[b] closest to the plane origin: its distance
-/// to the origin and its position `t` along the segment (0..1). A segment
-/// with no length is its start.
+/// The point of segment [a]→[b] closest to the origin, as its distance and
+/// its position `t` along the segment (0..1).
 ({double distance, double t}) _closestToOrigin(
   math.Point<double> a,
   math.Point<double> b,
@@ -81,9 +73,8 @@ math.Point<double> Function(GeoPoint) _planeAround(GeoPoint origin) {
   return (distance: (a + d * t).magnitude, t: t);
 }
 
-/// Index of the point in [points] farthest (great-circle) from [origin].
-///
-/// Throws [ArgumentError] when [points] is empty.
+/// Index of the point in [points] farthest (great-circle) from [origin];
+/// throws [ArgumentError] when [points] is empty.
 int farthestIndex(GeoPoint origin, List<GeoPoint> points) {
   if (points.isEmpty) {
     throw ArgumentError.value(points, 'points', 'must not be empty');

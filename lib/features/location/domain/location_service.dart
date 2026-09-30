@@ -13,11 +13,8 @@ abstract class LocationService {
   /// [timeout].
   Future<Fix> currentFix({Duration timeout = const Duration(seconds: 15)});
 
-  /// Best-accuracy stream with one event per [distanceFilterMeters] moved.
-  /// On iOS, [background] turns on background updates, with the location
-  /// indicator and without automatic pauses. On Android the settings are the
-  /// same either way; the navigation's foreground service is what keeps the
-  /// app tracking in background.
+  /// Best-accuracy stream, one event per [distanceFilterMeters] moved;
+  /// [background] turns on background updates on iOS only.
   Stream<Fix> watch({int distanceFilterMeters = 5, bool background = false});
 
   Future<void> openAppSettings();

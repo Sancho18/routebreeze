@@ -1,8 +1,7 @@
 import 'package:equatable/equatable.dart';
 
-/// One error vocabulary from the data layer to the UI.
-///
-/// Every variant carries the pt-BR copy the screens show (`userMessage`).
+/// Errors from the data layer to the UI; [userMessage] is the pt-BR copy the
+/// screens show.
 sealed class Failure extends Equatable {
   const Failure();
 

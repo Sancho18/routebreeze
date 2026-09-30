@@ -15,18 +15,16 @@ import '../../route/domain/route_plan.dart';
 import '../domain/fix.dart';
 import 'map_cubit.dart';
 
-/// Builds the map for a known start and calls [onMapReady] once the map is
-/// created; tests inject a placeholder because the real `GoogleMap` cannot
-/// render in widget tests.
+/// Builds the map at a known start and calls [onMapReady] once it is created.
+/// Tests pass a placeholder: `GoogleMap` cannot render in widget tests.
 typedef MapBuilder = Widget Function(
   BuildContext context,
   Fix start,
   VoidCallback onMapReady,
 );
 
-/// Map screen: obtains the start fix (or shows the permission/service card)
-/// and offers to resume a persisted, unfinished route. A branded loading
-/// overlay covers the screen until the fix arrives and the map is drawn.
+/// Map screen: gets the start fix and offers to resume a saved route. A
+/// loading overlay covers it until the fix arrives and the map is drawn.
 class MapScreen extends StatefulWidget {
   const MapScreen({
     super.key,
@@ -38,8 +36,7 @@ class MapScreen extends StatefulWidget {
 
   final void Function(Fix start) onContinue;
 
-  /// "Continuar" on the resume offer: the persisted [RoutePlan] and the
-  /// current start fix.
+  /// "Continuar" on the resume offer, with the saved plan and the current fix.
   final void Function(RoutePlan plan, Fix start) onResume;
 
   /// Overrides the cubit from `getIt` (tests).
@@ -202,8 +199,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   }
 }
 
-/// App name, the route loader and the caption over `surface-100`; shown
-/// while the start fix is fetched and the map is created.
 class _LoadingOverlay extends StatelessWidget {
   const _LoadingOverlay({super.key});
 

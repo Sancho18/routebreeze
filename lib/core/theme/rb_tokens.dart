@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Rota design system: the only source of colors, text styles, spacing and
-/// radii used by the app.
+/// Rota design system tokens: colors, text styles, spacing and radii. The
+/// dark palette that extends them is `RbPalette.dark`.
 
 abstract final class RbColors {
   static const Color brand = Color(0xFF2A6DF4);
@@ -15,8 +15,8 @@ abstract final class RbColors {
   static const Color border = Color(0xFFE2E5EA);
 }
 
-/// Text styles as size / line height / weight. No `fontFamily`: the platform
-/// default font is used. Colors are applied by the theme or widgets.
+/// Text styles with no `fontFamily`, so the platform default font is used;
+/// colors come from the theme or the widgets.
 abstract final class RbText {
   static const TextStyle display = TextStyle(
     fontSize: 34,

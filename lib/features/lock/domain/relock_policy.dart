@@ -4,8 +4,6 @@ class RelockPolicy {
 
   final Duration threshold;
 
-  /// True when the app was in background for [threshold] or more and no
-  /// navigation is active.
   bool shouldRelock({
     required Duration inBackground,
     required bool navigationActive,

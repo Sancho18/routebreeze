@@ -1,9 +1,6 @@
 import 'dart:ui' show Brightness;
 
-/// Google Maps style for dark mode, from the dark palette: land #1A1D23
-/// (surface-200), water #0F1115 (surface-100), local roads #2F343D (border),
-/// arterials and highways #3A404B, POI and transit #242830 (between land and
-/// roads), labels #A4ACB9 (ink-muted) outlined in #0F1115.
+/// Google Maps style for dark mode, built on the `RbPalette.dark` colors.
 const String rbDarkMapStyle = '''
 [
   {"elementType": "geometry", "stylers": [{"color": "#1a1d23"}]},
@@ -17,7 +14,6 @@ const String rbDarkMapStyle = '''
   {"featureType": "water", "elementType": "geometry", "stylers": [{"color": "#0f1115"}]}
 ]''';
 
-/// The map style for [brightness]: the dark style in dark mode, Google's
-/// default (null) in light mode.
+/// The style for [brightness]; null means Google's default (light mode).
 String? mapStyleFor(Brightness brightness) =>
     brightness == Brightness.dark ? rbDarkMapStyle : null;

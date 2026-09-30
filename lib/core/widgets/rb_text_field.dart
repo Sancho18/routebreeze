@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/rb_palette.dart';
 import '../theme/rb_tokens.dart';
 
-/// Design-system text field with an optional [trailing] widget and
-/// [errorText] rendered under the field.
+/// Design-system text field.
 class RbTextField extends StatelessWidget {
   const RbTextField({
     super.key,

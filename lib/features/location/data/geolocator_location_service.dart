@@ -5,8 +5,7 @@ import '../../../core/geo/geo_point.dart';
 import '../domain/fix.dart';
 import '../domain/location_service.dart';
 
-/// [LocationService] over `geolocator`, addressed through
-/// [GeolocatorPlatform] so tests can swap the platform.
+/// [LocationService] over [GeolocatorPlatform], which tests can replace.
 class GeolocatorLocationService implements LocationService {
   GeolocatorLocationService({GeolocatorPlatform? platform})
     : _platform = platform ?? GeolocatorPlatform.instance;
@@ -50,10 +49,8 @@ class GeolocatorLocationService implements LocationService {
           )
           .map(_toFix);
 
-  /// Stream settings for [platform]. On iOS in [background], updates keep
-  /// coming with the location indicator and without automatic pauses. On
-  /// Android the navigation's foreground service keeps them coming, so the
-  /// geolocator notification stays off.
+  /// Stream settings for [platform]. Android needs no geolocator notification:
+  /// the navigation's foreground service keeps updates coming in background.
   static LocationSettings settingsFor({
     required TargetPlatform platform,
     required int distanceFilterMeters,

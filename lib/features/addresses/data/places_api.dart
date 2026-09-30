@@ -111,7 +111,6 @@ class PlacesApiImpl implements PlacesApi {
   }
 
   /// `placePrediction` entries only; `queryPrediction` entries are skipped.
-  /// Without `structuredFormat` the full `text` becomes the main text.
   static Suggestion? _toSuggestion(Object? item) {
     if (item is! Map) return null;
     final prediction = item['placePrediction'];

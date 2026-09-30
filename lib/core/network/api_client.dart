@@ -10,8 +10,7 @@ const Duration apiTimeout = Duration(seconds: 10);
 /// Delay before the single retry on a connection error.
 const Duration retryDelay = Duration(seconds: 2);
 
-/// A [Dio] for Google web services; [adapter] replaces the HTTP transport
-/// (tests).
+/// A [Dio] for Google web services; [adapter] replaces the transport in tests.
 Dio buildGoogleDio({required String apiKey, HttpClientAdapter? adapter}) {
   final dio = Dio(
     BaseOptions(

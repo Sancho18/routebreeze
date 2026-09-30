@@ -14,8 +14,7 @@ import '../domain/stop.dart';
 import 'address_field_widget.dart';
 import 'address_form_cubit.dart';
 
-/// Address entry screen: "Ponto A/B/C…" fields with the offline banner on
-/// top and the round-trip switch above "Confirmar rota".
+/// Address entry screen for the stops and the round-trip choice.
 class AddressesScreen extends StatefulWidget {
   const AddressesScreen({
     super.key,
@@ -28,7 +27,6 @@ class AddressesScreen extends StatefulWidget {
   /// Start position: autocomplete bias.
   final GeoPoint start;
 
-  /// The confirmed stops and whether the route returns to its start.
   final void Function(List<Stop> stops, bool roundTrip) onConfirmed;
 
   /// Overrides the cubit from `getIt` (tests).
@@ -173,7 +171,6 @@ class _AddressesScreenState extends State<AddressesScreen> {
   }
 }
 
-/// [on] while the switch is on, [off] otherwise.
 WidgetStateProperty<Color> _byPosition({
   required Color on,
   required Color off,

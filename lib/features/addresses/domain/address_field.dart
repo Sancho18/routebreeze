@@ -28,8 +28,6 @@ class AddressField extends Equatable {
   final bool loading;
   final String? error;
 
-  /// Valid only while a suggestion is selected and the text was not edited
-  /// since.
   bool get isValid => selected != null && text == selected!.address;
 
   AddressField copyWith({

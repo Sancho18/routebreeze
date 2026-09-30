@@ -33,9 +33,7 @@ import '../session/session_state.dart';
 
 final GetIt getIt = GetIt.instance;
 
-/// Composition root.
-///
-/// [apiKey] overrides `Env.googleMapsApiKey` (tests).
+/// Composition root; [apiKey] overrides `Env.googleMapsApiKey` in tests.
 Future<void> configureDependencies({String? apiKey}) async {
   getIt
     ..registerLazySingleton<Dio>(
@@ -99,8 +97,7 @@ Future<void> configureDependencies({String? apiKey}) async {
       () => LockCubit(getIt<LocalAuthService>()),
     )
     ..registerLazySingleton<SessionState>(SessionState.new);
-  // Once, before any service or notification. iOS asks for no permission
-  // here.
+  // Once, before any use; the iOS permission is asked later, not here.
   try {
     await getIt<FlutterLocalNotificationsPlugin>().initialize(
       settings: const InitializationSettings(

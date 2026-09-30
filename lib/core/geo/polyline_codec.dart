@@ -1,10 +1,7 @@
 import 'geo_point.dart';
 
-/// Decodes a Google encoded polyline (precision 1e-5) into points.
-///
-/// Throws [FormatException] on malformed input: a chunk cut before its
-/// terminating character, a latitude without its longitude, or a character
-/// below `?` (63).
+/// Decodes a Google encoded polyline (precision 1e-5) into points; throws
+/// [FormatException] on malformed input.
 List<GeoPoint> decodePolyline(String encoded) {
   final points = <GeoPoint>[];
   var index = 0;

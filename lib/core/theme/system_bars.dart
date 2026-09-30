@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Transparent status and navigation bars whose icons contrast with a theme
-/// of [brightness]: dark icons in light mode, light icons in dark mode.
+/// Transparent system bars with icons that contrast with a [brightness] theme.
 SystemUiOverlayStyle rbSystemBarsFor(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final icons = dark ? Brightness.light : Brightness.dark;

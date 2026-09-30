@@ -17,11 +17,8 @@ import 'features/navigation/presentation/navigation_screen.dart';
 import 'features/route/domain/route_plan.dart';
 import 'features/route/presentation/route_screen.dart';
 
-/// Root widget: light and dark themes following the device, named routes,
-/// the system bar style and the lifecycle re-lock gate.
-///
-/// [now] is the clock used by the gate (tests inject a fake one);
-/// [navigatorObservers] are forwarded to the root navigator.
+/// Root widget: themes, named routes and the re-lock gate. [now] is the
+/// gate's clock, replaced in tests.
 class RouteBreezeApp extends StatefulWidget {
   const RouteBreezeApp({
     super.key,
@@ -54,8 +51,6 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'RouteBreeze',
-      // Debug builds on the simulator, used for the README images, show the
-      // app as released.
       debugShowCheckedModeBanner: false,
       theme: buildRbTheme(),
       darkTheme: buildRbTheme(RbPalette.dark),
@@ -113,8 +108,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
           return NavigationScreen(
             plan: args.plan,
             onExit: () => Navigator.of(context).pop(),
-            // "Nova rota" goes back to the Map screen so the next route starts
-            // from a fresh position; the cubit already cleared the persisted one.
+            // Back to the Map screen for a fresh start position; the cubit
+            // has already cleared the saved route.
             onNewRoute: () =>
                 Navigator.of(context)
                     .pushNamedAndRemoveUntil('/map', (_) => false),
@@ -133,10 +128,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
   }
 }
 
-/// Records when the app leaves the foreground and, on return, re-locks
-/// per [RelockPolicy]. Tells the live navigation when the app goes to
-/// background and comes back; the navigation keeps its position stream
-/// while navigating and pauses it while waiting for GPS.
+/// Re-locks on return from background per [RelockPolicy], and tells the
+/// live navigation, through [SessionState], when the app pauses and resumes.
 class AppLifecycleGate extends StatefulWidget {
   const AppLifecycleGate({
     super.key,

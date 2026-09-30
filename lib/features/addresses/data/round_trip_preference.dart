@@ -1,15 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// The last "Voltar ao ponto de partida" choice, kept across routes and
-/// restarts.
+/// The last "Voltar ao ponto de partida" choice, kept across restarts.
 abstract class RoundTripPreference {
   Future<bool> load();
 
   Future<void> save(bool value);
 }
 
-/// `shared_preferences` implementation: one bool under [key]; a missing key
-/// (first use) reads as false.
+/// `shared_preferences` storage; false until a choice is saved.
 class RoundTripPreferenceImpl implements RoundTripPreference {
   static const String key = 'round_trip';
 

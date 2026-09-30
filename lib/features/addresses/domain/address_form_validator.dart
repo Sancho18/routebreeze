@@ -13,9 +13,8 @@ class ValidationResult extends Equatable {
   List<Object?> get props => [errors, isValid];
 }
 
-/// Form rules: every present field must hold a selected suggestion, placeIds
-/// must be unique (the later field gets the error) and at least [minFields]
-/// fields must exist.
+/// Form rules: every field holds a selected suggestion, with no repeated
+/// place (the later field gets the error), and at least [minFields] exist.
 abstract final class AddressFormValidator {
   static const int minFields = 3;
 

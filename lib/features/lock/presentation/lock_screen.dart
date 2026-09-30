@@ -8,8 +8,7 @@ import '../../../core/widgets/rb_button.dart';
 import '../domain/auth_result.dart';
 import 'lock_cubit.dart';
 
-/// Lock screen: prompts on the first frame, shows the failure copy per
-/// reason and lets the user retry.
+/// Lock screen: prompts on the first frame and lets the user retry.
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.onUnlocked, this.cubit});
 
@@ -45,8 +44,7 @@ class _LockScreenState extends State<LockScreen> {
         return Scaffold(
           backgroundColor: rb.surface200,
           body: SafeArea(
-            // Fills the screen; with large text the content can outgrow it
-            // and then scrolls instead of overflowing.
+            // Fills the screen, and scrolls when large text outgrows it.
             child: CustomScrollView(
               slivers: [
                 SliverFillRemaining(
@@ -57,8 +55,7 @@ class _LockScreenState extends State<LockScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Spacer(),
-                        // One word: with large text it shrinks to the width
-                        // instead of breaking inside the name.
+                        // Large text shrinks the name instead of breaking it.
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(

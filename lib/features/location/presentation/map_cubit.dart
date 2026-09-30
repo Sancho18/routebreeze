@@ -30,16 +30,14 @@ class MapState extends Equatable {
   /// The start fix; set only when [status] is `ready`.
   final Fix? start;
 
-  /// A persisted, unfinished route to offer with "Continuar rota?"; set only
-  /// with `ready`.
+  /// An unfinished persisted route to resume; set only with `ready`.
   final RoutePlan? resumable;
 
   @override
   List<Object?> get props => [status, start, resumable];
 }
 
-/// Permission flow and start fix for the Map screen, plus the offer to
-/// resume a persisted route.
+/// Permission flow, start fix and resume offer for the Map screen.
 class MapCubit extends Cubit<MapState> {
   MapCubit(this._location, {this._routes}) : super(const MapState());
 
@@ -49,11 +47,9 @@ class MapCubit extends Cubit<MapState> {
   /// Accepted horizontal accuracy for the start fix.
   static const double maxAccuracyMeters = 50;
 
-  /// Time allowed for the first fix.
   static const Duration fixTimeout = Duration(seconds: 15);
 
-  /// Any failure to check access or get the fix (timeout, platform error)
-  /// ends in [MapStatus.timeout], whose card offers "Tentar novamente".
+  /// Any failure to check access or get the fix ends in [MapStatus.timeout].
   Future<void> init() async {
     if (state.status != MapStatus.checking) emit(const MapState());
     final Fix fix;

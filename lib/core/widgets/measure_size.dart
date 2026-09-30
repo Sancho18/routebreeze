@@ -1,9 +1,8 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-/// Reports its child's size after every layout that changes it (the first
-/// one included), once that frame is done. Screens use it to tell the map
-/// how much of it an overlay covers.
+/// Reports its child's size after the frame of every layout that changes it,
+/// the first one included.
 class MeasureSize extends SingleChildRenderObjectWidget {
   const MeasureSize({super.key, required this.onChange, super.child});
 
