@@ -9,16 +9,21 @@ import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
+import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
+import 'package:routebreeze/features/navigation/domain/navigation_app.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
+import 'package:routebreeze/features/navigation/presentation/open_in_app_sheet.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
+
+class MockNavigationAppLauncher extends Mock implements NavigationAppLauncher {}
 
 /// Canvas drawing needs real async; the fake answers with a hue per number
 /// and a fixed hue for the position dot.
@@ -58,11 +63,18 @@ void main() {
   const mapKey = Key('map-placeholder');
 
   late MockNavigationCubit cubit;
+  late MockNavigationAppLauncher launcher;
   late List<NavigationMapModel> mapsBuilt;
   late int exits;
   late int newRoutes;
 
+  setUpAll(() {
+    registerFallbackValue(NavigationApp.waze);
+    registerFallbackValue(a);
+  });
+
   setUp(() {
+    launcher = MockNavigationAppLauncher();
     mapsBuilt = [];
     exits = 0;
     newRoutes = 0;
@@ -85,6 +97,7 @@ void main() {
           plan: plan,
           cubit: cubit,
           markers: FakeMapMarkers(),
+          appLauncher: launcher,
           mapBuilder: (_, model) {
             mapsBuilt.add(model);
             return const SizedBox.expand(key: mapKey);
@@ -102,6 +115,15 @@ void main() {
 
   Set<String> markerIds(NavigationMapModel model) =>
       model.markers.map((m) => m.markerId.value).toSet();
+
+  /// A point on the map between the next stop card and the sheet, where the
+  /// map itself (not an overlay) takes the touch.
+  Offset visibleMap(WidgetTester tester) => Offset(
+    120,
+    (tester.getBottomLeft(find.byType(NextStopCard)).dy +
+            tester.getTopLeft(find.byType(RouteSheet)).dy) /
+        2,
+  );
 
   group('NavigationScreen', () {
     testWidgets('prepares on open; without a good fix it shows '
@@ -363,10 +385,9 @@ void main() {
       );
 
       // The placeholder map has no hittable content; the detector above it
-      // still receives the pointer events. Touch the upper part of the map,
-      // away from the sheet that covers its lower half.
-      final point =
-          tester.getTopLeft(find.byKey(mapKey)) + const Offset(120, 120);
+      // still receives the pointer events. Touch the map between the card
+      // and the sheet, which cover its edges.
+      final point = visibleMap(tester);
       await tester.tapAt(point);
       await tester.dragFrom(point, const Offset(4, 4));
       await tester.pump();
@@ -390,10 +411,7 @@ void main() {
         ),
       );
 
-      await tester.dragFrom(
-        tester.getTopLeft(find.byKey(mapKey)) + const Offset(120, 120),
-        const Offset(0, -80),
-      );
+      await tester.dragFrom(visibleMap(tester), const Offset(0, -80));
       await tester.pump();
 
       verifyNever(() => cubit.onMapDragged());
@@ -594,6 +612,28 @@ void main() {
         expect(padding.top, 0);
         expect(padding.bottom, tester.getSize(find.byType(RouteSheet)).height);
       });
+    });
+    testWidgets('"Abrir em outro app" on the card offers the apps for the '
+        'next stop and hands it to the chosen one', (tester) async {
+      when(() => launcher.open(any(), any())).thenAnswer((_) async => true);
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan.markVisited('pa'),
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Abrir em outro app'));
+      await tester.pumpAndSettle();
+      expect(find.byType(OpenInAppSheet), findsOneWidget);
+
+      await tester.tap(find.text('Google Maps'));
+      await tester.pumpAndSettle();
+
+      verify(() => launcher.open(NavigationApp.googleMaps, b)).called(1);
+      expect(find.byType(OpenInAppSheet), findsNothing);
     });
   });
 }

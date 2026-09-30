@@ -7,14 +7,17 @@ import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/measure_size.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
+import '../../addresses/domain/stop.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/presentation/map_markers.dart';
 import '../../route/presentation/route_format.dart';
 import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
+import '../data/navigation_app_launcher.dart';
 import '../domain/progress_estimator.dart';
 import 'navigation_cubit.dart';
 import 'next_stop_card.dart';
+import 'open_in_app_sheet.dart';
 
 /// What the navigation map draws and where its camera goes.
 class NavigationMapModel {
@@ -56,6 +59,7 @@ class NavigationScreen extends StatefulWidget {
     this.cubit,
     this.mapBuilder,
     this.markers,
+    this.appLauncher,
   });
 
   final RoutePlan plan;
@@ -71,6 +75,9 @@ class NavigationScreen extends StatefulWidget {
   final NavigationMapBuilder? mapBuilder;
 
   final MapMarkers? markers;
+
+  /// Overrides the launcher from `getIt` (tests).
+  final NavigationAppLauncher? appLauncher;
 
   static const String title = 'Navegação';
   static const String startLabel = 'Iniciar';
@@ -107,6 +114,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
   late final NavigationCubit _cubit =
       widget.cubit ?? getIt<NavigationCubit>(param1: widget.plan);
   late final MapMarkers _markers = widget.markers ?? MapMarkers();
+  late final NavigationAppLauncher _appLauncher =
+      widget.appLauncher ?? getIt<NavigationAppLauncher>();
 
   RoutePlan? _iconsPlan;
   Future<_Icons>? _icons;
@@ -214,6 +223,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
     widget.onExit();
   }
 
+  void _openInApp(Stop stop) =>
+      OpenInAppSheet.show(context, stop: stop, launcher: _appLauncher);
+
   @override
   Widget build(BuildContext context) {
     final mapBuilder = widget.mapBuilder ?? _googleMap;
@@ -247,7 +259,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 left: 0,
                 right: 0,
                 top: 0,
-                child: _TopOverlay(state: state, onMeasured: _onTopMeasured),
+                child: _TopOverlay(
+                  state: state,
+                  onMeasured: _onTopMeasured,
+                  onOpenInApp: _openInApp,
+                ),
               ),
               Positioned(
                 left: 0,
@@ -355,9 +371,14 @@ class _NavigationMapState extends State<_NavigationMap> {
 /// Offline banner and the next stop (while navigating) at the top of the map,
 /// with the recalculation badge and the GPS error under them.
 class _TopOverlay extends StatelessWidget {
-  const _TopOverlay({required this.state, required this.onMeasured});
+  const _TopOverlay({
+    required this.state,
+    required this.onMeasured,
+    required this.onOpenInApp,
+  });
 
   final NavigationState state;
+  final ValueChanged<Stop> onOpenInApp;
 
   /// Size of the banner and the card, which stay while navigating; the
   /// transient chips are left out so they never shift the map.
@@ -414,7 +435,11 @@ class _TopOverlay extends StatelessWidget {
                     RbSpace.s3,
                     0,
                   ),
-                  child: NextStopCard(stop: next, progress: state.progress),
+                  child: NextStopCard(
+                    stop: next,
+                    progress: state.progress,
+                    onOpenInApp: () => onOpenInApp(next.stop),
+                  ),
                 ),
             ],
           ),

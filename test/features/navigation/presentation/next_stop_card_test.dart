@@ -27,17 +27,24 @@ void main() {
     at: DateTime.utc(2026, 9, 28, 14, 28),
   );
 
-  Future<void> pumpCard(WidgetTester tester, {RouteProgress? progress}) =>
-      tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(RbSpace.s3),
-              child: NextStopCard(stop: stop, progress: progress),
-            ),
+  Future<void> pumpCard(
+    WidgetTester tester, {
+    RouteProgress? progress,
+    VoidCallback? onOpenInApp,
+  }) => tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(RbSpace.s3),
+          child: NextStopCard(
+            stop: stop,
+            progress: progress,
+            onOpenInApp: onOpenInApp,
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   Text text(WidgetTester tester, String value) =>
       tester.widget<Text>(find.text(value));
@@ -134,6 +141,39 @@ void main() {
       );
 
       expect(NextStopCard.summary(close), '45 m · < 1 min · chegada às 09:05');
+    });
+    testWidgets('onOpenInApp adds a brand "directions" button, 44 px, at the '
+        'end of the address row, "Abrir em outro app"', (tester) async {
+      var taps = 0;
+      await pumpCard(tester, progress: progress, onOpenInApp: () => taps++);
+
+      final button = find.byTooltip('Abrir em outro app');
+      expect(button, findsOneWidget);
+      expect(tester.getSize(button), const Size.square(44));
+      final icon = tester.widget<Icon>(
+        find.descendant(of: button, matching: find.byType(Icon)),
+      );
+      expect(icon.icon, Icons.directions);
+      expect(icon.color, RbColors.brand);
+      expect(
+        tester.getTopLeft(button).dx,
+        greaterThan(
+          tester
+              .getTopRight(
+                find.text('Rua Augusta, 500 - Consolação, São Paulo'),
+              )
+              .dx,
+        ),
+      );
+
+      await tester.tap(button);
+      expect(taps, 1);
+    });
+
+    testWidgets('without onOpenInApp there is no button', (tester) async {
+      await pumpCard(tester, progress: progress);
+
+      expect(find.byType(IconButton), findsNothing);
     });
   });
 }
