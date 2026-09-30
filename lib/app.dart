@@ -54,6 +54,9 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'RouteBreeze',
+      // Debug builds on the simulator, used for the README images, show the
+      // app as released.
+      debugShowCheckedModeBanner: false,
       theme: buildRbTheme(),
       darkTheme: buildRbTheme(RbPalette.dark),
       themeMode: ThemeMode.system,

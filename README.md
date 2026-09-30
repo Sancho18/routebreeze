@@ -4,6 +4,20 @@ App Flutter de roteirização de entregas: bloqueio biométrico, endereços com 
 
 ![CI](https://github.com/Sancho18/routebreeze/actions/workflows/ci.yml/badge.svg)
 
+<p align="center">
+  <img src="docs/media/addresses-light.png" width="190" alt="Tela Endereços no tema claro: três endereços preenchidos e Voltar ao ponto de partida ligado">
+  <img src="docs/media/route-light.png" width="190" alt="Tela Rota no tema claro: mapa com as paradas numeradas, a ordem otimizada e o retorno ao ponto de partida">
+  <img src="docs/media/navigation-light.png" width="190" alt="Tela Navegação no tema claro: card da próxima parada com distância, tempo e chegada, e a primeira parada entregue">
+  <img src="docs/media/summary-light.png" width="190" alt="Resumo no tema claro: rota concluída com 2 entregues e 1 não entregue">
+</p>
+<p align="center">
+  <img src="docs/media/addresses-dark.png" width="190" alt="Tela Endereços no tema escuro">
+  <img src="docs/media/route-dark.png" width="190" alt="Tela Rota no tema escuro, com o mapa escuro">
+  <img src="docs/media/navigation-dark.png" width="190" alt="Tela Navegação no tema escuro">
+  <img src="docs/media/summary-dark.png" width="190" alt="Resumo no tema escuro">
+</p>
+<p align="center"><sub>Uma ida e volta por três lugares públicos de São Paulo, nos temas claro e escuro, no simulador do iOS.</sub></p>
+
 ## Sobre
 
 O RouteBreeze ajuda um entregador a visitar vários endereços na melhor ordem. O fluxo tem seis passos:
@@ -33,6 +47,10 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Notificações** (`feature/notifications`). No Android, a notificação fixa da navegação mostra a próxima parada e quanto falta até ela ("Próxima parada 2 · Rua Augusta, 500" e "1,2 km · 4 min · chegada às 14:32"). Com o app em segundo plano, nas duas plataformas, avisos contam a chegada à parada, o recálculo e o fim da rota, e somem quando o app volta. A permissão de notificação é pedida no primeiro "Iniciar", e a navegação começa com ou sem ela. Detalhes em "Notificações", nas decisões técnicas.
 
 ## Demonstração
+
+<p align="center">
+  <img src="docs/media/navigation.gif" width="320" alt="Navegação simulada até a primeira parada: o ponto azul anda pela rota, e a distância do card e os totais que faltam diminuem">
+</p>
 
 Vídeo do fluxo completo, gravado no aparelho com o build de release (Samsung Galaxy A71, Android 13): [assistir no Google Drive](https://drive.google.com/file/d/18EI1BpJeX7N34w6d5pvXB7j8HmA2pIkz/view?usp=sharing).
 
@@ -150,7 +168,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 1067 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização e a de notificação, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android, o `res/raw/keep.xml` que mantém o ícone da notificação no build de release e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; o pedido da permissão de notificação no primeiro "Iniciar", antes da navegação, e a notificação da navegação com a parada e os horários do card; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 1068 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização e a de notificação, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android, o `res/raw/keep.xml` que mantém o ícone da notificação no build de release e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; o pedido da permissão de notificação no primeiro "Iniciar", antes da navegação, e a notificação da navegação com a parada e os horários do card; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -192,6 +210,25 @@ Feature-first, com três camadas por feature:
 - `presentation`: Cubits e telas
 
 Estado com `flutter_bloc` (Cubit). Injeção de dependência com `get_it`, montada em `lib/core/di/injector.dart`. As telas aceitam o Cubit e os serviços por parâmetro (usado nos testes); em produção vêm do `get_it`.
+
+As setas apontam para o que cada camada usa:
+
+```mermaid
+flowchart TB
+    presentation["presentation<br/>telas, widgets e Cubits"]
+    data["data<br/>APIs REST, plugins nativos e storage"]
+    domain["domain<br/>modelos, interfaces e regras puras"]
+    maps["Google Maps SDK<br/>(o mapa das telas)"]
+    external["Routes API e Places API (New), GPS, biometria,<br/>notificações, preferências, Google Maps e Waze<br/>e a folha de compartilhamento"]
+    presentation --> data
+    presentation --> domain
+    data --> domain
+    domain -. "RouteRepository" .-> data
+    presentation --> maps
+    data --> external
+```
+
+A seta pontilhada é a única vez que o `domain` usa o `data`: o `RouteRepository` junta a `RoutesApi` e a `RouteStorage` para planejar, salvar e carregar a rota. O `core` (DS Rota, widgets, rede, geo, sessão) serve todas as features.
 
 ```
 lib/
@@ -237,7 +274,21 @@ assets/brand/    imagens de origem do ícone e da abertura
 docs/            decisions.md
 ```
 
-Fluxo de telas: `/lock` → `/map` → `/addresses` → `/route` → `/navigation`. O `AppLifecycleGate` (em `app.dart`) observa o ciclo de vida: rebloqueia ao voltar do segundo plano e avisa a navegação quando o app sai da tela e quando volta. Antes de "Iniciar", a navegação pausa e retoma o stream de posição; depois, continua acompanhando em segundo plano (veja "Bateria e GPS").
+Fluxo de telas, com o nome de cada rota:
+
+```mermaid
+flowchart TB
+    lock["Bloqueio<br/>/lock"] -->|"biometria ou PIN"| map["Mapa<br/>/map"]
+    map -->|"Para onde vamos?"| addresses["Endereços<br/>/addresses"]
+    addresses -->|"Confirmar rota"| route["Rota otimizada<br/>/route"]
+    route -->|"Iniciar"| navigation["Navegação<br/>/navigation"]
+    map -->|"Continuar rota?"| navigation
+    navigation -->|"rota concluída"| summary["Resumo"]
+    summary -->|"Nova rota"| map
+    relock(["Volta do segundo plano após 30 s ou mais,<br/>sem navegação ativa"]) -.-> lock
+```
+
+"Encerrar" volta à tela anterior: a Rota, ou o Mapa numa rota continuada. O `AppLifecycleGate` (em `app.dart`) observa o ciclo de vida: rebloqueia ao voltar do segundo plano e avisa a navegação quando o app sai da tela e quando volta. Antes de "Iniciar", a navegação pausa e retoma o stream de posição; depois, continua acompanhando em segundo plano (veja "Bateria e GPS").
 
 Onde ficam as regras puras (todas com teste de unidade):
 
@@ -304,14 +355,14 @@ A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas so
 - **Escolha.** O interruptor "Voltar ao ponto de partida" fica em Endereços, entre "Adicionar ponto" e "Confirmar rota". Na primeira vez vem desligado; depois, abre com a última escolha confirmada, também depois de reiniciar o app (chave `round_trip` nas `shared_preferences`).
 - **Requisição.** Ligado, a partida vira o destino e todas as paradas viram intermediários, com `optimizeWaypointOrder`. Continua uma requisição por cálculo, e a ordem de todas as paradas já conta com a volta. A resposta traz um trecho a mais, da última parada até a partida, que a rota guarda como o trecho de volta. Desligado, vale a regra do ponto mais distante (veja a decisão acima).
 - **Volta.** A lista termina em "Retorno ao ponto de partida", com uma casa no lugar do número, e os totais da rota e o "Faltam … · término às …" da navegação incluem a volta. Depois do resultado da última parada, o card "Retorno" mostra "Ponto de partida" com a distância, o tempo e o horário de chegada da volta; o leitor de tela o lê numa frase só ("Retorno ao ponto de partida. 3,2 km, 9 min, chegada às 15:40"). O botão "Abrir em outro app" do card passa a partida ao Google Maps ou ao Waze pelas coordenadas, e "Avisar cliente" sai, porque na volta não há cliente.
-- **Fim.** Um fix com precisão ≤ 50 m a até 40 m da partida conclui a rota e mostra o resumo, como a chegada numa parada. Na volta, "Finalizar rota" (botão primário) toma o lugar de "Entregue" e "Não entregue" e conclui a rota sem precisar chegar. "Encerrar" fica embaixo dele e continua a última ação do painel: salva a rota e volta para a tela Rota, como no caminho até uma parada, e o voltar do sistema faz o mesmo. O resumo conta o tempo até a chegada ou o toque.
+- **Fim.** Um fix com precisão ≤ 50 m a até 40 m da partida conclui a rota e mostra o resumo, como a chegada numa parada. Na volta, "Finalizar rota" (botão primário) toma o lugar de "Entregue" e "Não entregue" e conclui a rota sem precisar chegar. "Encerrar" fica embaixo dele e continua a última ação do painel: salva a rota e volta para a tela anterior, como no caminho até uma parada, e o voltar do sistema faz o mesmo. O resumo conta o tempo até a chegada ou o toque.
 - **Recálculo.** Um desvio pede a rota da posição atual pelas paradas que faltam, ainda terminando na partida; na volta, sem parada nenhuma. A partida fica guardada à parte da origem, que o recálculo troca pela posição atual, então o destino e o pino de partida não andam com o entregador. Sem conexão, o recálculo fica pendente como no resto da rota.
 - **Rota salva.** A partida e o trecho de volta ficam salvos com a rota. Uma rota salva antes desta versão continua só de ida.
 
 ### Resultado da entrega e resumo
 
-- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva, a não ser numa ida e volta, que segue até a partida. "Encerrar" volta para a tela Rota sem perder o progresso: a lista mostra os resultados, e "Iniciar" continua da próxima parada, com o mesmo início e a distância percorrida. O voltar do sistema faz o mesmo que "Encerrar" durante a rota e o mesmo que "Nova rota" no resumo; no iOS, o gesto de borda fica desligado nessa tela, e o botão de voltar da barra continua. Um resultado não muda depois de registrado.
-- **Toque duplo.** Um toque em "Entregue", num motivo ou em "Finalizar rota" a menos de 1 s do resultado anterior é ignorado. Cada toque registra a próxima parada, então um toque duplo registraria duas. Numa ida e volta, depois do último resultado, "Finalizar rota" ocupa o lugar de "Entregue", e o segundo toque concluiria a rota.
+- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva, a não ser numa ida e volta, que segue até a partida. "Encerrar" salva a rota sem perder o progresso e volta para a tela anterior. Na tela Rota, a lista mostra os resultados, e "Iniciar" continua da próxima parada, com o mesmo início e a distância percorrida. Numa rota continuada pelo Mapa, a volta é para o Mapa, que só oferece "Continuar rota?" de novo quando a tela do Mapa abre outra vez: depois do bloqueio (30 s ou mais em segundo plano) ou numa nova abertura do app. O voltar do sistema faz o mesmo que "Encerrar" durante a rota e o mesmo que "Nova rota" no resumo; no iOS, o gesto de borda fica desligado nessa tela, e o botão de voltar da barra continua. Um resultado não muda depois de registrado.
+- **Toque duplo.** Um toque em "Entregue", num motivo ou em "Finalizar rota" a menos de 1 s do resultado anterior é ignorado. "Entregue" e o motivo registram a próxima parada, então um toque duplo registraria duas. Numa ida e volta, depois do último resultado, "Finalizar rota" ocupa o lugar de "Entregue", e o segundo toque concluiria a rota.
 - **Chegada.** Um fix com precisão ≤ 50 m a até 40 m da próxima parada troca a distância do card por "Você chegou". A parada continua a próxima até o resultado, mesmo que o entregador se afaste. Enquanto isso, o app não recalcula por desvio, porque para entregar ele pode sair da rua. Se uma resposta de recálculo trouxer outra parada como próxima, o "Você chegou" some. Um recálculo adiado sem conexão é descartado na chegada, junto com o aviso "Recálculo pendente (sem conexão)", e a volta da conexão não pede nada. Depois do resultado, a detecção de desvio recomeça.
 - **Resumo.** O fim da rota troca o painel pelo resumo, nesta ordem: "Rota concluída", as contagens ("3 entregues · 1 não entregue"), a distância e o tempo ("12,4 km percorridos · 1 h 05 min"), os horários ("Início às 08:40 · fim às 09:45"), cada parada não entregue ("Parada 2 · Rua Augusta, 500", com o motivo embaixo) e "Nova rota", que abre o mapa sem rota salva. O início é o primeiro "Iniciar" da rota, mesmo numa rota continuada, e o fim é o último resultado (numa ida e volta, a chegada à partida ou "Finalizar rota"). Com o texto em 200 %, um resumo que não cabe abre em "Nova rota" e rola até o título.
 - **Distância percorrida.** É a soma dos segmentos em linha reta entre fixes consecutivos com precisão ≤ 30 m, o mesmo corte da detecção de desvio. Um fix pior fica de fora, e o próximo fix bom liga ao último bom. Só conta durante a navegação: nada soma antes de "Iniciar". A distância fica na memória e vai para a rota salva a cada resultado, em "Encerrar" e quando o app vai para o segundo plano, nunca a cada fix. Uma rota continuada depois de um reinício retoma a distância salva.
@@ -463,7 +514,7 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 | GPS do aparelho desligado | "Ative a localização do dispositivo para continuar." com "Ativar localização" |
 | GPS impreciso no mapa inicial (sem fix ≤ 50 m em 15 s) | "Não conseguimos uma posição precisa. Verifique se está em local aberto." com "Tentar novamente"; "Para onde vamos?" fica desabilitado |
 | GPS impreciso antes de iniciar a navegação | "Aguardando sinal de GPS" e "Iniciar" desabilitado até um fix ≤ 50 m |
-| Erro no stream de posição | "Perdemos o sinal de GPS" em `dangerStrong`; a última posição é mantida |
+| Erro no stream de posição | "Perdemos o sinal de GPS" em `dangerStrong`; a última posição é mantida e, durante a navegação, o app volta a ouvir o GPS após 5 s, também em segundo plano |
 | Fixes ruins durante a navegação (precisão > 30 m) | Ignorados na detecção de desvio; não disparam recálculo |
 | Sem internet em Endereços | Banner "Sem conexão"; "Confirmar rota" desabilitado; autocomplete suspenso; texto mantido |
 | Sem internet na Rota | O cálculo falha (uma nova tentativa automática após 2 s) e mostra "Não foi possível calcular a rota." com "Tentar novamente" |
@@ -484,11 +535,29 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 | Fix pior que 50 m durante a navegação | O marcador se move, mas a distância e o horário de chegada ficam na última medida boa |
 | Google Maps ou Waze não abre (sem app e sem navegador) | "Não foi possível abrir o <app>." em `dangerStrong` no sheet, que continua aberto para tentar o outro |
 | Rota salva pela versão 0.1.0 (sem o fim de cada trecho) | A navegação segue normal; o card mostra a próxima parada sem distância e tempo, e o painel mostra os totais |
-| Toque duplo em "Entregue" ou num motivo | O toque a menos de 1 s do resultado anterior é ignorado; só uma parada é registrada |
+| Toque duplo em "Entregue", num motivo ou em "Finalizar rota" | O toque a menos de 1 s do resultado anterior é ignorado: só uma parada é registrada, e uma ida e volta não termina sem querer |
 | "Por que não foi entregue?" fechado sem motivo | Nada é registrado; a próxima parada continua a mesma |
 | Entregador anda pela parada depois de chegar | "Você chegou" continua, e o app não recalcula por desvio até o resultado |
 | Volta do segundo plano (30 s ou mais) com o resumo na tela | O resumo continua, sem tela de bloqueio |
 | Rota salva antes dos resultados de entrega | Paradas visitadas contam como entregues; o início passa a ser o "Iniciar" da continuação |
+| Rota salva antes da ida e volta | Continua como rota só de ida |
+| App fechado pelo sistema na volta à partida | A próxima abertura oferece "Continuar rota?", e a navegação segue com o card "Retorno" até a partida |
+| Desvio numa ida e volta | A nova rota sai da posição atual, passa pelas paradas que faltam e termina na partida; na volta, vai direto à partida. O pino da partida não sai do lugar |
+| Tela bloqueada ou outro app na frente durante a navegação | O acompanhamento continua: chegada, desvio, recálculo e progresso. No Android, a notificação fixa fica no painel; no iOS, aparece o indicador de localização |
+| App fechado pelo sistema em segundo plano | A próxima abertura oferece "Continuar rota?" |
+| Android recusa o foreground service (permissão revogada, restrição do sistema) | A navegação segue normal com o app na frente; em segundo plano, o acompanhamento pausa até o app voltar |
+| Notificações não iniciam na abertura do app | O app abre e navega do mesmo jeito, sem a notificação fixa |
+| Build de release, que encolhe os recursos | O `res/raw/keep.xml` mantém o ícone da notificação, que só o Dart cita; sem ele, as notificações não iniciariam, e o app abriria sem elas |
+| Permissão de notificação negada | A navegação começa e funciona sem notificações, e o app não pergunta de novo |
+| Notificações desligadas nas configurações do sistema | Nada aparece; a navegação segue igual |
+| Segundo toque em "Iniciar" enquanto o pedido de permissão aparece | Ignorado: a navegação começa uma vez, depois da resposta |
+| App na frente durante a navegação | Sem avisos: o card e os chips já mostram o mesmo. Voltar para o app remove os avisos do painel |
+| Chegada com o app aberto e, depois, tela bloqueada | Sem aviso de chegada: o card já mostrou "Você chegou" |
+| Chegada com um recálculo em andamento, em segundo plano | O aviso de chegada aparece e, se o recálculo der certo, também o de rota recalculada |
+| Ida e volta concluída em segundo plano | Aviso "Rota concluída" com as contagens; o resumo está na tela na volta ao app |
+| Progresso a cada fix (Android) | A notificação fixa muda no máximo a cada 15 s; nova parada, chegada e volta mudam na hora |
+| App fechado com avisos no painel | Os avisos ficam até o entregador dispensá-los |
+| Falha ao mostrar ou atualizar uma notificação | Ignorada; a navegação segue igual |
 
 ## Limitações conhecidas
 
