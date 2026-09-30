@@ -352,6 +352,57 @@ void main() {
       });
     });
 
+    test('a progress change 14 s after a new next stop waits the 1 s left '
+        'of the 15 s, counted from that update', () {
+      fakeAsync((async) {
+        build(async);
+        emit(async, navigating(plan, progress: toSantos));
+        async.elapse(const Duration(seconds: 5));
+        final delivered = plan.record(
+          'pa',
+          StopResult.delivered(at: t0.add(const Duration(seconds: 5))),
+        );
+        emit(
+          async,
+          navigating(
+            delivered,
+            progress: progress(
+              delivered.stops[1],
+              2100,
+              420,
+              const Duration(seconds: 5),
+            ),
+          ),
+        );
+
+        async.elapse(const Duration(seconds: 14));
+        emit(
+          async,
+          navigating(
+            delivered,
+            progress: progress(
+              delivered.stops[1],
+              1900,
+              380,
+              const Duration(seconds: 19),
+            ),
+          ),
+        );
+        const augustaTitle = 'Próxima parada 2 · Rua Augusta, 500';
+        final sent = [
+          (santosTitle, '1,2 km · 4 min · chegada às 14:32'),
+          (augustaTitle, '2,1 km · 7 min · chegada às 14:35'),
+        ];
+        expect(tracker.updates, sent);
+
+        async.elapse(const Duration(seconds: 1));
+        expect(tracker.updates, [
+          ...sent,
+          (augustaTitle, '1,9 km · 6 min · chegada às 14:34'),
+        ]);
+      });
+    });
+
     test('on the way back of a round trip, at once after the last result: '
         '"Retorno ao ponto de partida" over the way back\'s summary', () {
       fakeAsync((async) {
