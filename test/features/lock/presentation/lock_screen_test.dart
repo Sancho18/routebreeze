@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart' hide LockState;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/theme/rb_tokens.dart';
@@ -8,6 +9,7 @@ import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockLockCubit extends MockCubit<LockState> implements LockCubit {}
@@ -93,7 +95,7 @@ void main() {
         );
 
         final text = tester.widget<Text>(find.text(entry.value));
-        expect(text.style!.color, RbColors.danger);
+        expect(text.style!.color, const Color(0xFFD01E23));
         expect(text.style!.fontSize, 15);
         expect(text.style!.fontWeight, FontWeight.w400);
 
@@ -133,6 +135,116 @@ void main() {
       expect(
         tester.widget<Text>(find.text('Autenticação cancelada')).style!.color,
         const Color(0xFFEB7074),
+      );
+    });
+  });
+
+  group('LockScreen accessibility', () {
+    // noCredentials: the longest failure copy; it also swaps the button label.
+    const states = <String, (LockState, String)>{
+      'without an error': (LockState(), 'Desbloquear'),
+      'with an error': (
+        LockState(status: LockStatus.failed, reason: AuthResult.noCredentials),
+        'Configure um bloqueio de tela no aparelho para usar o app',
+      ),
+    };
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+        testWidgets('$name meets the contrast, tap target and label '
+            'guidelines in ${mode.name} mode', (tester) async {
+          await pumpLock(tester, initial: state, mode: mode);
+          expect(find.text(text), findsOneWidget);
+
+          await expectAccessibleGuidelines(tester);
+        });
+      }
+    }
+
+    for (final MapEntry(key: name, value: (state, text)) in states.entries) {
+      testWidgets('$name lays out at 200% text on a 360×800 phone', (
+        tester,
+      ) async {
+        await setLargeTextPhone(tester);
+        await pumpLock(tester, initial: state, mode: ThemeMode.light);
+
+        final context = tester.element(find.byType(Scaffold));
+        expect(MediaQuery.sizeOf(context), const Size(360, 800));
+        expect(MediaQuery.textScalerOf(context).scale(15), 30);
+        expect(find.text(text), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
+      });
+    }
+
+    /// The distinct line tops of "RouteBreeze": one per line.
+    Set<double> titleLineTops(WidgetTester tester) => tester
+        .renderObject<RenderParagraph>(find.text('RouteBreeze'))
+        .getBoxesForSelection(
+          const TextSelection(
+            baseOffset: 0,
+            extentOffset: 'RouteBreeze'.length,
+          ),
+        )
+        .map((box) => box.top)
+        .toSet();
+
+    testWidgets('keeps "RouteBreeze" on one line within the screen at 200% '
+        'text', (tester) async {
+      await setLargeTextPhone(tester);
+      await pumpLock(tester, initial: const LockState(), mode: ThemeMode.light);
+
+      // Laid out whole, on one line, at its own width.
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text('RouteBreeze'),
+      );
+      expect(titleLineTops(tester), hasLength(1));
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(
+        paragraph.size.width,
+        moreOrLessEquals(paragraph.getMaxIntrinsicWidth(double.infinity)),
+      );
+      // Scaled down to the width inside the screen padding.
+      final title = tester.getRect(find.text('RouteBreeze'));
+      expect(title.left, moreOrLessEquals(RbSpace.s4));
+      expect(title.width, moreOrLessEquals(360 - 2 * RbSpace.s4));
+    });
+
+    testWidgets('scrolls to its button when 200% text does not fit a short '
+        'screen', (tester) async {
+      await setLargeTextPhone(tester);
+      tester.view.physicalSize = const Size(360, 400);
+      await pumpLock(
+        tester,
+        initial: const LockState(
+          status: LockStatus.failed,
+          reason: AuthResult.noCredentials,
+        ),
+        mode: ThemeMode.light,
+      );
+
+      expect(tester.takeException(), isNull);
+      final scrollable = find.byType(Scrollable);
+      expect(
+        tester.state<ScrollableState>(scrollable).position.maxScrollExtent,
+        greaterThanOrEqualTo(100),
+      );
+      await tester.drag(scrollable, const Offset(0, -1000));
+      await tester.pumpAndSettle();
+      final action = tester.getRect(find.text('Tentar novamente'));
+      expect(action.top, greaterThanOrEqualTo(0));
+      expect(action.bottom, lessThanOrEqualTo(400));
+    });
+
+    testWidgets('draws "RouteBreeze" at its own size at 100% text', (
+      tester,
+    ) async {
+      await pumpLock(tester, initial: const LockState(), mode: ThemeMode.light);
+
+      expect(titleLineTops(tester), hasLength(1));
+      expect(
+        tester.getRect(find.text('RouteBreeze')).size,
+        tester.renderObject<RenderParagraph>(find.text('RouteBreeze')).size,
       );
     });
   });

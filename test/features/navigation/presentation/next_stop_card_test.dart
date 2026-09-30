@@ -20,6 +20,13 @@ void main() {
     order: 2,
     visited: false,
   );
+
+  /// Matches the spec's own example sentence verbatim.
+  const shortStop = RouteStop(
+    stop: Stop('pa', 'Rua Augusta, 500', GeoPoint(-23.553, -46.653)),
+    order: 2,
+    visited: false,
+  );
   final progress = RouteProgress(
     next: stop,
     toNextMeters: 1234,
@@ -148,14 +155,14 @@ void main() {
 
       expect(NextStopCard.summary(close), '45 m · < 1 min · chegada às 09:05');
     });
-    testWidgets('onOpenInApp adds a brand "directions" button, 44 px, at the '
+    testWidgets('onOpenInApp adds a brand "directions" button, 48 px, at the '
         'end of the address row, "Abrir em outro app"', (tester) async {
       var taps = 0;
       await pumpCard(tester, progress: progress, onOpenInApp: () => taps++);
 
       final button = find.byTooltip('Abrir em outro app');
       expect(button, findsOneWidget);
-      expect(tester.getSize(button), const Size.square(44));
+      expect(tester.getSize(button), const Size.square(48));
       final icon = tester.widget<Icon>(
         find.descendant(of: button, matching: find.byType(Icon)),
       );
@@ -180,6 +187,73 @@ void main() {
       await pumpCard(tester, progress: progress);
 
       expect(find.byType(IconButton), findsNothing);
+    });
+  });
+
+  group('NextStopCard semantics', () {
+    test('semanticsLabel: address, distance, duration and arrival once '
+        'measured', () {
+      expect(
+        NextStopCard.semanticsLabel(shortStop, progress),
+        'Próxima parada 2: Rua Augusta, 500. 1,2 km, 4 min, '
+        'chegada às 14:32',
+      );
+    });
+
+    test('semanticsLabel: ends after the address without progress', () {
+      expect(
+        NextStopCard.semanticsLabel(shortStop, null),
+        'Próxima parada 2: Rua Augusta, 500.',
+      );
+    });
+
+    testWidgets('reads as one merged sentence once measured', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NextStopCard(stop: shortStop, progress: progress),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSemantics(find.byType(NextStopCard)).label,
+        'Próxima parada 2: Rua Augusta, 500. 1,2 km, 4 min, '
+        'chegada às 14:32',
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('reads only the address without progress', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: NextStopCard(stop: shortStop)),
+        ),
+      );
+
+      expect(
+        tester.getSemantics(find.byType(NextStopCard)).label,
+        'Próxima parada 2: Rua Augusta, 500.',
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('the open-in-app button stays reachable with its tooltip, '
+        'outside the merged label', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpCard(tester, progress: progress, onOpenInApp: () {});
+
+      final buttonNode = tester.getSemantics(
+        find.byTooltip('Abrir em outro app'),
+      );
+      expect(buttonNode.tooltip, 'Abrir em outro app');
+      expect(
+        tester.getSemantics(find.byType(NextStopCard)).label,
+        isNot(contains('Abrir em outro app')),
+      );
+      semantics.dispose();
     });
   });
 

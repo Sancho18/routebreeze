@@ -89,8 +89,10 @@ void main() {
         theme,
         brightness: Brightness.light,
         brand: const Color(0xFF2A6DF4),
+        brandStrong: const Color(0xFF1B63F3),
         onFill: const Color(0xFFFFFFFF),
         danger: const Color(0xFFE5484D),
+        dangerStrong: const Color(0xFFD01E23),
         surface100: const Color(0xFFF7F8FA),
         surface200: const Color(0xFFFFFFFF),
         ink: const Color(0xFF12141A),
@@ -107,8 +109,10 @@ void main() {
         theme,
         brightness: Brightness.dark,
         brand: const Color(0xFF7EA6F8),
+        brandStrong: const Color(0xFF7EA6F8),
         onFill: const Color(0xFF0F1115),
         danger: const Color(0xFFEB7074),
+        dangerStrong: const Color(0xFFEB7074),
         surface100: const Color(0xFF0F1115),
         surface200: const Color(0xFF1A1D23),
         ink: const Color(0xFFF2F4F7),
@@ -178,8 +182,10 @@ void _expectThemeColors(
   ThemeData theme, {
   required Brightness brightness,
   required Color brand,
+  required Color brandStrong,
   required Color onFill,
   required Color danger,
+  required Color dangerStrong,
   required Color surface100,
   required Color surface200,
   required Color ink,
@@ -207,7 +213,7 @@ void _expectThemeColors(
   expect(input.errorBorder!.borderSide.color, danger);
   expect(input.focusedErrorBorder!.borderSide.color, danger);
   expect(input.hintStyle!.color, inkMuted);
-  expect(input.errorStyle!.color, danger);
+  expect(input.errorStyle!.color, dangerStrong);
 
   const disabled = {WidgetState.disabled};
   final filled = theme.filledButtonTheme.style!;
@@ -215,7 +221,10 @@ void _expectThemeColors(
   expect(filled.foregroundColor!.resolve({}), onFill);
   expect(filled.backgroundColor!.resolve(disabled), border);
   expect(filled.foregroundColor!.resolve(disabled), inkMuted);
-  expect(theme.textButtonTheme.style!.foregroundColor!.resolve({}), brand);
+  expect(
+    theme.textButtonTheme.style!.foregroundColor!.resolve({}),
+    brandStrong,
+  );
 
   for (final style in _slots(theme.textTheme)) {
     expect(style!.color, ink);

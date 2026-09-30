@@ -5,9 +5,10 @@ import '../theme/rb_tokens.dart';
 
 /// Primary action button.
 ///
-/// Enabled and disabled states share the same radius and a fixed height of 52
-/// so the button never moves between states. While [loading] a spinner
-/// replaces the label and taps are ignored.
+/// Enabled and disabled states share the same radius and a height of 52 so
+/// the button never moves between states; a label that wraps (large text)
+/// grows it. While [loading] a spinner covers the hidden label, which keeps
+/// the height, and taps are ignored.
 class RbPrimaryButton extends StatelessWidget {
   const RbPrimaryButton({
     super.key,
@@ -27,6 +28,7 @@ class RbPrimaryButton extends StatelessWidget {
   /// fills are expected here.
   final Color? color;
 
+  /// Minimum height.
   static const double height = 52;
 
   @override
@@ -46,22 +48,37 @@ class RbPrimaryButton extends StatelessWidget {
         child: InkWell(
           borderRadius: radius,
           onTap: active ? onPressed : null,
-          child: SizedBox(
-            height: height,
-            width: double.infinity,
-            child: Center(
-              child: loading
-                  ? SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: foreground,
-                      ),
-                    )
-                  : Text(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: double.infinity,
+              minHeight: height,
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: RbSpace.s3),
+                  child: Visibility(
+                    visible: !loading,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Text(
                       label,
+                      textAlign: TextAlign.center,
                       style: RbText.bodyStrong.copyWith(color: foreground),
                     ),
+                  ),
+                ),
+                if (loading)
+                  SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: foreground,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

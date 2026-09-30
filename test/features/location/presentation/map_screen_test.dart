@@ -15,6 +15,7 @@ import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockMapCubit extends MockCubit<MapState> implements MapCubit {}
@@ -118,7 +119,7 @@ void main() {
 
   void expectDangerBody(WidgetTester tester, String message) {
     final text = tester.widget<Text>(find.text(message));
-    expect(text.style!.color, RbColors.danger);
+    expect(text.style!.color, const Color(0xFFD01E23));
     expect(text.style!.fontSize, 15);
     expect(text.style!.fontWeight, FontWeight.w400);
   }
@@ -126,6 +127,36 @@ void main() {
   Future<void> tapAction(WidgetTester tester, String label) async {
     await tester.tap(find.widgetWithText(RbPrimaryButton, label));
     await tester.pump();
+  }
+
+  final plan = RoutePlan(
+    origin: const GeoPoint(-23.5614, -46.6559),
+    stops: const [
+      RouteStop(
+        stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
+        order: 1,
+        visited: false,
+      ),
+    ],
+    polyline: const [],
+    distanceMeters: 600,
+    durationSeconds: 60,
+    legs: const [],
+    computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+  );
+  final ready = MapState(status: MapStatus.ready, start: start);
+  final offered = MapState(
+    status: MapStatus.ready,
+    start: start,
+    resumable: plan,
+  );
+
+  /// Pumps the ready screen and lets "Continuar rota?" open.
+  Future<void> pumpOffer(WidgetTester tester, {ThemeMode? mode}) async {
+    await pumpMap(tester, ready, states: Stream.value(offered), mode: mode);
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Continuar rota?'), findsOneWidget);
   }
 
   group('MapScreen', () {
@@ -488,35 +519,6 @@ void main() {
     });
 
     group('resume offer', () {
-      final plan = RoutePlan(
-        origin: const GeoPoint(-23.5614, -46.6559),
-        stops: const [
-          RouteStop(
-            stop: Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66)),
-            order: 1,
-            visited: false,
-          ),
-        ],
-        polyline: const [],
-        distanceMeters: 600,
-        durationSeconds: 60,
-        legs: const [],
-        computedAt: DateTime.utc(2026, 9, 22, 10, 30),
-      );
-      final ready = MapState(status: MapStatus.ready, start: start);
-      final offered = MapState(
-        status: MapStatus.ready,
-        start: start,
-        resumable: plan,
-      );
-
-      Future<void> pumpOffer(WidgetTester tester, {ThemeMode? mode}) async {
-        await pumpMap(tester, ready, states: Stream.value(offered), mode: mode);
-        await tester.pumpAndSettle();
-        expect(find.byType(AlertDialog), findsOneWidget);
-        expect(find.text('Continuar rota?'), findsOneWidget);
-      }
-
       testWidgets('a resumable plan opens "Continuar rota?"; "Continuar" '
           'hands the plan and the start fix over', (tester) async {
         await pumpOffer(tester);
@@ -550,6 +552,22 @@ void main() {
         expect(find.byType(AlertDialog), findsNothing);
       });
 
+      testWidgets('light mode: "Nova rota" and "Continuar" in #1B63F3', (
+        tester,
+      ) async {
+        await pumpOffer(tester, mode: ThemeMode.light);
+
+        for (final action in ['Nova rota', 'Continuar']) {
+          final label = tester.widget<RichText>(
+            find.descendant(
+              of: find.widgetWithText(TextButton, action),
+              matching: find.byType(RichText),
+            ),
+          );
+          expect(label.text.style!.color, const Color(0xFF1B63F3));
+        }
+      });
+
       testWidgets('dark mode: #1A1D23 dialog with a #F2F4F7 title, #A4ACB9 '
           'body and #7EA6F8 actions', (tester) async {
         await pumpOffer(tester, mode: ThemeMode.dark);
@@ -581,6 +599,71 @@ void main() {
           expect(label.text.style!.color, const Color(0xFF7EA6F8));
         }
       });
+    });
+  });
+
+  group('MapScreen accessibility', () {
+    /// The top text of [status]: the overlay title or the card's first line.
+    String shown(MapStatus status) => switch (status) {
+      MapStatus.checking => MapScreen.loadingTitle,
+      MapStatus.ready => 'Ponto de partida definido',
+      MapStatus.denied || MapStatus.deniedForever => deniedMessage,
+      MapStatus.serviceDisabled =>
+        'Ative a localização do dispositivo para continuar.',
+      MapStatus.timeout || MapStatus.imprecise => impreciseMessage,
+    };
+
+    MapState stateOf(MapStatus status) => MapState(
+      status: status,
+      start: status == MapStatus.ready ? start : null,
+    );
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final status in MapStatus.values) {
+        testWidgets('${status.name} meets the contrast, tap target and label '
+            'guidelines in ${mode.name} mode', (tester) async {
+          await pumpMap(tester, stateOf(status), mode: mode);
+          expect(find.text(shown(status)), findsOneWidget);
+
+          await expectAccessibleGuidelines(tester);
+        });
+      }
+
+      testWidgets('"Continuar rota?" meets the contrast, tap target and label '
+          'guidelines in ${mode.name} mode', (tester) async {
+        await pumpOffer(tester, mode: mode);
+
+        await expectAccessibleGuidelines(tester);
+      });
+    }
+
+    for (final status in MapStatus.values) {
+      testWidgets('${status.name} lays out at 200% text on a 360×800 phone', (
+        tester,
+      ) async {
+        await setLargeTextPhone(tester);
+        await pumpMap(tester, stateOf(status), mode: ThemeMode.light);
+
+        expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
+        // The status card is anchored at the bottom: too much content would
+        // push its first line above the screen without an overflow error.
+        expect(
+          tester.getTopLeft(find.text(shown(status))).dy,
+          greaterThanOrEqualTo(0),
+        );
+      });
+    }
+
+    testWidgets('"Continuar rota?" lays out at 200% text on a 360×800 phone', (
+      tester,
+    ) async {
+      await setLargeTextPhone(tester);
+      await pumpOffer(tester, mode: ThemeMode.light);
+
+      expect(find.text(MapScreen.resumeBody), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expectNoClippedText(tester);
     });
   });
 }

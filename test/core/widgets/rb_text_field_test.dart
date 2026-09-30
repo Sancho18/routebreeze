@@ -62,7 +62,7 @@ void main() {
       expectOutline(decoration.focusedErrorBorder, RbColors.danger);
 
       final message = tester.widget<Text>(find.text('Campo obrigatório'));
-      expect(message.style!.color, RbColors.danger);
+      expect(message.style!.color, const Color(0xFFD01E23));
       expect(message.style!.fontSize, 13);
       expect(message.style!.height, 18 / 13);
       expect(message.style!.fontWeight, FontWeight.w400);

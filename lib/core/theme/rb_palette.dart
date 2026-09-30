@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'rb_tokens.dart';
 
-/// Color roles of one theme: the nine Rota colors plus [onFill]. Widgets read
-/// the active palette with `context.rb`.
+/// Color roles of one theme: the Rota colors, their strong variants for text
+/// and [onFill]. Widgets read the active palette with `context.rb`.
 @immutable
 class RbPalette extends ThemeExtension<RbPalette> {
   const RbPalette({
@@ -13,6 +13,10 @@ class RbPalette extends ThemeExtension<RbPalette> {
     required this.success,
     required this.warning,
     required this.danger,
+    required this.successStrong,
+    required this.warningStrong,
+    required this.dangerStrong,
+    required this.brandStrong,
     required this.surface100,
     required this.surface200,
     required this.ink,
@@ -28,6 +32,10 @@ class RbPalette extends ThemeExtension<RbPalette> {
     success: RbColors.success,
     warning: RbColors.warning,
     danger: RbColors.danger,
+    successStrong: Color(0xFF0D7F4A),
+    warningStrong: Color(0xFF996206),
+    dangerStrong: Color(0xFFD01E23),
+    brandStrong: Color(0xFF1B63F3),
     surface100: RbColors.surface100,
     surface200: RbColors.surface200,
     ink: RbColors.ink,
@@ -44,6 +52,10 @@ class RbPalette extends ThemeExtension<RbPalette> {
     success: Color(0xFF12B76A),
     warning: Color(0xFFF59E0B),
     danger: Color(0xFFEB7074),
+    successStrong: Color(0xFF12B76A),
+    warningStrong: Color(0xFFF59E0B),
+    dangerStrong: Color(0xFFEB7074),
+    brandStrong: Color(0xFF7EA6F8),
     surface100: Color(0xFF0F1115),
     surface200: Color(0xFF1A1D23),
     ink: Color(0xFFF2F4F7),
@@ -59,6 +71,16 @@ class RbPalette extends ThemeExtension<RbPalette> {
   final Color success;
   final Color warning;
   final Color danger;
+
+  /// Darker read of [success], [warning] and [danger]: at least 4.5:1 as
+  /// text, or under [onFill] text on a fill, where the base tone would not.
+  final Color successStrong;
+  final Color warningStrong;
+  final Color dangerStrong;
+
+  /// [brand] for text: at least 4.5:1 on both surfaces, where [brand] is
+  /// 4.30:1 on [surface100]. Fills, icons and borders stay [brand].
+  final Color brandStrong;
   final Color surface100;
   final Color surface200;
   final Color ink;
@@ -77,6 +99,10 @@ class RbPalette extends ThemeExtension<RbPalette> {
     Color? success,
     Color? warning,
     Color? danger,
+    Color? successStrong,
+    Color? warningStrong,
+    Color? dangerStrong,
+    Color? brandStrong,
     Color? surface100,
     Color? surface200,
     Color? ink,
@@ -89,6 +115,10 @@ class RbPalette extends ThemeExtension<RbPalette> {
     success: success ?? this.success,
     warning: warning ?? this.warning,
     danger: danger ?? this.danger,
+    successStrong: successStrong ?? this.successStrong,
+    warningStrong: warningStrong ?? this.warningStrong,
+    dangerStrong: dangerStrong ?? this.dangerStrong,
+    brandStrong: brandStrong ?? this.brandStrong,
     surface100: surface100 ?? this.surface100,
     surface200: surface200 ?? this.surface200,
     ink: ink ?? this.ink,
@@ -107,6 +137,10 @@ class RbPalette extends ThemeExtension<RbPalette> {
       success: mix(success, other.success),
       warning: mix(warning, other.warning),
       danger: mix(danger, other.danger),
+      successStrong: mix(successStrong, other.successStrong),
+      warningStrong: mix(warningStrong, other.warningStrong),
+      dangerStrong: mix(dangerStrong, other.dangerStrong),
+      brandStrong: mix(brandStrong, other.brandStrong),
       surface100: mix(surface100, other.surface100),
       surface200: mix(surface200, other.surface200),
       ink: mix(ink, other.ink),

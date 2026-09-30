@@ -266,60 +266,83 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   ),
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: _TopOverlay(
-                  state: state,
-                  onMeasured: _onTopMeasured,
-                  onOpenInApp: _openInApp,
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
+              // The bottom overlay takes the space under the top one: with
+              // large text it scrolls, from its actions up, instead of
+              // covering the next stop. Taps outside both reach the map.
+              Positioned.fill(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (!state.following && !completed)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          right: RbSpace.s3,
-                          bottom: RbSpace.s2,
-                        ),
-                        child: FloatingActionButton.extended(
-                          onPressed: _cubit.recenter,
-                          backgroundColor: rb.surface200,
-                          foregroundColor: rb.brand,
-                          icon: const Icon(Icons.my_location),
-                          label: const Text(NavigationScreen.recenterLabel),
+                    _TopOverlay(
+                      state: state,
+                      onMeasured: _onTopMeasured,
+                      onOpenInApp: _openInApp,
+                    ),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: SingleChildScrollView(
+                          reverse: true,
+                          // Hits beside the button and the sheet reach the
+                          // map.
+                          hitTestBehavior: HitTestBehavior.deferToChild,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (!state.following && !completed)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: RbSpace.s3,
+                                    bottom: RbSpace.s2,
+                                  ),
+                                  child: FloatingActionButton.extended(
+                                    onPressed: _cubit.recenter,
+                                    backgroundColor: rb.surface200,
+                                    foregroundColor: rb.brandStrong,
+                                    icon: Icon(
+                                      Icons.my_location,
+                                      color: rb.brand,
+                                    ),
+                                    label: const Text(
+                                      NavigationScreen.recenterLabel,
+                                    ),
+                                  ),
+                                ),
+                              MeasureSize(
+                                onChange: _onBottomMeasured,
+                                child: completed
+                                    ? _Completed(onNewRoute: widget.onNewRoute)
+                                    : RouteSheet(
+                                        plan: state.plan,
+                                        startEnabled:
+                                            navigating || state.canStart,
+                                        startLabel: navigating
+                                            ? NavigationScreen.stopLabel
+                                            : NavigationScreen.startLabel,
+                                        startColor: navigating
+                                            ? rb.dangerStrong
+                                            : null,
+                                        onStart: navigating
+                                            ? _stop
+                                            : _cubit.start,
+                                        onMarkVisited: navigating
+                                            ? _cubit.markNextVisited
+                                            : null,
+                                        totals: progress == null
+                                            ? null
+                                            : NavigationScreen.remaining(
+                                                progress,
+                                              ),
+                                        footer: navigating || state.canStart
+                                            ? null
+                                            : const _WaitingGps(),
+                                      ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    MeasureSize(
-                      onChange: _onBottomMeasured,
-                      child: completed
-                          ? _Completed(onNewRoute: widget.onNewRoute)
-                          : RouteSheet(
-                              plan: state.plan,
-                              startEnabled: navigating || state.canStart,
-                              startLabel: navigating
-                                  ? NavigationScreen.stopLabel
-                                  : NavigationScreen.startLabel,
-                              startColor: navigating ? rb.danger : null,
-                              onStart: navigating ? _stop : _cubit.start,
-                              onMarkVisited: navigating
-                                  ? _cubit.markNextVisited
-                                  : null,
-                              totals: progress == null
-                                  ? null
-                                  : NavigationScreen.remaining(progress),
-                              footer: navigating || state.canStart
-                                  ? null
-                                  : const _WaitingGps(),
-                            ),
                     ),
                   ],
                 ),
@@ -418,7 +441,7 @@ class _TopOverlay extends StatelessWidget {
               horizontal: RbSpace.s2,
               vertical: RbSpace.s1,
             ),
-            child: RbInlineError(text: error),
+            child: RbInlineError(text: error, liveRegion: true),
           ),
         ),
     ];
@@ -537,7 +560,7 @@ class _Completed extends StatelessWidget {
           children: [
             Text(
               NavigationScreen.completedTitle,
-              style: RbText.heading.copyWith(color: rb.success),
+              style: RbText.heading.copyWith(color: rb.successStrong),
             ),
             const SizedBox(height: RbSpace.s3),
             RbPrimaryButton(

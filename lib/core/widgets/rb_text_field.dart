@@ -47,7 +47,7 @@ class RbTextField extends StatelessWidget {
         hintText: placeholder,
         hintStyle: RbText.body.copyWith(color: rb.inkMuted),
         errorText: errorText,
-        errorStyle: RbText.caption.copyWith(color: rb.danger),
+        errorStyle: RbText.caption.copyWith(color: rb.dangerStrong),
         filled: true,
         fillColor: rb.surface200,
         contentPadding: const EdgeInsets.all(RbSpace.s3),

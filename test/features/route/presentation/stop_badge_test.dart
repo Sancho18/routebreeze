@@ -50,4 +50,38 @@ void main() {
       expect(check.color, const Color(0xFF0F1115));
     });
   });
+
+  group('StopBadge semantics', () {
+    test('label: "Parada {n}" pending, "Parada {n}, visitada" visited', () {
+      expect(StopBadge.label(2), 'Parada 2');
+      expect(StopBadge.label(2, visited: true), 'Parada 2, visitada');
+    });
+
+    testWidgets('pending badge is announced as "Parada 2"', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: StopBadge(order: 2))),
+      );
+
+      expect(tester.getSemantics(find.byType(StopBadge)).label, 'Parada 2');
+      semantics.dispose();
+    });
+
+    testWidgets('visited badge is announced as "Parada 2, visitada"', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: StopBadge(order: 2, visited: true)),
+        ),
+      );
+
+      expect(
+        tester.getSemantics(find.byType(StopBadge)).label,
+        'Parada 2, visitada',
+      );
+      semantics.dispose();
+    });
+  });
 }

@@ -20,6 +20,7 @@ import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockNavigationCubit extends MockCubit<NavigationState>
@@ -223,7 +224,7 @@ void main() {
       expect(find.text('Iniciar'), findsNothing);
       expect(find.text('Aguardando sinal de GPS'), findsNothing);
       expect(primary(tester, 'Encerrar').enabled, isTrue);
-      expect(primary(tester, 'Encerrar').color, RbColors.danger);
+      expect(primary(tester, 'Encerrar').color, const Color(0xFFD01E23));
       expect(tester.widget<RouteSheet>(find.byType(RouteSheet)).plan, visited);
       expect(find.byIcon(Icons.check), findsOneWidget);
       expect(find.text('Visitado'), findsNothing);
@@ -268,12 +269,16 @@ void main() {
     testWidgets('shows the badge text per kind: warning for recalculated and '
         'pending, danger for failed', (tester) async {
       const cases = [
-        (NavigationBadge.recalculated, 'Rota recalculada', RbColors.warning),
-        (NavigationBadge.recalcFailed, 'Falha ao recalcular', RbColors.danger),
+        (NavigationBadge.recalculated, 'Rota recalculada', Color(0xFF996206)),
+        (
+          NavigationBadge.recalcFailed,
+          'Falha ao recalcular',
+          Color(0xFFD01E23),
+        ),
         (
           NavigationBadge.recalcPending,
           'Recálculo pendente (sem conexão)',
-          RbColors.warning,
+          Color(0xFF996206),
         ),
       ];
       for (final (badge, text, color) in cases) {
@@ -326,12 +331,12 @@ void main() {
             )
             .first,
       );
-      expect(box.color, RbColors.danger);
+      expect(box.color, const Color(0xFFD01E23));
     });
 
-    testWidgets('a stream error shows "Perdemos o sinal de GPS" in danger', (
-      tester,
-    ) async {
+    testWidgets('a stream error shows "Perdemos o sinal de GPS" in danger, '
+        'announced as a live region', (tester) async {
+      final semantics = tester.ensureSemantics();
       await pumpScreen(
         tester,
         NavigationState(
@@ -343,8 +348,16 @@ void main() {
       );
 
       final text = tester.widget<Text>(find.text('Perdemos o sinal de GPS'));
-      expect(text.style!.color, RbColors.danger);
+      expect(text.style!.color, const Color(0xFFD01E23));
       expect(markerIds(mapsBuilt.last), contains('me'));
+      expect(
+        tester
+            .getSemantics(find.byType(RbInlineError))
+            .flagsCollection
+            .isLiveRegion,
+        isTrue,
+      );
+      semantics.dispose();
     });
 
     testWidgets('a recalculation badge and the GPS error show together, '
@@ -368,6 +381,27 @@ void main() {
         tester.getBottomLeft(chip).dy,
         lessThanOrEqualTo(tester.getTopLeft(error).dy - RbSpace.s2),
       );
+    });
+
+    testWidgets('a recalculation badge and the GPS error shown together are '
+        'both live regions', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          badge: NavigationBadge.recalculated,
+          error: 'Perdemos o sinal de GPS',
+        ),
+      );
+
+      bool isLiveRegion(Finder finder) =>
+          tester.getSemantics(finder).flagsCollection.isLiveRegion;
+      expect(isLiveRegion(find.byType(RbStatusChip)), isTrue);
+      expect(isLiveRegion(find.byType(RbInlineError)), isTrue);
+      semantics.dispose();
     });
 
     testWidgets('"Recentralizar" appears only while not following and '
@@ -399,6 +433,62 @@ void main() {
 
       expect(find.text('Recentralizar'), findsNothing);
       expect(mapsBuilt.last.following, isTrue);
+    });
+
+    testWidgets('"Recentralizar" has its label in #1B63F3 and its icon in '
+        'brand #2A6DF4', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          following: false,
+        ),
+        mode: ThemeMode.light,
+      );
+
+      RichText rendered(Finder finder) => tester.widget<RichText>(
+        find.descendant(of: finder, matching: find.byType(RichText)),
+      );
+      expect(
+        rendered(find.text('Recentralizar')).text.style!.color,
+        const Color(0xFF1B63F3),
+      );
+      expect(
+        rendered(find.byIcon(Icons.my_location)).text.style!.color,
+        const Color(0xFF2A6DF4),
+      );
+    });
+
+    testWidgets('a touch beside "Recentralizar" reaches the map', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          following: false,
+        ),
+      );
+
+      final button = tester.getRect(find.byType(FloatingActionButton));
+      final beside = Offset(button.left - 40, button.center.dy);
+      // The detector above the map: the placeholder itself is not hittable.
+      final mapListener = tester.renderObject(
+        find
+            .ancestor(of: find.byKey(mapKey), matching: find.byType(Listener))
+            .first,
+      );
+      expect(
+        tester
+            .hitTestOnBinding(beside)
+            .path
+            .any((entry) => entry.target == mapListener),
+        isTrue,
+      );
     });
 
     testWidgets('dragging the map while following reports onMapDragged; a '
@@ -447,7 +537,7 @@ void main() {
     });
 
     testWidgets('completed replaces the sheet with "Rota concluída" in '
-        'success and "Nova rota"', (tester) async {
+        'successStrong and "Nova rota"', (tester) async {
       final done = plan.markVisited('pa').markVisited('pb');
       await pumpScreen(
         tester,
@@ -460,7 +550,7 @@ void main() {
       );
 
       final title = tester.widget<Text>(find.text('Rota concluída'));
-      expect(title.style!.color, RbColors.success);
+      expect(title.style!.color, const Color(0xFF0D7F4A));
       expect(title.style!.fontSize, 17);
       expect(find.byType(RouteSheet), findsNothing);
       expect(find.text('Encerrar'), findsNothing);
@@ -815,6 +905,146 @@ void main() {
         tester.widget<Text>(find.text('Rota concluída')).style!.color,
         const Color(0xFF12B76A),
       );
+    });
+  });
+
+  group('NavigationScreen accessibility', () {
+    final progress = RouteProgress(
+      next: const RouteStop(stop: a, order: 1, visited: false),
+      toNextMeters: 1234,
+      toNextSeconds: 250,
+      remainingMeters: 8400,
+      remainingSeconds: 1320,
+      at: DateTime.utc(2026, 9, 22, 14, 28),
+    );
+    // Not following, so "Recentralizar" shows too.
+    NavigationState navigating({
+      NavigationBadge? badge,
+      bool online = true,
+      String? error,
+    }) => NavigationState(
+      plan: plan,
+      phase: NavigationPhase.navigating,
+      fix: fix,
+      progress: progress,
+      following: false,
+      badge: badge,
+      online: online,
+      error: error,
+    );
+
+    // Each state with a text that proves it is on screen and the panel's
+    // last action.
+    final states = <String, (NavigationState, String, String)>{
+      'waiting for GPS': (
+        NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
+        NavigationScreen.waitingGpsCaption,
+        NavigationScreen.startLabel,
+      ),
+      'navigating with the next stop card': (
+        navigating(),
+        '1,2 km · 4 min · chegada às 14:32',
+        NavigationScreen.stopLabel,
+      ),
+      'with "Rota recalculada"': (
+        navigating(badge: NavigationBadge.recalculated),
+        'Rota recalculada',
+        NavigationScreen.stopLabel,
+      ),
+      'with "Falha ao recalcular"': (
+        navigating(badge: NavigationBadge.recalcFailed),
+        'Falha ao recalcular',
+        NavigationScreen.stopLabel,
+      ),
+      'with "Recálculo pendente (sem conexão)"': (
+        navigating(badge: NavigationBadge.recalcPending, online: false),
+        'Recálculo pendente (sem conexão)',
+        NavigationScreen.stopLabel,
+      ),
+      'offline': (
+        navigating(online: false),
+        NavigationScreen.offlineBanner,
+        NavigationScreen.stopLabel,
+      ),
+      'with the GPS error': (
+        navigating(error: 'Perdemos o sinal de GPS'),
+        'Perdemos o sinal de GPS',
+        NavigationScreen.stopLabel,
+      ),
+      'completed': (
+        NavigationState(
+          plan: plan.markVisited('pa').markVisited('pb'),
+          phase: NavigationPhase.completed,
+          fix: fix,
+          following: false,
+        ),
+        NavigationScreen.completedTitle,
+        NavigationScreen.newRouteLabel,
+      ),
+    };
+
+    /// Whether nothing covers the center of [finder]: a tap there reaches it.
+    bool uncovered(WidgetTester tester, Finder finder) {
+      final target = tester.renderObject(finder);
+      return tester
+          .hitTestOnBinding(tester.getCenter(finder))
+          .path
+          .any((entry) => entry.target == target);
+    }
+
+    /// Opens "Abrir em outro app" from the next stop card.
+    Future<void> openSheet(WidgetTester tester, ThemeMode mode) async {
+      await pumpScreen(tester, navigating(), mode: mode);
+      await tester.tap(find.byTooltip(NextStopCard.openInAppTooltip));
+      await tester.pumpAndSettle();
+      expect(find.text(OpenInAppSheet.caption), findsOneWidget);
+    }
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final MapEntry(key: name, value: (state, text, _))
+          in states.entries) {
+        testWidgets('$name meets the contrast, tap target and label '
+            'guidelines in ${mode.name} mode', (tester) async {
+          await pumpScreen(tester, state, mode: mode);
+          expect(find.text(text), findsOneWidget);
+
+          await expectAccessibleGuidelines(tester);
+        });
+      }
+
+      testWidgets('"Abrir em outro app" meets the contrast, tap target and '
+          'label guidelines in ${mode.name} mode', (tester) async {
+        await openSheet(tester, mode);
+
+        await expectAccessibleGuidelines(tester);
+      });
+    }
+
+    for (final MapEntry(key: name, value: (state, text, action))
+        in states.entries) {
+      testWidgets('$name lays out at 200% text on a 360×800 phone', (
+        tester,
+      ) async {
+        await setLargeTextPhone(tester);
+        await pumpScreen(tester, state, mode: ThemeMode.light);
+
+        expect(find.text(text), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
+        // The sheet grows upward, toward the top overlay: nothing may cover
+        // the state's text, and the panel opens at its actions.
+        expect(uncovered(tester, find.text(text)), isTrue);
+        expect(uncovered(tester, find.text(action)), isTrue);
+      });
+    }
+
+    testWidgets('"Abrir em outro app" lays out at 200% text on a 360×800 '
+        'phone', (tester) async {
+      await setLargeTextPhone(tester);
+      await openSheet(tester, ThemeMode.light);
+
+      expect(tester.takeException(), isNull);
+      expectNoClippedText(tester);
     });
   });
 }

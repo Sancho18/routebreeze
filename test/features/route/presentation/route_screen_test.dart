@@ -20,6 +20,7 @@ import 'package:routebreeze/features/route/presentation/route_map_objects.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
+import '../../../helpers/accessibility.dart';
 import '../../../helpers/themed_app.dart';
 
 class MockRouteCubit extends MockCubit<RouteState> implements RouteCubit {}
@@ -139,7 +140,7 @@ void main() {
       final message = tester.widget<Text>(
         find.text('Não foi possível calcular a rota.'),
       );
-      expect(message.style!.color, RbColors.danger);
+      expect(message.style!.color, const Color(0xFFD01E23));
       expect(message.style!.fontSize, 15);
       expect(find.byType(RouteSheet), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -324,5 +325,64 @@ void main() {
       );
       expect(placeholder.color, const Color(0xFF0F1115));
     });
+  });
+
+  group('RouteScreen accessibility', () {
+    final ready = RouteState(status: RouteStatus.ready, plan: plan);
+    // Each state with a text that proves it is on screen, and whether the
+    // connectivity check answers online.
+    final states = <String, (RouteState, String, bool)>{
+      'loading': (
+        const RouteState(status: RouteStatus.loading),
+        RouteScreen.loadingMessage,
+        true,
+      ),
+      'failure': (
+        const RouteState(
+          status: RouteStatus.failure,
+          failure: ApiFailure(null, 'Resposta inválida da Routes API'),
+        ),
+        RouteScreen.failureMessage,
+        true,
+      ),
+      'ready with the sheet': (ready, RouteSheet.heading, true),
+      'offline': (ready, RouteScreen.offlineBanner, false),
+    };
+
+    Future<void> pumpState(
+      WidgetTester tester,
+      (RouteState, String, bool) entry,
+      ThemeMode mode,
+    ) async {
+      final (state, text, isOnline) = entry;
+      when(() => connectivity.check()).thenAnswer((_) async => isOnline);
+      await pumpScreen(tester, state, mode: mode);
+      // The loading spinner never settles.
+      if (state.status != RouteStatus.loading) await tester.pumpAndSettle();
+      expect(find.text(text), findsOneWidget);
+    }
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final MapEntry(key: name, value: entry) in states.entries) {
+        testWidgets('$name meets the contrast, tap target and label '
+            'guidelines in ${mode.name} mode', (tester) async {
+          await pumpState(tester, entry, mode);
+
+          await expectAccessibleGuidelines(tester);
+        });
+      }
+    }
+
+    for (final MapEntry(key: name, value: entry) in states.entries) {
+      testWidgets('$name lays out at 200% text on a 360×800 phone', (
+        tester,
+      ) async {
+        await setLargeTextPhone(tester);
+        await pumpState(tester, entry, ThemeMode.light);
+
+        expect(tester.takeException(), isNull);
+        expectNoClippedText(tester);
+      });
+    }
   });
 }

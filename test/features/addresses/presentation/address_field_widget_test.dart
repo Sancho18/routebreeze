@@ -90,7 +90,7 @@ void main() {
 
       expect(textField(tester).errorText, 'Campo obrigatório');
       final message = tester.widget<Text>(find.text('Campo obrigatório'));
-      expect(message.style!.color, RbColors.danger);
+      expect(message.style!.color, const Color(0xFFD01E23));
       expect(message.style!.fontSize, 13);
     });
 

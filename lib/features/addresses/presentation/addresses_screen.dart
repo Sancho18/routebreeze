@@ -114,7 +114,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
                         child: TextButton(
                           onPressed: _cubit.addField,
                           style: TextButton.styleFrom(
-                            foregroundColor: rb.brand,
+                            foregroundColor: rb.brandStrong,
                             textStyle: RbText.bodyStrong,
                           ),
                           child: const Text(AddressesScreen.addLabel),
