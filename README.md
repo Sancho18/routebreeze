@@ -219,15 +219,16 @@ flowchart TB
     data["data<br/>APIs REST, plugins nativos e storage"]
     domain["domain<br/>modelos, interfaces e regras puras"]
     maps["Google Maps SDK<br/>(o mapa das telas)"]
-    external["Routes API e Places API (New),<br/>GPS, biometria, notificações e preferências"]
+    external["Routes API e Places API (New), GPS, biometria,<br/>notificações, preferências, Google Maps e Waze<br/>e a folha de compartilhamento"]
     presentation --> data
     presentation --> domain
     data --> domain
+    domain -. "RouteRepository" .-> data
     presentation --> maps
     data --> external
 ```
 
-O `core` (DS Rota, widgets, rede, geo, sessão) serve todas as features.
+A seta pontilhada é a única vez que o `domain` usa o `data`: o `RouteRepository` junta a `RoutesApi` e a `RouteStorage` para planejar, salvar e carregar a rota. O `core` (DS Rota, widgets, rede, geo, sessão) serve todas as features.
 
 ```
 lib/
@@ -284,7 +285,7 @@ flowchart TB
     map -->|"Continuar rota?"| navigation
     navigation -->|"rota concluída"| summary["Resumo"]
     summary -->|"Nova rota"| map
-    relock(["Volta do segundo plano após 30 s ou mais,<br/>fora da navegação"]) -.-> lock
+    relock(["Volta do segundo plano após 30 s ou mais,<br/>sem navegação ativa"]) -.-> lock
 ```
 
 "Encerrar" volta à tela anterior: a Rota, ou o Mapa numa rota continuada. O `AppLifecycleGate` (em `app.dart`) observa o ciclo de vida: rebloqueia ao voltar do segundo plano e avisa a navegação quando o app sai da tela e quando volta. Antes de "Iniciar", a navegação pausa e retoma o stream de posição; depois, continua acompanhando em segundo plano (veja "Bateria e GPS").
@@ -354,13 +355,13 @@ A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas so
 - **Escolha.** O interruptor "Voltar ao ponto de partida" fica em Endereços, entre "Adicionar ponto" e "Confirmar rota". Na primeira vez vem desligado; depois, abre com a última escolha confirmada, também depois de reiniciar o app (chave `round_trip` nas `shared_preferences`).
 - **Requisição.** Ligado, a partida vira o destino e todas as paradas viram intermediários, com `optimizeWaypointOrder`. Continua uma requisição por cálculo, e a ordem de todas as paradas já conta com a volta. A resposta traz um trecho a mais, da última parada até a partida, que a rota guarda como o trecho de volta. Desligado, vale a regra do ponto mais distante (veja a decisão acima).
 - **Volta.** A lista termina em "Retorno ao ponto de partida", com uma casa no lugar do número, e os totais da rota e o "Faltam … · término às …" da navegação incluem a volta. Depois do resultado da última parada, o card "Retorno" mostra "Ponto de partida" com a distância, o tempo e o horário de chegada da volta; o leitor de tela o lê numa frase só ("Retorno ao ponto de partida. 3,2 km, 9 min, chegada às 15:40"). O botão "Abrir em outro app" do card passa a partida ao Google Maps ou ao Waze pelas coordenadas, e "Avisar cliente" sai, porque na volta não há cliente.
-- **Fim.** Um fix com precisão ≤ 50 m a até 40 m da partida conclui a rota e mostra o resumo, como a chegada numa parada. Na volta, "Finalizar rota" (botão primário) toma o lugar de "Entregue" e "Não entregue" e conclui a rota sem precisar chegar. "Encerrar" fica embaixo dele e continua a última ação do painel: salva a rota e volta para a tela Rota, como no caminho até uma parada, e o voltar do sistema faz o mesmo. O resumo conta o tempo até a chegada ou o toque.
+- **Fim.** Um fix com precisão ≤ 50 m a até 40 m da partida conclui a rota e mostra o resumo, como a chegada numa parada. Na volta, "Finalizar rota" (botão primário) toma o lugar de "Entregue" e "Não entregue" e conclui a rota sem precisar chegar. "Encerrar" fica embaixo dele e continua a última ação do painel: salva a rota e volta para a tela anterior, como no caminho até uma parada, e o voltar do sistema faz o mesmo. O resumo conta o tempo até a chegada ou o toque.
 - **Recálculo.** Um desvio pede a rota da posição atual pelas paradas que faltam, ainda terminando na partida; na volta, sem parada nenhuma. A partida fica guardada à parte da origem, que o recálculo troca pela posição atual, então o destino e o pino de partida não andam com o entregador. Sem conexão, o recálculo fica pendente como no resto da rota.
 - **Rota salva.** A partida e o trecho de volta ficam salvos com a rota. Uma rota salva antes desta versão continua só de ida.
 
 ### Resultado da entrega e resumo
 
-- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva, a não ser numa ida e volta, que segue até a partida. "Encerrar" volta para a tela Rota sem perder o progresso: a lista mostra os resultados, e "Iniciar" continua da próxima parada, com o mesmo início e a distância percorrida. O voltar do sistema faz o mesmo que "Encerrar" durante a rota e o mesmo que "Nova rota" no resumo; no iOS, o gesto de borda fica desligado nessa tela, e o botão de voltar da barra continua. Um resultado não muda depois de registrado.
+- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva, a não ser numa ida e volta, que segue até a partida. "Encerrar" salva a rota sem perder o progresso e volta para a tela anterior. Na tela Rota, a lista mostra os resultados, e "Iniciar" continua da próxima parada, com o mesmo início e a distância percorrida. Numa rota continuada pelo Mapa, a volta é para o Mapa, que só oferece "Continuar rota?" de novo quando o app abre outra vez. O voltar do sistema faz o mesmo que "Encerrar" durante a rota e o mesmo que "Nova rota" no resumo; no iOS, o gesto de borda fica desligado nessa tela, e o botão de voltar da barra continua. Um resultado não muda depois de registrado.
 - **Toque duplo.** Um toque em "Entregue", num motivo ou em "Finalizar rota" a menos de 1 s do resultado anterior é ignorado. "Entregue" e o motivo registram a próxima parada, então um toque duplo registraria duas. Numa ida e volta, depois do último resultado, "Finalizar rota" ocupa o lugar de "Entregue", e o segundo toque concluiria a rota.
 - **Chegada.** Um fix com precisão ≤ 50 m a até 40 m da próxima parada troca a distância do card por "Você chegou". A parada continua a próxima até o resultado, mesmo que o entregador se afaste. Enquanto isso, o app não recalcula por desvio, porque para entregar ele pode sair da rua. Se uma resposta de recálculo trouxer outra parada como próxima, o "Você chegou" some. Um recálculo adiado sem conexão é descartado na chegada, junto com o aviso "Recálculo pendente (sem conexão)", e a volta da conexão não pede nada. Depois do resultado, a detecção de desvio recomeça.
 - **Resumo.** O fim da rota troca o painel pelo resumo, nesta ordem: "Rota concluída", as contagens ("3 entregues · 1 não entregue"), a distância e o tempo ("12,4 km percorridos · 1 h 05 min"), os horários ("Início às 08:40 · fim às 09:45"), cada parada não entregue ("Parada 2 · Rua Augusta, 500", com o motivo embaixo) e "Nova rota", que abre o mapa sem rota salva. O início é o primeiro "Iniciar" da rota, mesmo numa rota continuada, e o fim é o último resultado (numa ida e volta, a chegada à partida ou "Finalizar rota"). Com o texto em 200 %, um resumo que não cabe abre em "Nova rota" e rola até o título.
@@ -552,7 +553,7 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 | Segundo toque em "Iniciar" enquanto o pedido de permissão aparece | Ignorado: a navegação começa uma vez, depois da resposta |
 | App na frente durante a navegação | Sem avisos: o card e os chips já mostram o mesmo. Voltar para o app remove os avisos do painel |
 | Chegada com o app aberto e, depois, tela bloqueada | Sem aviso de chegada: o card já mostrou "Você chegou" |
-| Chegada e recálculo no mesmo fix, em segundo plano | Os dois avisos aparecem |
+| Chegada com um recálculo em andamento, em segundo plano | Os dois avisos aparecem |
 | Ida e volta concluída em segundo plano | Aviso "Rota concluída" com as contagens; o resumo está na tela na volta ao app |
 | Progresso a cada fix (Android) | A notificação fixa muda no máximo a cada 15 s; nova parada, chegada e volta mudam na hora |
 | App fechado com avisos no painel | Os avisos ficam até o entregador dispensá-los |
