@@ -183,7 +183,8 @@ void main() {
         expect(methods(), ['startForegroundService']);
       });
 
-      test('a platform error on update is swallowed', () async {
+      test('a platform error on update is swallowed, and the next update '
+          'still goes', () async {
         final tracker = ForegroundServiceTracker(
           FlutterLocalNotificationsPlugin(),
         );
@@ -192,6 +193,26 @@ void main() {
 
         await expectLater(tracker.update(title, body), completes);
         expect(methods(), ['startForegroundService', 'startForegroundService']);
+
+        // The platform answers again.
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          return null;
+        });
+        await tracker.update(title, 'Você chegou');
+
+        expect(methods(), [
+          'startForegroundService',
+          'startForegroundService',
+          'startForegroundService',
+        ]);
+        expect(
+          (calls.last.arguments as Map)['notificationData'],
+          allOf(
+            containsPair('title', title),
+            containsPair('body', 'Você chegou'),
+          ),
+        );
       });
     });
   });
