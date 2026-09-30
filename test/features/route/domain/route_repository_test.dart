@@ -19,17 +19,16 @@ void main() {
   const near = Stop('near', 'Rua Perto, 1', GeoPoint(-23.565, -46.66));
   const mid = Stop('mid', 'Rua Meio, 2', GeoPoint(-23.60, -46.70));
   const far = Stop('far', 'Rua Longe, 3', GeoPoint(-23.70, -46.80));
-  // Google's reference polyline: 3 known points.
-  const encoded = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
   const decoded = [
     GeoPoint(38.5, -120.2),
     GeoPoint(40.7, -120.95),
     GeoPoint(43.252, -126.453),
+    GeoPoint(44, -127),
   ];
   const legs = [
-    RouteLeg(distanceMeters: 4000, durationSeconds: 200),
-    RouteLeg(distanceMeters: 4345, durationSeconds: 205),
-    RouteLeg(distanceMeters: 4000, durationSeconds: 200),
+    RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 1),
+    RouteLeg(distanceMeters: 4345, durationSeconds: 205, endIndex: 2),
+    RouteLeg(distanceMeters: 4000, durationSeconds: 200, endIndex: 3),
   ];
   final now = DateTime.utc(2026, 9, 22, 10, 30);
 
@@ -64,10 +63,11 @@ void main() {
 
   group('plan', () {
     test('calls the API once with the planner request and returns the '
-        'ordered plan numbered 1..N, decoded and saved', () async {
+        'ordered plan numbered 1..N with the route geometry and the leg ends, '
+        'saved', () async {
       when(() => api.computeRoutes(any())).thenAnswer(
         (_) async => const RouteResponse(
-          encodedPolyline: encoded,
+          polyline: decoded,
           distanceMeters: 12345,
           durationSeconds: 605,
           legs: legs,
@@ -106,7 +106,7 @@ void main() {
         'after them, requesting only the unvisited stops', () async {
       when(() => api.computeRoutes(any())).thenAnswer(
         (_) async => const RouteResponse(
-          encodedPolyline: encoded,
+          polyline: decoded,
           distanceMeters: 8000,
           durationSeconds: 400,
           legs: [
@@ -150,7 +150,7 @@ void main() {
       const farOrigin = GeoPoint(-22.85, -46.6559);
       when(() => api.computeRoutes(any())).thenAnswer(
         (_) async => const RouteResponse(
-          encodedPolyline: encoded,
+          polyline: decoded,
           distanceMeters: 95000,
           durationSeconds: 5400,
           legs: legs,
@@ -169,7 +169,7 @@ void main() {
     test('a storage failure does not discard the computed plan', () async {
       when(() => api.computeRoutes(any())).thenAnswer(
         (_) async => const RouteResponse(
-          encodedPolyline: encoded,
+          polyline: decoded,
           distanceMeters: 12345,
           durationSeconds: 605,
           legs: legs,

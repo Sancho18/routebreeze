@@ -4,13 +4,17 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/di/injector.dart';
 import '../../../core/theme/rb_tokens.dart';
+import '../../../core/widgets/measure_size.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/presentation/map_markers.dart';
+import '../../route/presentation/route_format.dart';
 import '../../route/presentation/route_map_objects.dart';
 import '../../route/presentation/route_sheet.dart';
+import '../domain/progress_estimator.dart';
 import 'navigation_cubit.dart';
+import 'next_stop_card.dart';
 
 /// What the navigation map draws and where its camera goes.
 class NavigationMapModel {
@@ -19,12 +23,17 @@ class NavigationMapModel {
     required this.polylines,
     required this.target,
     required this.following,
+    this.padding = EdgeInsets.zero,
   });
 
   final Set<Marker> markers;
   final Set<Polyline> polylines;
   final LatLng target;
   final bool following;
+
+  /// Map edges covered by the next stop card and the sheet: the camera
+  /// centers the position in the area left between them.
+  final EdgeInsets padding;
 
   static const String meMarkerId = 'me';
 }
@@ -36,8 +45,8 @@ typedef NavigationMapBuilder = Widget Function(
   NavigationMapModel model,
 );
 
-/// Live navigation: map following the position, status overlays and the
-/// [RouteSheet] in navigation mode.
+/// Live navigation: map following the position, the [NextStopCard] and status
+/// overlays, and the [RouteSheet] in navigation mode with what is left.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -72,6 +81,13 @@ class NavigationScreen extends StatefulWidget {
   static const String completedTitle = 'Rota concluída';
   static const String newRouteLabel = 'Nova rota';
 
+  /// Sheet totals while navigating:
+  /// `"Faltam 8,4 km · 22 min · término às 15:10"`.
+  static String remaining(RouteProgress progress) =>
+      'Faltam ${formatDistance(progress.remainingMeters)} · '
+      '${formatDuration(progress.remainingSeconds)} · '
+      'término às ${formatClock(progress.finalArrival)}';
+
   /// Camera zoom while following.
   static const double zoom = 16;
 
@@ -95,6 +111,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
   RoutePlan? _iconsPlan;
   Future<_Icons>? _icons;
   Offset? _pointerDown;
+
+  /// Heights of the persistent overlays, measured after layout.
+  double _topInset = 0;
+  double _bottomInset = 0;
 
   /// Pointer travel that counts as a map drag.
   static const double dragSlop = 12;
@@ -159,7 +179,20 @@ class _NavigationScreenState extends State<NavigationScreen> {
       polylines: objects.polylines,
       target: target,
       following: state.following,
+      padding: EdgeInsets.only(top: _topInset, bottom: _bottomInset),
     );
+  }
+
+  void _onTopMeasured(Size size) {
+    if (mounted && size.height != _topInset) {
+      setState(() => _topInset = size.height);
+    }
+  }
+
+  void _onBottomMeasured(Size size) {
+    if (mounted && size.height != _bottomInset) {
+      setState(() => _bottomInset = size.height);
+    }
   }
 
   Widget _googleMap(BuildContext context, NavigationMapModel model) =>
@@ -189,6 +222,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       builder: (context, state) {
         final navigating = state.phase == NavigationPhase.navigating;
         final completed = state.phase == NavigationPhase.completed;
+        final progress = navigating ? state.progress : null;
         return Scaffold(
           appBar: AppBar(title: const Text(NavigationScreen.title)),
           body: Stack(
@@ -213,7 +247,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 left: 0,
                 right: 0,
                 top: 0,
-                child: _TopOverlay(state: state),
+                child: _TopOverlay(state: state, onMeasured: _onTopMeasured),
               ),
               Positioned(
                 left: 0,
@@ -237,26 +271,31 @@ class _NavigationScreenState extends State<NavigationScreen> {
                           label: const Text(NavigationScreen.recenterLabel),
                         ),
                       ),
-                    if (completed)
-                      _Completed(onNewRoute: widget.onNewRoute)
-                    else
-                      RouteSheet(
-                        plan: state.plan,
-                        startEnabled: navigating || state.canStart,
-                        startLabel: navigating
-                            ? NavigationScreen.stopLabel
-                            : NavigationScreen.startLabel,
-                        startColor: navigating
-                            ? RbColors.danger
-                            : RbColors.brand,
-                        onStart: navigating ? _stop : _cubit.start,
-                        onMarkVisited: navigating
-                            ? _cubit.markNextVisited
-                            : null,
-                        footer: navigating || state.canStart
-                            ? null
-                            : const _WaitingGps(),
-                      ),
+                    MeasureSize(
+                      onChange: _onBottomMeasured,
+                      child: completed
+                          ? _Completed(onNewRoute: widget.onNewRoute)
+                          : RouteSheet(
+                              plan: state.plan,
+                              startEnabled: navigating || state.canStart,
+                              startLabel: navigating
+                                  ? NavigationScreen.stopLabel
+                                  : NavigationScreen.startLabel,
+                              startColor: navigating
+                                  ? RbColors.danger
+                                  : RbColors.brand,
+                              onStart: navigating ? _stop : _cubit.start,
+                              onMarkVisited: navigating
+                                  ? _cubit.markNextVisited
+                                  : null,
+                              totals: progress == null
+                                  ? null
+                                  : NavigationScreen.remaining(progress),
+                              footer: navigating || state.canStart
+                                  ? null
+                                  : const _WaitingGps(),
+                            ),
+                    ),
                   ],
                 ),
               ),
@@ -305,6 +344,7 @@ class _NavigationMapState extends State<_NavigationMap> {
       ),
       markers: model.markers,
       polylines: model.polylines,
+      padding: model.padding,
       onMapCreated: (controller) => _controller = controller,
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,
@@ -312,53 +352,89 @@ class _NavigationMapState extends State<_NavigationMap> {
   }
 }
 
-/// Offline banner, recalculation badge and GPS error at the top of the map.
+/// Offline banner and the next stop (while navigating) at the top of the map,
+/// with the recalculation badge and the GPS error under them.
 class _TopOverlay extends StatelessWidget {
-  const _TopOverlay({required this.state});
+  const _TopOverlay({required this.state, required this.onMeasured});
 
   final NavigationState state;
 
+  /// Size of the banner and the card, which stay while navigating; the
+  /// transient chips are left out so they never shift the map.
+  final ValueChanged<Size> onMeasured;
+
   @override
   Widget build(BuildContext context) {
+    final next = state.phase == NavigationPhase.navigating
+        ? state.plan.nextStop
+        : null;
     final badge = state.badge;
     final error = state.error;
+    final chips = [
+      if (badge != null)
+        _Card(
+          child: RbStatusChip(
+            label: badge.text,
+            tone: badge.kind == BadgeKind.recalcFailed
+                ? RbTone.danger
+                : RbTone.warning,
+          ),
+        ),
+      if (error != null)
+        _Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: RbSpace.s2,
+              vertical: RbSpace.s1,
+            ),
+            child: RbInlineError(text: error),
+          ),
+        ),
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!state.online)
-          const RbBanner(
-            text: NavigationScreen.offlineBanner,
-            tone: RbTone.danger,
+        MeasureSize(
+          onChange: onMeasured,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!state.online)
+                const RbBanner(
+                  text: NavigationScreen.offlineBanner,
+                  tone: RbTone.danger,
+                ),
+              if (next != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    RbSpace.s3,
+                    RbSpace.s3,
+                    RbSpace.s3,
+                    0,
+                  ),
+                  child: NextStopCard(stop: next, progress: state.progress),
+                ),
+            ],
           ),
-        if (badge != null || error != null)
+        ),
+        if (chips.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.all(RbSpace.s3),
+            padding: EdgeInsets.fromLTRB(
+              RbSpace.s3,
+              next == null ? RbSpace.s3 : RbSpace.s2,
+              RbSpace.s3,
+              RbSpace.s3,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (badge != null)
-                  _Card(
-                    child: RbStatusChip(
-                      label: badge.text,
-                      tone: badge.kind == BadgeKind.recalcFailed
-                          ? RbTone.danger
-                          : RbTone.warning,
-                    ),
-                  ),
-                if (badge != null && error != null)
-                  const SizedBox(height: RbSpace.s2),
-                if (error != null)
-                  _Card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: RbSpace.s2,
-                        vertical: RbSpace.s1,
-                      ),
-                      child: RbInlineError(text: error),
-                    ),
-                  ),
+                for (final (i, chip) in chips.indexed) ...[
+                  if (i > 0) const SizedBox(height: RbSpace.s2),
+                  chip,
+                ],
               ],
             ),
           ),

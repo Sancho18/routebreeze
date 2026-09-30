@@ -29,23 +29,45 @@ double distanceToPolylineMeters(GeoPoint point, List<GeoPoint> line) {
   if (line.isEmpty) return double.infinity;
   if (line.length == 1) return haversineMeters(point, line.first);
 
-  final cosLat = math.cos(_radians(point.lat));
-  math.Point<double> project(GeoPoint p) => math.Point(
-    _radians(p.lng - point.lng) * cosLat * earthRadiusMeters,
-    _radians(p.lat - point.lat) * earthRadiusMeters,
-  );
-
+  final project = _planeAround(point);
   var best = double.infinity;
   var start = project(line.first);
   for (var i = 1; i < line.length; i++) {
     final end = project(line[i]);
-    best = math.min(best, _distanceFromOriginToSegment(start, end));
+    best = math.min(best, _closestToOrigin(start, end).distance);
     start = end;
   }
   return best;
 }
 
-double _distanceFromOriginToSegment(
+/// Where [point] falls on the segment [a]→[b]: the distance in meters to the
+/// closest point of the segment and how far along the segment that point
+/// lies (`fraction` 0 at [a], 1 at [b]). Same plane as
+/// [distanceToPolylineMeters].
+({double meters, double fraction}) projectOntoSegment(
+  GeoPoint point,
+  GeoPoint a,
+  GeoPoint b,
+) {
+  final project = _planeAround(point);
+  final closest = _closestToOrigin(project(a), project(b));
+  return (meters: closest.distance, fraction: closest.t);
+}
+
+/// Local equirectangular plane centered on [origin]:
+/// x = Δlng·cos(lat)·R, y = Δlat·R.
+math.Point<double> Function(GeoPoint) _planeAround(GeoPoint origin) {
+  final cosLat = math.cos(_radians(origin.lat));
+  return (p) => math.Point(
+    _radians(p.lng - origin.lng) * cosLat * earthRadiusMeters,
+    _radians(p.lat - origin.lat) * earthRadiusMeters,
+  );
+}
+
+/// The point of segment [a]→[b] closest to the plane origin: its distance
+/// to the origin and its position `t` along the segment (0..1). A segment
+/// with no length is its start.
+({double distance, double t}) _closestToOrigin(
   math.Point<double> a,
   math.Point<double> b,
 ) {
@@ -56,8 +78,7 @@ double _distanceFromOriginToSegment(
     t = (-(a.x * d.x) - (a.y * d.y)) / length2;
     t = t.clamp(0.0, 1.0);
   }
-  final closest = a + d * t;
-  return closest.magnitude;
+  return (distance: (a + d * t).magnitude, t: t);
 }
 
 /// Index of the point in [points] farthest (great-circle) from [origin].

@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../core/error/failure.dart';
 import '../../../core/geo/geo_point.dart';
+import '../../../core/geo/polyline_codec.dart';
 import '../../../core/network/api_client.dart';
 import '../domain/route_plan.dart';
 import '../domain/route_planner.dart';
@@ -10,16 +13,19 @@ import '../domain/route_planner.dart';
 /// The parts of a `computeRoutes` answer the app uses.
 class RouteResponse extends Equatable {
   const RouteResponse({
-    required this.encodedPolyline,
+    required this.polyline,
     required this.distanceMeters,
     required this.durationSeconds,
     required this.legs,
     required this.optimizedIndex,
   });
 
-  final String encodedPolyline;
+  /// The whole route: the leg polylines joined in visiting order.
+  final List<GeoPoint> polyline;
   final int distanceMeters;
   final int durationSeconds;
+
+  /// In visiting order, each with the index in [polyline] where it ends.
   final List<RouteLeg> legs;
 
   /// `optimizedIntermediateWaypointIndex`; null without intermediates.
@@ -27,7 +33,7 @@ class RouteResponse extends Equatable {
 
   @override
   List<Object?> get props => [
-    encodedPolyline,
+    polyline,
     distanceMeters,
     durationSeconds,
     legs,
@@ -52,9 +58,11 @@ class RoutesApiImpl implements RoutesApi {
   static const String url =
       'https://routes.googleapis.com/directions/v2:computeRoutes';
 
+  /// Leg polylines instead of the route polyline: joined, they are the same
+  /// line, and they tell where each leg ends.
   static const String fieldMask =
       'routes.duration,routes.distanceMeters,'
-      'routes.polyline.encodedPolyline,routes.legs.distanceMeters,'
+      'routes.legs.polyline.encodedPolyline,routes.legs.distanceMeters,'
       'routes.legs.duration,routes.optimizedIntermediateWaypointIndex';
 
   static const Failure invalidResponse = ApiFailure(
@@ -99,7 +107,8 @@ class RoutesApiImpl implements RoutesApi {
   };
 
   /// The first route must carry exactly [expectedLegs] legs (intermediates
-  /// + 1), numeric totals and, when present, an optimized index that is a
+  /// + 1) with decodable polylines that add up to at least one point,
+  /// numeric totals and, when present, an optimized index that is a
   /// permutation of the intermediates; anything else is a failed request.
   static RouteResponse _parse(Map<String, dynamic>? data, int expectedLegs) {
     final routes = data?['routes'];
@@ -109,28 +118,51 @@ class RoutesApiImpl implements RoutesApi {
     final route = routes.first as Map;
     final legs = route['legs'];
     if (legs is! List || legs.length != expectedLegs) throw invalidResponse;
-    final polyline = route['polyline'];
-    final encoded = polyline is Map ? polyline['encodedPolyline'] : null;
-    if (encoded is! String || encoded.isEmpty) throw invalidResponse;
+    final polyline = <GeoPoint>[];
+    final parsedLegs = <RouteLeg>[];
+    for (final leg in legs) {
+      if (leg is! Map) throw invalidResponse;
+      _join(polyline, _legPoints(leg['polyline']));
+      parsedLegs.add(
+        RouteLeg(
+          distanceMeters: _meters(leg['distanceMeters']),
+          durationSeconds: _seconds(leg['duration']),
+          endIndex: math.max(polyline.length - 1, 0),
+        ),
+      );
+    }
+    if (polyline.isEmpty) throw invalidResponse;
     final optimized = route['optimizedIntermediateWaypointIndex'];
     return RouteResponse(
-      encodedPolyline: encoded,
+      polyline: polyline,
       distanceMeters: _meters(route['distanceMeters']),
       durationSeconds: _seconds(route['duration']),
-      legs: [
-        for (final leg in legs)
-          if (leg is Map)
-            RouteLeg(
-              distanceMeters: _meters(leg['distanceMeters']),
-              durationSeconds: _seconds(leg['duration']),
-            )
-          else
-            throw invalidResponse,
-      ],
+      legs: parsedLegs,
       optimizedIndex: optimized is List
           ? _permutation(optimized, expectedLegs - 1)
           : null,
     );
+  }
+
+  /// A leg's decoded polyline. A leg without one adds no points; a
+  /// zero-length leg comes with a single point.
+  static List<GeoPoint> _legPoints(Object? polyline) {
+    final encoded = polyline is Map ? polyline['encodedPolyline'] : null;
+    if (encoded == null) return const [];
+    if (encoded is! String) throw invalidResponse;
+    try {
+      return decodePolyline(encoded);
+    } on FormatException {
+      throw invalidResponse;
+    }
+  }
+
+  /// Appends [points] to [line]. A leg starts on the vertex where the
+  /// previous one ended, which is kept once.
+  static void _join(List<GeoPoint> line, List<GeoPoint> points) {
+    final shared =
+        line.isNotEmpty && points.isNotEmpty && points.first == line.last;
+    line.addAll(shared ? points.skip(1) : points);
   }
 
   static List<int> _permutation(List<Object?> index, int n) {

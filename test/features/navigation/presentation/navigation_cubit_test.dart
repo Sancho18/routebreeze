@@ -12,6 +12,7 @@ import 'package:routebreeze/core/session/session_state.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
+import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
@@ -115,22 +116,23 @@ void main() {
   }
 
   /// Builds the cubit inside the fake zone with its clock on `t0 + elapsed`.
-  NavigationCubit build(FakeAsync async) => NavigationCubit(
-    plan: plan,
-    location: location,
-    routes: routes,
-    connectivity: connectivity,
-    session: session,
-    now: () => t0.add(async.elapsed),
-  );
+  NavigationCubit build(FakeAsync async, [RoutePlan? initial]) =>
+      NavigationCubit(
+        plan: initial ?? plan,
+        location: location,
+        routes: routes,
+        connectivity: connectivity,
+        session: session,
+        now: () => t0.add(async.elapsed),
+      );
 
   void emitFix(FakeAsync async, Fix fix) {
     fixes.add(fix);
     async.flushMicrotasks();
   }
 
-  NavigationCubit navigating(FakeAsync async) {
-    final cubit = build(async)..prepare();
+  NavigationCubit navigating(FakeAsync async, [RoutePlan? initial]) {
+    final cubit = build(async, initial)..prepare();
     async.flushMicrotasks();
     emitFix(async, onRoute());
     cubit.start();
@@ -849,6 +851,185 @@ void main() {
 
         expect(fixes.hasListener, isFalse);
         verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        cubit.close();
+      });
+    });
+  });
+  group('progress', () {
+    // The same route with its leg ends: leg 1 ends on A (vertex 1), leg 2 on
+    // B (vertex 2).
+    final tracked = RoutePlan(
+      origin: origin,
+      stops: plan.stops,
+      polyline: plan.polyline,
+      distanceMeters: plan.distanceMeters,
+      durationSeconds: plan.durationSeconds,
+      legs: const [
+        RouteLeg(distanceMeters: 2224, durationSeconds: 200, endIndex: 1),
+        RouteLeg(distanceMeters: 2224, durationSeconds: 200, endIndex: 2),
+      ],
+      computedAt: t0,
+    );
+    const stopA = RouteStop(stop: a, order: 1, visited: false);
+    const stopB = RouteStop(stop: b, order: 2, visited: false);
+
+    test('start measures it from the fix that enabled "Iniciar": half of '
+        'leg 1 left (1112 m, 100 s), leg 2 in full, A at t0 + 100 s', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, tracked);
+
+        expect(
+          cubit.state.progress,
+          RouteProgress(
+            next: stopA,
+            toNextMeters: 1112,
+            toNextSeconds: 100,
+            remainingMeters: 1112 + 2224,
+            remainingSeconds: 100 + 200,
+            at: t0,
+          ),
+        );
+        expect(
+          cubit.state.progress!.nextArrival,
+          t0.add(const Duration(seconds: 100)),
+        );
+        cubit.close();
+      });
+    });
+
+    test('none while waiting for GPS, even with a precise fix', () {
+      fakeAsync((async) {
+        final cubit = build(async, tracked)..prepare();
+        async.flushMicrotasks();
+
+        emitFix(async, onRoute());
+
+        expect(cubit.state.canStart, isTrue);
+        expect(cubit.state.progress, isNull);
+        cubit.close();
+      });
+    });
+
+    test('each fix of 50 m or better updates it with the clock; a worse fix '
+        'moves the position but keeps the last progress', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, tracked);
+
+        async.elapse(const Duration(seconds: 10));
+        emitFix(async, fix(const GeoPoint(0, -0.005), accuracy: 50));
+
+        final measured = cubit.state.progress!;
+        expect(measured.toNextMeters, 556);
+        expect(measured.toNextSeconds, 50);
+        expect(measured.at, t0.add(const Duration(seconds: 10)));
+
+        final imprecise = fix(const GeoPoint(0, -0.015), accuracy: 50.1);
+        emitFix(async, imprecise);
+
+        expect(cubit.state.fix, imprecise);
+        expect(cubit.state.progress, measured);
+        cubit.close();
+      });
+    });
+
+    test('arriving at A moves it to B: the whole leg 2 from the arrival '
+        'fix', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, tracked);
+
+        emitFix(async, atStop(a));
+
+        expect(cubit.state.progress!.next, stopB);
+        expect(cubit.state.progress!.toNextMeters, 2224);
+        expect(cubit.state.progress!.toNextSeconds, 200);
+        expect(cubit.state.progress!.remainingMeters, 2224);
+        cubit.close();
+      });
+    });
+
+    test('"Marcar como visitado" measures B from the last precise fix', () {
+      fakeAsync((async) {
+        final cubit = navigating(async, tracked);
+
+        cubit.markNextVisited();
+        async.flushMicrotasks();
+
+        expect(cubit.state.progress!.next, stopB);
+        expect(cubit.state.progress!.toNextMeters, 2224);
+        cubit.close();
+      });
+    });
+
+    test('completing the route or "Encerrar" clears it', () {
+      fakeAsync((async) {
+        final completed = navigating(async, tracked);
+        emitFix(async, atStop(a));
+        emitFix(async, atStop(b));
+
+        expect(completed.state.phase, NavigationPhase.completed);
+        expect(completed.state.progress, isNull);
+        completed.close();
+
+        final stopped = navigating(async, tracked);
+        expect(stopped.state.progress, isNotNull);
+
+        stopped.stop();
+
+        expect(stopped.state.phase, NavigationPhase.idle);
+        expect(stopped.state.progress, isNull);
+        stopped.close();
+      });
+    });
+
+    test('a recalculated plan is measured on its first new leg from the '
+        'fix that triggered it', () {
+      final replaced = RoutePlan(
+        origin: farPoint,
+        stops: const [
+          RouteStop(stop: b, order: 1, visited: false),
+          RouteStop(stop: a, order: 2, visited: false),
+        ],
+        polyline: [farPoint, const GeoPoint(0, 0.02), const GeoPoint(0, 0)],
+        distanceMeters: 5224,
+        durationSeconds: 450,
+        legs: const [
+          RouteLeg(distanceMeters: 3000, durationSeconds: 250, endIndex: 1),
+          RouteLeg(distanceMeters: 2224, durationSeconds: 200, endIndex: 2),
+        ],
+        computedAt: t0,
+      );
+      stubPlan(replaced);
+      fakeAsync((async) {
+        final cubit = navigating(async, tracked);
+        async.elapse(const Duration(seconds: 30));
+
+        goOffRoute(async);
+
+        expect(cubit.state.plan, replaced);
+        expect(
+          cubit.state.progress,
+          RouteProgress(
+            next: const RouteStop(stop: b, order: 1, visited: false),
+            toNextMeters: 3000,
+            toNextSeconds: 250,
+            remainingMeters: 5224,
+            remainingSeconds: 450,
+            at: t0.add(const Duration(seconds: 30)),
+          ),
+        );
+        cubit.close();
+      });
+    });
+
+    test('a plan saved without leg ends (app 0.1.0) navigates without '
+        'progress', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+
+        emitFix(async, onRoute());
+
+        expect(cubit.state.phase, NavigationPhase.navigating);
+        expect(cubit.state.progress, isNull);
         cubit.close();
       });
     });

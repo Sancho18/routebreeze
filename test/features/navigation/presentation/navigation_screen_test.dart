@@ -9,8 +9,10 @@ import 'package:routebreeze/core/widgets/rb_button.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
+import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
+import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
@@ -420,6 +422,178 @@ void main() {
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Nova rota'));
       expect(newRoutes, 1);
       expect(markerIds(mapsBuilt.last), {'start', 'me'});
+    });
+    group('next stop and what is left', () {
+      final progress = RouteProgress(
+        next: const RouteStop(stop: a, order: 1, visited: false),
+        toNextMeters: 1234,
+        toNextSeconds: 250,
+        remainingMeters: 8400,
+        remainingSeconds: 1320,
+        at: DateTime.utc(2026, 9, 22, 14, 28),
+      );
+
+      testWidgets('navigating: the next stop card on top of the map with its '
+          'progress, and the sheet totals replaced by what is left', (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          NavigationState(
+            plan: plan,
+            phase: NavigationPhase.navigating,
+            fix: fix,
+            progress: progress,
+          ),
+        );
+
+        final card = tester.widget<NextStopCard>(find.byType(NextStopCard));
+        expect(card.stop, plan.stops.first);
+        expect(card.progress, progress);
+        expect(find.text('1,2 km · 4 min · chegada às 14:32'), findsOneWidget);
+        expect(
+          find.text('Faltam 8,4 km · 22 min · término às 14:50'),
+          findsOneWidget,
+        );
+        expect(find.text('12,3 km · 10 min'), findsNothing);
+        final cardTop = tester.getTopLeft(find.byType(NextStopCard));
+        expect(cardTop.dy, tester.getTopLeft(find.byKey(mapKey)).dy + 16);
+        expect(cardTop.dx, 16);
+      });
+
+      testWidgets('navigating without progress yet: the card shows the stop '
+          'only and the sheet keeps the plan totals', (tester) async {
+        await pumpScreen(
+          tester,
+          NavigationState(
+            plan: plan.markVisited('pa'),
+            phase: NavigationPhase.navigating,
+            fix: fix,
+          ),
+        );
+
+        final card = tester.widget<NextStopCard>(find.byType(NextStopCard));
+        expect(card.stop, const RouteStop(stop: b, order: 2, visited: false));
+        expect(card.progress, isNull);
+        expect(find.textContaining('chegada às'), findsNothing);
+        expect(find.text('12,3 km · 10 min'), findsOneWidget);
+      });
+
+      testWidgets('before "Iniciar" there is no card and the sheet shows the '
+          'plan totals, even with a progress in state', (tester) async {
+        await pumpScreen(
+          tester,
+          NavigationState(
+            plan: plan,
+            phase: NavigationPhase.waitingGps,
+            fix: fix,
+            progress: progress,
+          ),
+        );
+
+        expect(find.byType(NextStopCard), findsNothing);
+        expect(find.text('12,3 km · 10 min'), findsOneWidget);
+        expect(find.textContaining('Faltam'), findsNothing);
+      });
+
+      testWidgets('the card stays on top: the recalculation badge and the GPS '
+          'error follow it, space-2 apart', (tester) async {
+        await pumpScreen(
+          tester,
+          NavigationState(
+            plan: plan,
+            phase: NavigationPhase.navigating,
+            fix: fix,
+            badge: NavigationBadge.recalculated,
+            error: 'Perdemos o sinal de GPS',
+            progress: progress,
+          ),
+        );
+
+        final card = find.byType(NextStopCard);
+        final chip = find.widgetWithText(RbStatusChip, 'Rota recalculada');
+        expect(
+          tester.getTopLeft(chip).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(card).dy + RbSpace.s2),
+        );
+        expect(
+          tester.getTopLeft(find.text('Perdemos o sinal de GPS')).dy,
+          greaterThan(tester.getBottomLeft(chip).dy),
+        );
+      });
+    });
+    group('map padding', () {
+      final progress = RouteProgress(
+        next: const RouteStop(stop: a, order: 1, visited: false),
+        toNextMeters: 1234,
+        toNextSeconds: 250,
+        remainingMeters: 8400,
+        remainingSeconds: 1320,
+        at: DateTime.utc(2026, 9, 22, 14, 28),
+      );
+      NavigationState navigating({
+        bool online = true,
+        bool following = true,
+        NavigationBadge? badge,
+      }) => NavigationState(
+        plan: plan,
+        phase: NavigationPhase.navigating,
+        fix: fix,
+        progress: progress,
+        online: online,
+        following: following,
+        badge: badge,
+      );
+
+      testWidgets('top is the next stop card with its margin, bottom is the '
+          'sheet: the camera centers the position between them', (
+        tester,
+      ) async {
+        await pumpScreen(tester, navigating());
+
+        final mapTop = tester.getTopLeft(find.byKey(mapKey)).dy;
+        final padding = mapsBuilt.last.padding;
+        expect(
+          padding.top,
+          tester.getBottomLeft(find.byType(NextStopCard)).dy - mapTop,
+        );
+        expect(padding.bottom, tester.getSize(find.byType(RouteSheet)).height);
+        expect(padding.left, 0);
+        expect(padding.right, 0);
+      });
+
+      testWidgets('the offline banner adds to the top; a badge and '
+          '"Recentralizar" change nothing', (tester) async {
+        await pumpScreen(tester, navigating());
+        final base = mapsBuilt.last.padding;
+
+        await pumpScreen(
+          tester,
+          navigating(badge: NavigationBadge.recalculated, following: false),
+        );
+        expect(find.text('Recentralizar'), findsOneWidget);
+        expect(mapsBuilt.last.padding, base);
+
+        await pumpScreen(tester, navigating(online: false));
+        expect(
+          mapsBuilt.last.padding.top,
+          base.top + tester.getSize(find.byType(RbBanner)).height,
+        );
+        expect(mapsBuilt.last.padding.bottom, base.bottom);
+      });
+
+      testWidgets('before "Iniciar" only the sheet pads the map', (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
+        );
+
+        final padding = mapsBuilt.last.padding;
+        expect(padding.top, 0);
+        expect(padding.bottom, tester.getSize(find.byType(RouteSheet)).height);
+      });
     });
   });
 }
