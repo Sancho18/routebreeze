@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_feedback.dart';
 import '../../addresses/domain/stop.dart';
@@ -28,7 +29,7 @@ class OpenInAppSheet extends StatefulWidget {
     required NavigationAppLauncher launcher,
   }) => showModalBottomSheet<void>(
     context: context,
-    backgroundColor: RbColors.surface200,
+    backgroundColor: context.rb.surface200,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(RbRadius.lg)),
     ),
@@ -63,6 +64,7 @@ class _OpenInAppSheetState extends State<OpenInAppSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final failed = _failed;
     return SafeArea(
       top: false,
@@ -74,27 +76,23 @@ class _OpenInAppSheetState extends State<OpenInAppSheet> {
           children: [
             Text(
               OpenInAppSheet.title,
-              style: RbText.heading.copyWith(color: RbColors.ink),
+              style: RbText.heading.copyWith(color: rb.ink),
             ),
             const SizedBox(height: RbSpace.s1),
             Text(
               OpenInAppSheet.caption,
-              style: RbText.caption.copyWith(color: RbColors.inkMuted),
+              style: RbText.caption.copyWith(color: rb.inkMuted),
             ),
             const SizedBox(height: RbSpace.s2),
             for (final (i, app) in NavigationApp.values.indexed) ...[
-              if (i > 0)
-                const Divider(height: 1, thickness: 1, color: RbColors.border),
+              if (i > 0) Divider(height: 1, thickness: 1, color: rb.border),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
                   app.label,
-                  style: RbText.bodyStrong.copyWith(color: RbColors.ink),
+                  style: RbText.bodyStrong.copyWith(color: rb.ink),
                 ),
-                trailing: const Icon(
-                  Icons.chevron_right,
-                  color: RbColors.inkMuted,
-                ),
+                trailing: Icon(Icons.chevron_right, color: rb.inkMuted),
                 onTap: () => _open(app),
               ),
             ],

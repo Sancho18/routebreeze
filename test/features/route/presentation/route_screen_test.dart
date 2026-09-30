@@ -20,6 +20,8 @@ import 'package:routebreeze/features/route/presentation/route_map_objects.dart';
 import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
+import '../../../helpers/themed_app.dart';
+
 class MockRouteCubit extends MockCubit<RouteState> implements RouteCubit {}
 
 class MockConnectivityService extends Mock implements ConnectivityService {}
@@ -78,26 +80,33 @@ void main() {
     registerFallbackValue(const <Stop>[]);
   });
 
-  Future<void> pumpScreen(WidgetTester tester, RouteState state) async {
+  /// Pumps the screen in [state]: in a bare `MaterialApp`, or in the app
+  /// themes when [mode] is given. [settle] pumps once more, so a ready map
+  /// gets its marker icons.
+  Future<void> pumpScreen(
+    WidgetTester tester,
+    RouteState state, {
+    ThemeMode? mode,
+    bool settle = true,
+  }) async {
     whenListen(cubit, const Stream<RouteState>.empty(), initialState: state);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: RouteScreen(
-          start: start,
-          stops: stops,
-          cubit: cubit,
-          connectivity: connectivity,
-          markers: FakeMapMarkers(),
-          mapBuilder: (_, objects, padding) {
-            mapsBuilt.add(objects);
-            paddings.add(padding);
-            return const SizedBox.expand(key: mapKey);
-          },
-          onStart: started.add,
-        ),
-      ),
+    final screen = RouteScreen(
+      start: start,
+      stops: stops,
+      cubit: cubit,
+      connectivity: connectivity,
+      markers: FakeMapMarkers(),
+      mapBuilder: (_, objects, padding) {
+        mapsBuilt.add(objects);
+        paddings.add(padding);
+        return const SizedBox.expand(key: mapKey);
+      },
+      onStart: started.add,
     );
-    await tester.pump();
+    await tester.pumpWidget(
+      mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
+    );
+    if (settle) await tester.pump();
   }
 
   group('RouteScreen', () {
@@ -234,6 +243,86 @@ void main() {
 
       expect(find.text('Sem conexão'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+  });
+
+  group('RouteScreen in dark mode', () {
+    Color background(WidgetTester tester) => tester
+        .widget<Material>(
+          find
+              .descendant(
+                of: find.byType(Scaffold),
+                matching: find.byType(Material),
+              )
+              .first,
+        )
+        .color!;
+
+    testWidgets('loading on #0F1115 with the caption in #A4ACB9', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        const RouteState(status: RouteStatus.loading),
+        mode: ThemeMode.dark,
+      );
+
+      expect(background(tester), const Color(0xFF0F1115));
+      expect(
+        tester
+            .widget<Text>(find.text('Calculando a melhor rota...'))
+            .style!
+            .color,
+        const Color(0xFFA4ACB9),
+      );
+    });
+
+    testWidgets('failure on #0F1115 with the message in #EB7074 and '
+        '"Tentar novamente" in #7EA6F8', (tester) async {
+      await pumpScreen(
+        tester,
+        const RouteState(
+          status: RouteStatus.failure,
+          failure: ApiFailure(null, 'Resposta inválida da Routes API'),
+        ),
+        mode: ThemeMode.dark,
+      );
+
+      expect(background(tester), const Color(0xFF0F1115));
+      expect(
+        tester
+            .widget<Text>(find.text('Não foi possível calcular a rota.'))
+            .style!
+            .color,
+        const Color(0xFFEB7074),
+      );
+      final retry = tester.widget<RichText>(
+        find.descendant(
+          of: find.widgetWithText(TextButton, 'Tentar novamente'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(retry.text.style!.color, const Color(0xFF7EA6F8));
+    });
+
+    testWidgets('ready: the map area is #0F1115 until the marker icons exist', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        RouteState(status: RouteStatus.ready, plan: plan),
+        mode: ThemeMode.dark,
+        settle: false,
+      );
+
+      expect(find.byKey(mapKey), findsNothing);
+      final placeholder = tester.widget<ColoredBox>(
+        find.descendant(
+          of: find.byType(FutureBuilder<RouteMapObjects>),
+          matching: find.byType(ColoredBox),
+        ),
+      );
+      expect(placeholder.color, const Color(0xFF0F1115));
     });
   });
 }

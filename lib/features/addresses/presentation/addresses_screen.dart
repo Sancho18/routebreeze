@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/di/injector.dart';
 import '../../../core/geo/geo_point.dart';
 import '../../../core/network/connectivity_service.dart';
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
@@ -77,6 +78,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
         _cubit.reset();
       },
       builder: (context, state) {
+        final rb = context.rb;
         return Scaffold(
           body: SafeArea(
             child: Column(
@@ -89,7 +91,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
                     children: [
                       Text(
                         AddressesScreen.title,
-                        style: RbText.title.copyWith(color: RbColors.ink),
+                        style: RbText.title.copyWith(color: rb.ink),
                       ),
                       const SizedBox(height: RbSpace.s4),
                       for (final (index, field) in state.fields.indexed) ...[
@@ -112,7 +114,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
                         child: TextButton(
                           onPressed: _cubit.addField,
                           style: TextButton.styleFrom(
-                            foregroundColor: RbColors.brand,
+                            foregroundColor: rb.brand,
                             textStyle: RbText.bodyStrong,
                           ),
                           child: const Text(AddressesScreen.addLabel),
@@ -129,9 +131,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
                         Text(
                           AddressesScreen.helper,
                           textAlign: TextAlign.center,
-                          style: RbText.caption.copyWith(
-                            color: RbColors.inkMuted,
-                          ),
+                          style: RbText.caption.copyWith(color: rb.inkMuted),
                         ),
                       ],
                     ],

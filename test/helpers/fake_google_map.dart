@@ -22,6 +22,30 @@ class FakeMapInstance {
   List<Object?> get polylinesToAdd =>
       creationParams['polylinesToAdd'] as List<Object?>;
 
+  /// `options.style` of the creation params; the plugin sends '' for no
+  /// custom style.
+  Object? get style =>
+      (creationParams['options'] as Map<Object?, Object?>)['style'];
+
+  /// The `style` of every `map#update` call that changed it, in order.
+  List<Object?> get styleUpdates => [
+    for (final call in callsOf('map#update'))
+      if ((call.arguments as Map<Object?, Object?>)['options']
+          case final Map<Object?, Object?> options
+          when options.containsKey('style'))
+        options['style'],
+  ];
+
+  /// The `color` (ARGB) of every polyline a `polylines#update` call changed,
+  /// in order.
+  List<Object?> get polylineColorUpdates => [
+    for (final call in callsOf('polylines#update'))
+      if ((call.arguments as Map<Object?, Object?>)['polylinesToChange']
+          case final List<Object?> changed)
+        for (final polyline in changed)
+          (polyline as Map<Object?, Object?>)['color'],
+  ];
+
   List<MethodCall> callsOf(String method) =>
       calls.where((call) => call.method == method).toList();
 

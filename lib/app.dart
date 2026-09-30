@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart' hide LockState;
+import 'package:flutter/services.dart';
 
 import 'core/di/injector.dart';
 import 'core/session/session_state.dart';
+import 'core/theme/rb_palette.dart';
 import 'core/theme/rb_theme.dart';
+import 'core/theme/system_bars.dart';
 import 'features/lock/domain/relock_policy.dart';
 import 'features/lock/presentation/lock_cubit.dart';
 import 'features/addresses/presentation/addresses_screen.dart';
@@ -14,7 +17,8 @@ import 'features/navigation/presentation/navigation_screen.dart';
 import 'features/route/domain/route_plan.dart';
 import 'features/route/presentation/route_screen.dart';
 
-/// Root widget: theme, named routes and the lifecycle re-lock gate.
+/// Root widget: light and dark themes following the device, named routes,
+/// the system bar style and the lifecycle re-lock gate.
 ///
 /// [now] is the clock used by the gate (tests inject a fake one);
 /// [navigatorObservers] are forwarded to the root navigator.
@@ -51,6 +55,8 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
     return MaterialApp(
       title: 'RouteBreeze',
       theme: buildRbTheme(),
+      darkTheme: buildRbTheme(RbPalette.dark),
+      themeMode: ThemeMode.system,
       navigatorKey: _navigatorKey,
       navigatorObservers: widget.navigatorObservers,
       initialRoute: '/lock',
@@ -109,10 +115,13 @@ class _RouteBreezeAppState extends State<RouteBreezeApp> {
           );
         }),
       },
-      builder: (_, child) => AppLifecycleGate(
-        navigatorKey: _navigatorKey,
-        now: widget.now,
-        child: child!,
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: rbSystemBarsFor(Theme.of(context).brightness),
+        child: AppLifecycleGate(
+          navigatorKey: _navigatorKey,
+          now: widget.now,
+          child: child!,
+        ),
       ),
     );
   }

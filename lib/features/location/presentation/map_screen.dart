@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/di/injector.dart';
+import '../../../core/theme/map_style.dart';
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../../../core/widgets/rb_feedback.dart';
@@ -159,7 +161,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             children: [
               Positioned.fill(
                 child: start == null
-                    ? const ColoredBox(color: RbColors.surface100)
+                    ? ColoredBox(color: context.rb.surface100)
                     : mapBuilder(context, start, _onMapReady),
               ),
               if (state.status != MapStatus.checking)
@@ -199,22 +201,23 @@ class _LoadingOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     return ColoredBox(
-      color: RbColors.surface100,
+      color: rb.surface100,
       child: SizedBox.expand(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               MapScreen.loadingTitle,
-              style: RbText.display.copyWith(color: RbColors.ink),
+              style: RbText.display.copyWith(color: rb.ink),
             ),
             const SizedBox(height: RbSpace.s3),
             const RbRouteLoader(),
             const SizedBox(height: RbSpace.s3),
             Text(
               MapScreen.loadingCaption,
-              style: RbText.caption.copyWith(color: RbColors.inkMuted),
+              style: RbText.caption.copyWith(color: rb.inkMuted),
             ),
           ],
         ),
@@ -237,6 +240,7 @@ Widget _googleMap(BuildContext context, Fix start, VoidCallback onMapReady) {
     },
     myLocationButtonEnabled: false,
     zoomControlsEnabled: false,
+    style: mapStyleFor(Theme.of(context).brightness),
   );
 }
 
@@ -246,22 +250,23 @@ class _ResumeDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final action = TextButton.styleFrom(
-      foregroundColor: RbColors.brand,
+      foregroundColor: rb.brand,
       textStyle: RbText.bodyStrong,
     );
     return AlertDialog(
-      backgroundColor: RbColors.surface200,
+      backgroundColor: rb.surface200,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(RbRadius.lg),
       ),
       title: Text(
         MapScreen.resumeTitle,
-        style: RbText.heading.copyWith(color: RbColors.ink),
+        style: RbText.heading.copyWith(color: rb.ink),
       ),
       content: Text(
         MapScreen.resumeBody,
-        style: RbText.body.copyWith(color: RbColors.inkMuted),
+        style: RbText.body.copyWith(color: rb.inkMuted),
       ),
       actions: [
         TextButton(
@@ -305,18 +310,19 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final start = state.start;
     return Container(
       padding: const EdgeInsets.all(RbSpace.s3),
       decoration: BoxDecoration(
-        color: RbColors.surface200,
+        color: rb.surface200,
         borderRadius: BorderRadius.circular(RbRadius.lg),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ..._content(),
+          ..._content(rb),
           const SizedBox(height: RbSpace.s3),
           RbPrimaryButton(
             label: MapScreen.continueLabel,
@@ -328,9 +334,9 @@ class _StatusCard extends StatelessWidget {
     );
   }
 
-  List<Widget> _content() => switch (state.status) {
+  List<Widget> _content(RbPalette rb) => switch (state.status) {
     MapStatus.checking => const [],
-    MapStatus.ready => [_caption('Ponto de partida definido')],
+    MapStatus.ready => [_caption('Ponto de partida definido', rb)],
     MapStatus.denied => [
       const RbInlineError(text: deniedMessage),
       const SizedBox(height: RbSpace.s3),
@@ -339,7 +345,7 @@ class _StatusCard extends StatelessWidget {
     MapStatus.deniedForever => [
       const RbInlineError(text: deniedMessage),
       const SizedBox(height: RbSpace.s2),
-      _caption(deniedForeverCaption),
+      _caption(deniedForeverCaption, rb),
       const SizedBox(height: RbSpace.s3),
       RbPrimaryButton(label: 'Abrir configurações', onPressed: onOpenSettings),
     ],
@@ -355,6 +361,6 @@ class _StatusCard extends StatelessWidget {
     ],
   };
 
-  Widget _caption(String text) =>
-      Text(text, style: RbText.caption.copyWith(color: RbColors.inkMuted));
+  Widget _caption(String text, RbPalette rb) =>
+      Text(text, style: RbText.caption.copyWith(color: rb.inkMuted));
 }

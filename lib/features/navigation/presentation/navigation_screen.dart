@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/di/injector.dart';
+import '../../../core/theme/map_style.dart';
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/measure_size.dart';
 import '../../../core/widgets/rb_button.dart';
@@ -153,7 +155,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
     }();
   }
 
-  NavigationMapModel _model(NavigationState state, _Icons icons) {
+  NavigationMapModel _model(
+    NavigationState state,
+    _Icons icons,
+    Color routeColor,
+  ) {
     final plan = state.plan;
     final objects = buildMapObjects(
       RoutePlan(
@@ -167,6 +173,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       ),
       numberedIcons: icons.numbered,
       startIcon: icons.start,
+      routeColor: routeColor,
     );
     final fix = state.fix;
     final target = fix == null
@@ -232,6 +239,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     return BlocBuilder<NavigationCubit, NavigationState>(
       bloc: _cubit,
       builder: (context, state) {
+        final rb = context.rb;
         final navigating = state.phase == NavigationPhase.navigating;
         final completed = state.phase == NavigationPhase.completed;
         final progress = navigating ? state.progress : null;
@@ -249,8 +257,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     builder: (context, snapshot) {
                       final icons = snapshot.data;
                       return icons == null
-                          ? const ColoredBox(color: RbColors.surface100)
-                          : mapBuilder(context, _model(state, icons));
+                          ? ColoredBox(color: context.rb.surface100)
+                          : mapBuilder(
+                              context,
+                              _model(state, icons, context.rb.brand),
+                            );
                     },
                   ),
                 ),
@@ -281,8 +292,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         ),
                         child: FloatingActionButton.extended(
                           onPressed: _cubit.recenter,
-                          backgroundColor: RbColors.surface200,
-                          foregroundColor: RbColors.brand,
+                          backgroundColor: rb.surface200,
+                          foregroundColor: rb.brand,
                           icon: const Icon(Icons.my_location),
                           label: const Text(NavigationScreen.recenterLabel),
                         ),
@@ -297,9 +308,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                               startLabel: navigating
                                   ? NavigationScreen.stopLabel
                                   : NavigationScreen.startLabel,
-                              startColor: navigating
-                                  ? RbColors.danger
-                                  : RbColors.brand,
+                              startColor: navigating ? rb.danger : null,
                               onStart: navigating ? _stop : _cubit.start,
                               onMarkVisited: navigating
                                   ? _cubit.markNextVisited
@@ -364,6 +373,7 @@ class _NavigationMapState extends State<_NavigationMap> {
       onMapCreated: (controller) => _controller = controller,
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,
+      style: mapStyleFor(Theme.of(context).brightness),
     );
   }
 }
@@ -478,7 +488,7 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: RbColors.surface200,
+        color: context.rb.surface200,
         borderRadius: BorderRadius.circular(RbRadius.sm),
       ),
       child: child,
@@ -497,7 +507,7 @@ class _WaitingGps extends StatelessWidget {
       child: Text(
         NavigationScreen.waitingGpsCaption,
         textAlign: TextAlign.center,
-        style: RbText.caption.copyWith(color: RbColors.inkMuted),
+        style: RbText.caption.copyWith(color: context.rb.inkMuted),
       ),
     );
   }
@@ -510,11 +520,14 @@ class _Completed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     return Container(
       padding: const EdgeInsets.all(RbSpace.s3),
-      decoration: const BoxDecoration(
-        color: RbColors.surface200,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(RbRadius.lg)),
+      decoration: BoxDecoration(
+        color: rb.surface200,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(RbRadius.lg),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -524,7 +537,7 @@ class _Completed extends StatelessWidget {
           children: [
             Text(
               NavigationScreen.completedTitle,
-              style: RbText.heading.copyWith(color: RbColors.success),
+              style: RbText.heading.copyWith(color: rb.success),
             ),
             const SizedBox(height: RbSpace.s3),
             RbPrimaryButton(

@@ -8,6 +8,8 @@ import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
 
+import '../../../helpers/themed_app.dart';
+
 class MockLockCubit extends MockCubit<LockState> implements LockCubit {}
 
 void main() {
@@ -20,20 +22,22 @@ void main() {
     when(() => cubit.unlock()).thenAnswer((_) async {});
   });
 
+  /// Pumps the screen in a bare `MaterialApp`, or in the app themes when
+  /// [mode] is given.
   Future<void> pumpLock(
     WidgetTester tester, {
     required LockState initial,
     Stream<LockState>? stream,
+    ThemeMode? mode,
   }) async {
     whenListen(
       cubit,
       stream ?? const Stream<LockState>.empty(),
       initialState: initial,
     );
+    final screen = LockScreen(cubit: cubit, onUnlocked: () => unlockedCalls++);
     await tester.pumpWidget(
-      MaterialApp(
-        home: LockScreen(cubit: cubit, onUnlocked: () => unlockedCalls++),
-      ),
+      mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
     );
     await tester.pump();
   }
@@ -106,5 +110,30 @@ void main() {
         expect(unlockedCalls, 0);
       });
     }
+
+    testWidgets('dark mode: #1A1D23 background, #F2F4F7 title and #EB7074 '
+        'error', (tester) async {
+      await pumpLock(
+        tester,
+        initial: const LockState(
+          status: LockStatus.failed,
+          reason: AuthResult.canceled,
+        ),
+        mode: ThemeMode.dark,
+      );
+
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
+        const Color(0xFF1A1D23),
+      );
+      expect(
+        tester.widget<Text>(find.text('RouteBreeze')).style!.color,
+        const Color(0xFFF2F4F7),
+      );
+      expect(
+        tester.widget<Text>(find.text('Autenticação cancelada')).style!.color,
+        const Color(0xFFEB7074),
+      );
+    });
   });
 }

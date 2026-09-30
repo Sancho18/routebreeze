@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/rb_tokens.dart';
+import '../theme/rb_palette.dart';
 
 /// Looping "route being drawn" indicator: a faint track in `border`, the
 /// travelled stretch in `brand` and a dot at its head. The head runs the
@@ -39,6 +39,7 @@ class _RbRouteLoaderState extends State<RbRouteLoader>
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     return Semantics(
       label: widget.semanticsLabel,
       child: SizedBox(
@@ -47,8 +48,8 @@ class _RbRouteLoaderState extends State<RbRouteLoader>
         child: CustomPaint(
           painter: RouteLoaderPainter(
             progress: _controller,
-            track: RbColors.border,
-            stroke: RbColors.brand,
+            track: rb.border,
+            stroke: rb.brand,
           ),
         ),
       ),

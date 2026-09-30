@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/core/theme/map_style.dart';
 import 'package:routebreeze/core/widgets/rb_feedback.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
@@ -18,6 +19,7 @@ import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 import '../../../helpers/fake_google_map.dart';
+import '../../../helpers/themed_app.dart';
 
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
@@ -78,19 +80,24 @@ void main() {
 
   tearDown(() => states.close());
 
-  Future<void> pumpScreen(WidgetTester tester, NavigationState initial) async {
+  /// The screen in a bare `MaterialApp`, or in the app themes when [mode] is
+  /// given.
+  Future<void> pumpScreen(
+    WidgetTester tester,
+    NavigationState initial, {
+    ThemeMode? mode,
+  }) async {
     platform = FakeGoogleMapPlatform.install(tester);
     whenListen(cubit, states.stream, initialState: initial);
+    final screen = NavigationScreen(
+      plan: plan,
+      cubit: cubit,
+      markers: FakeMapMarkers(),
+      onExit: () {},
+      onNewRoute: () {},
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        home: NavigationScreen(
-          plan: plan,
-          cubit: cubit,
-          markers: FakeMapMarkers(),
-          onExit: () {},
-          onNewRoute: () {},
-        ),
-      ),
+      mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
     );
     await tester.pumpAndSettle();
   }
@@ -174,6 +181,48 @@ void main() {
       ].nonNulls;
       expect(updates.last, [top + banner, 0.0, bottom, 0.0]);
       expect(map.cameraAnimations, isEmpty);
+    });
+  });
+
+  group('NavigationScreen map theme', () {
+    /// ARGB of the route line in the creation params.
+    Object? createdRouteColor(FakeMapInstance map) =>
+        (map.polylinesToAdd.single as Map<Object?, Object?>)['color'];
+
+    testWidgets('dark mode creates the map with the dark style and the '
+        '#7EA6F8 route line', (tester) async {
+      await pumpScreen(tester, navigating(first), mode: ThemeMode.dark);
+
+      final map = platform.maps.single;
+      expect(map.style, rbDarkMapStyle);
+      expect(createdRouteColor(map), 0xFF7EA6F8);
+    });
+
+    testWidgets('a device theme switch restyles the same map without moving '
+        'the camera, and following continues', (tester) async {
+      final dispatcher = tester.binding.platformDispatcher;
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+      await pumpScreen(tester, navigating(first), mode: ThemeMode.system);
+      final map = platform.maps.single;
+      expect(map.style, '');
+      expect(createdRouteColor(map), 0xFF2A6DF4);
+
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      await tester.pumpAndSettle();
+      expect(map.styleUpdates, [rbDarkMapStyle]);
+      expect(map.polylineColorUpdates.last, 0xFF7EA6F8);
+      expect(map.cameraAnimations, isEmpty);
+
+      await emit(tester, navigating(second));
+      expect(map.cameraAnimations, [
+        [
+          'newLatLng',
+          [-23.563, -46.657],
+        ],
+      ]);
+      expect(platform.maps, hasLength(1));
+      expect(find.byType(GoogleMap), findsOneWidget);
     });
   });
 }

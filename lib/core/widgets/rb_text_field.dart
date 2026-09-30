@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/rb_palette.dart';
 import '../theme/rb_tokens.dart';
 
 /// Design-system text field with an optional [trailing] widget and
@@ -32,6 +33,7 @@ class RbTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -40,21 +42,21 @@ class RbTextField extends StatelessWidget {
       textInputAction: textInputAction,
       maxLength: maxLength,
       buildCounter: _noCounter,
-      style: RbText.body.copyWith(color: RbColors.ink),
+      style: RbText.body.copyWith(color: rb.ink),
       decoration: InputDecoration(
         hintText: placeholder,
-        hintStyle: RbText.body.copyWith(color: RbColors.inkMuted),
+        hintStyle: RbText.body.copyWith(color: rb.inkMuted),
         errorText: errorText,
-        errorStyle: RbText.caption.copyWith(color: RbColors.danger),
+        errorStyle: RbText.caption.copyWith(color: rb.danger),
         filled: true,
-        fillColor: RbColors.surface200,
+        fillColor: rb.surface200,
         contentPadding: const EdgeInsets.all(RbSpace.s3),
         suffixIcon: trailing,
-        border: _outline(RbColors.border),
-        enabledBorder: _outline(RbColors.border),
-        focusedBorder: _outline(RbColors.brand),
-        errorBorder: _outline(RbColors.danger),
-        focusedErrorBorder: _outline(RbColors.danger),
+        border: _outline(rb.border),
+        enabledBorder: _outline(rb.border),
+        focusedBorder: _outline(rb.brand),
+        errorBorder: _outline(rb.danger),
+        focusedErrorBorder: _outline(rb.danger),
       ),
     );
   }

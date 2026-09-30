@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide LockState;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/di/injector.dart';
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../domain/auth_result.dart';
@@ -39,9 +40,10 @@ class _LockScreenState extends State<LockScreen> {
           previous.status != LockStatus.unlocked,
       listener: (_, _) => widget.onUnlocked(),
       builder: (context, state) {
+        final rb = context.rb;
         final message = _messageFor(state.reason);
         return Scaffold(
-          backgroundColor: RbColors.surface200,
+          backgroundColor: rb.surface200,
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(RbSpace.s4),
@@ -52,14 +54,14 @@ class _LockScreenState extends State<LockScreen> {
                   Text(
                     'RouteBreeze',
                     textAlign: TextAlign.center,
-                    style: RbText.display.copyWith(color: RbColors.ink),
+                    style: RbText.display.copyWith(color: rb.ink),
                   ),
                   const Spacer(),
                   if (message != null) ...[
                     Text(
                       message,
                       textAlign: TextAlign.center,
-                      style: RbText.body.copyWith(color: RbColors.danger),
+                      style: RbText.body.copyWith(color: rb.danger),
                     ),
                     const SizedBox(height: RbSpace.s3),
                   ],

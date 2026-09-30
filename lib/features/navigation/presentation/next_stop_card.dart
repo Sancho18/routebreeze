@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/presentation/route_format.dart';
@@ -38,21 +39,22 @@ class NextStopCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final progress = this.progress;
     final onOpenInApp = this.onOpenInApp;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(RbSpace.s3),
       decoration: BoxDecoration(
-        color: RbColors.surface200,
+        color: rb.surface200,
         borderRadius: BorderRadius.circular(RbRadius.md),
-        border: Border.all(color: RbColors.border),
+        border: Border.all(color: rb.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: RbText.caption.copyWith(color: RbColors.inkMuted)),
+          Text(label, style: RbText.caption.copyWith(color: rb.inkMuted)),
           const SizedBox(height: RbSpace.s2),
           Row(
             children: [
@@ -63,7 +65,7 @@ class NextStopCard extends StatelessWidget {
                   stop.stop.address,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: RbText.bodyStrong.copyWith(color: RbColors.ink),
+                  style: RbText.bodyStrong.copyWith(color: rb.ink),
                 ),
               ),
               if (onOpenInApp != null) ...[
@@ -76,7 +78,7 @@ class NextStopCard extends StatelessWidget {
                     width: actionSize,
                     height: actionSize,
                   ),
-                  icon: const Icon(Icons.directions, color: RbColors.brand),
+                  icon: Icon(Icons.directions, color: rb.brand),
                 ),
               ],
             ],
@@ -87,7 +89,7 @@ class NextStopCard extends StatelessWidget {
               padding: const EdgeInsets.only(left: detailsIndent),
               child: Text(
                 summary(progress),
-                style: RbText.caption.copyWith(color: RbColors.inkMuted),
+                style: RbText.caption.copyWith(color: rb.inkMuted),
               ),
             ),
           ],

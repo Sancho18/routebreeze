@@ -8,6 +8,8 @@ import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/stop_badge.dart';
 
+import '../../../helpers/themed_app.dart';
+
 void main() {
   const stop = RouteStop(
     stop: Stop(
@@ -27,24 +29,28 @@ void main() {
     at: DateTime.utc(2026, 9, 28, 14, 28),
   );
 
+  /// The card in a bare `MaterialApp`, or in the app themes when [mode] is
+  /// given.
   Future<void> pumpCard(
     WidgetTester tester, {
     RouteProgress? progress,
     VoidCallback? onOpenInApp,
-  }) => tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.all(RbSpace.s3),
-          child: NextStopCard(
-            stop: stop,
-            progress: progress,
-            onOpenInApp: onOpenInApp,
-          ),
+    ThemeMode? mode,
+  }) {
+    final home = Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(RbSpace.s3),
+        child: NextStopCard(
+          stop: stop,
+          progress: progress,
+          onOpenInApp: onOpenInApp,
         ),
       ),
-    ),
-  );
+    );
+    return tester.pumpWidget(
+      mode == null ? MaterialApp(home: home) : themedApp(home, mode: mode),
+    );
+  }
 
   Text text(WidgetTester tester, String value) =>
       tester.widget<Text>(find.text(value));
@@ -174,6 +180,51 @@ void main() {
       await pumpCard(tester, progress: progress);
 
       expect(find.byType(IconButton), findsNothing);
+    });
+  });
+
+  group('NextStopCard in dark mode', () {
+    testWidgets('#1A1D23 card with a #2F343D border, label and summary in '
+        '#A4ACB9, address in #F2F4F7 and the action icon in #7EA6F8', (
+      tester,
+    ) async {
+      await pumpCard(
+        tester,
+        progress: progress,
+        onOpenInApp: () {},
+        mode: ThemeMode.dark,
+      );
+
+      final card = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.text(NextStopCard.label),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final decoration = card.decoration! as BoxDecoration;
+      expect(decoration.color, const Color(0xFF1A1D23));
+      expect(decoration.border, Border.all(color: const Color(0xFF2F343D)));
+      expect(
+        text(tester, 'Próxima parada').style!.color,
+        const Color(0xFFA4ACB9),
+      );
+      expect(
+        text(tester, '1,2 km · 4 min · chegada às 14:32').style!.color,
+        const Color(0xFFA4ACB9),
+      );
+      expect(
+        text(tester, 'Rua Augusta, 500 - Consolação, São Paulo').style!.color,
+        const Color(0xFFF2F4F7),
+      );
+      final icon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byTooltip('Abrir em outro app'),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(icon.color, const Color(0xFF7EA6F8));
     });
   });
 }

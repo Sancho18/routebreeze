@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 import '../../../core/widgets/rb_button.dart';
 import '../domain/route_plan.dart';
@@ -20,7 +21,7 @@ class RouteSheet extends StatelessWidget {
     required this.onStart,
     this.onMarkVisited,
     this.startLabel = 'Iniciar',
-    this.startColor = RbColors.brand,
+    this.startColor,
     this.totals,
     this.footer,
   });
@@ -30,7 +31,9 @@ class RouteSheet extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback? onMarkVisited;
   final String startLabel;
-  final Color startColor;
+
+  /// Fill of the primary action; the palette's `brand` when null.
+  final Color? startColor;
   final String? totals;
   final Widget? footer;
 
@@ -54,15 +57,18 @@ class RouteSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final listHeight = math.min(
       maxListHeight,
       MediaQuery.sizeOf(context).height * 0.4,
     );
     return Container(
       padding: const EdgeInsets.all(RbSpace.s3),
-      decoration: const BoxDecoration(
-        color: RbColors.surface200,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(RbRadius.lg)),
+      decoration: BoxDecoration(
+        color: rb.surface200,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(RbRadius.lg),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -70,7 +76,7 @@ class RouteSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(heading, style: RbText.heading.copyWith(color: RbColors.ink)),
+            Text(heading, style: RbText.heading.copyWith(color: rb.ink)),
             const SizedBox(height: RbSpace.s2),
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: listHeight),
@@ -78,11 +84,11 @@ class RouteSheet extends StatelessWidget {
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
                 itemCount: plan.stops.length,
-                separatorBuilder: (_, _) => const Divider(
+                separatorBuilder: (_, _) => Divider(
                   height: rowGap,
                   thickness: 1,
                   indent: dividerIndent,
-                  color: RbColors.border,
+                  color: rb.border,
                 ),
                 itemBuilder: (_, i) => _StopRow(plan.stops[i]),
               ),
@@ -92,7 +98,7 @@ class RouteSheet extends StatelessWidget {
               totals ??
                   '${formatDistance(plan.distanceMeters)} · '
                       '${formatDuration(plan.durationSeconds)}',
-              style: RbText.caption.copyWith(color: RbColors.inkMuted),
+              style: RbText.caption.copyWith(color: rb.inkMuted),
             ),
             const SizedBox(height: RbSpace.s3),
             if (onMarkVisited != null && !plan.isComplete) ...[
@@ -124,6 +130,7 @@ class _StopRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final visited = stop.visited;
     return Row(
       key: RouteSheet.stopKey(stop.stop.placeId),
@@ -133,9 +140,7 @@ class _StopRow extends StatelessWidget {
         Expanded(
           child: Text(
             stop.stop.address,
-            style: RbText.body.copyWith(
-              color: visited ? RbColors.inkMuted : RbColors.ink,
-            ),
+            style: RbText.body.copyWith(color: visited ? rb.inkMuted : rb.ink),
           ),
         ),
       ],

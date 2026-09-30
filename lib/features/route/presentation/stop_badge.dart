@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 
 /// A stop's place in the optimized order: its number on a `brand` circle,
-/// or a white check on `success` once visited.
+/// or a check on `success` once visited, both in `onFill`.
 class StopBadge extends StatelessWidget {
   const StopBadge({super.key, required this.order, this.visited = false});
 
@@ -18,25 +19,23 @@ class StopBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: visited ? RbColors.success : RbColors.brand,
+        color: visited ? rb.success : rb.brand,
         shape: BoxShape.circle,
       ),
       child: visited
-          ? const Icon(
+          ? Icon(
               Icons.check,
               size: checkSize,
-              color: Colors.white,
+              color: rb.onFill,
               semanticLabel: visitedLabel,
             )
-          : Text(
-              '$order',
-              style: RbText.bodyStrong.copyWith(color: Colors.white),
-            ),
+          : Text('$order', style: RbText.bodyStrong.copyWith(color: rb.onFill)),
     );
   }
 }

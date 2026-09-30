@@ -15,6 +15,8 @@ import 'package:routebreeze/features/location/presentation/map_cubit.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 
+import '../../../helpers/themed_app.dart';
+
 class MockMapCubit extends MockCubit<MapState> implements MapCubit {}
 
 void main() {
@@ -60,28 +62,29 @@ void main() {
 
   /// Pumps the screen; the placeholder map reports itself ready at once
   /// unless [mapReady] is false, and the loading overlay is given time to
-  /// fade so the card is reachable.
+  /// fade so the card is reachable. A bare `MaterialApp` hosts it unless
+  /// [mode] asks for the app themes.
   Future<void> pumpMap(
     WidgetTester tester,
     MapState state, {
     Stream<MapState> states = const Stream.empty(),
     bool mapReady = true,
+    ThemeMode? mode,
   }) async {
     whenListen(cubit, states, initialState: state);
+    final screen = MapScreen(
+      cubit: cubit,
+      mapBuilder: (_, fix, onMapReady) {
+        mapsBuilt.add(fix);
+        mapReadyCallbacks.add(onMapReady);
+        if (mapReady) onMapReady();
+        return const SizedBox.expand(key: mapKey);
+      },
+      onContinue: continued.add,
+      onResume: (plan, start) => resumed.add((plan, start)),
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        home: MapScreen(
-          cubit: cubit,
-          mapBuilder: (_, fix, onMapReady) {
-            mapsBuilt.add(fix);
-            mapReadyCallbacks.add(onMapReady);
-            if (mapReady) onMapReady();
-            return const SizedBox.expand(key: mapKey);
-          },
-          onContinue: continued.add,
-          onResume: (plan, start) => resumed.add((plan, start)),
-        ),
-      ),
+      mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
     );
     await tester.pump();
     if (mapReady && state.status == MapStatus.ready) {
@@ -271,6 +274,83 @@ void main() {
       expect(card.padding, const EdgeInsets.all(16));
     });
 
+    group('in dark mode', () {
+      testWidgets('the loading overlay is #0F1115 with a #F2F4F7 title, a '
+          '#A4ACB9 caption and the loader in #2F343D / #7EA6F8', (
+        tester,
+      ) async {
+        await pumpMap(tester, const MapState(), mode: ThemeMode.dark);
+
+        final background = tester.widget<ColoredBox>(
+          find
+              .ancestor(
+                of: find.text('RouteBreeze'),
+                matching: find.byType(ColoredBox),
+              )
+              .first,
+        );
+        expect(background.color, const Color(0xFF0F1115));
+        expect(
+          tester.widget<Text>(find.text('RouteBreeze')).style!.color,
+          const Color(0xFFF2F4F7),
+        );
+        expect(
+          tester
+              .widget<Text>(find.text('Obtendo sua localização...'))
+              .style!
+              .color,
+          const Color(0xFFA4ACB9),
+        );
+        final loader =
+            tester
+                    .widget<CustomPaint>(
+                      find.descendant(
+                        of: overlay,
+                        matching: find.byType(CustomPaint),
+                      ),
+                    )
+                    .painter!
+                as RouteLoaderPainter;
+        expect(loader.track, const Color(0xFF2F343D));
+        expect(loader.stroke, const Color(0xFF7EA6F8));
+      });
+
+      testWidgets('the status card is #1A1D23 over the #0F1115 background, '
+          'with its caption in #A4ACB9', (tester) async {
+        await pumpMap(
+          tester,
+          const MapState(status: MapStatus.deniedForever),
+          mode: ThemeMode.dark,
+        );
+
+        final card = tester.widget<Container>(
+          find.ancestor(of: ctaFinder, matching: find.byType(Container)).first,
+        );
+        expect(
+          (card.decoration! as BoxDecoration).color,
+          const Color(0xFF1A1D23),
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.text('Você negou o acesso. Ative em Configurações.'),
+              )
+              .style!
+              .color,
+          const Color(0xFFA4ACB9),
+        );
+        final background = tester.widget<ColoredBox>(
+          find
+              .descendant(
+                of: find.byType(MapScreen),
+                matching: find.byType(ColoredBox),
+              )
+              .first,
+        );
+        expect(background.color, const Color(0xFF0F1115));
+      });
+    });
+
     testWidgets('ready: builds the map with the start fix and enables the '
         'CTA, which hands the fix to onContinue', (tester) async {
       await pumpMap(tester, MapState(status: MapStatus.ready, start: start));
@@ -430,8 +510,8 @@ void main() {
         resumable: plan,
       );
 
-      Future<void> pumpOffer(WidgetTester tester) async {
-        await pumpMap(tester, ready, states: Stream.value(offered));
+      Future<void> pumpOffer(WidgetTester tester, {ThemeMode? mode}) async {
+        await pumpMap(tester, ready, states: Stream.value(offered), mode: mode);
         await tester.pumpAndSettle();
         expect(find.byType(AlertDialog), findsOneWidget);
         expect(find.text('Continuar rota?'), findsOneWidget);
@@ -468,6 +548,38 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(AlertDialog), findsNothing);
+      });
+
+      testWidgets('dark mode: #1A1D23 dialog with a #F2F4F7 title, #A4ACB9 '
+          'body and #7EA6F8 actions', (tester) async {
+        await pumpOffer(tester, mode: ThemeMode.dark);
+
+        final surface = tester.widget<Material>(
+          find
+              .descendant(
+                of: find.byType(AlertDialog),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        expect(surface.color, const Color(0xFF1A1D23));
+        expect(
+          tester.widget<Text>(find.text('Continuar rota?')).style!.color,
+          const Color(0xFFF2F4F7),
+        );
+        expect(
+          tester.widget<Text>(find.text(MapScreen.resumeBody)).style!.color,
+          const Color(0xFFA4ACB9),
+        );
+        for (final action in ['Nova rota', 'Continuar']) {
+          final label = tester.widget<RichText>(
+            find.descendant(
+              of: find.widgetWithText(TextButton, action),
+              matching: find.byType(RichText),
+            ),
+          );
+          expect(label.text.style!.color, const Color(0xFF7EA6F8));
+        }
       });
     });
   });

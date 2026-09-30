@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../theme/rb_palette.dart';
 import '../theme/rb_tokens.dart';
 
 /// Semantic tone shared by the feedback widgets.
 enum RbTone { success, warning, danger, neutral }
 
 extension on RbTone {
-  Color get color => switch (this) {
-    RbTone.success => RbColors.success,
-    RbTone.warning => RbColors.warning,
-    RbTone.danger => RbColors.danger,
-    RbTone.neutral => RbColors.inkMuted,
+  Color colorIn(RbPalette palette) => switch (this) {
+    RbTone.success => palette.success,
+    RbTone.warning => palette.warning,
+    RbTone.danger => palette.danger,
+    RbTone.neutral => palette.inkMuted,
   };
 }
 
@@ -23,11 +24,11 @@ class RbStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final neutral = tone == RbTone.neutral;
-    final background = neutral
-        ? RbColors.border
-        : tone.color.withValues(alpha: 0.12);
-    final foreground = neutral ? RbColors.inkMuted : tone.color;
+    final color = tone.colorIn(rb);
+    final background = neutral ? rb.border : color.withValues(alpha: 0.12);
+    final foreground = neutral ? rb.inkMuted : color;
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -52,9 +53,10 @@ class RbBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final neutral = tone == RbTone.neutral;
-    final background = neutral ? RbColors.border : tone.color;
-    final foreground = neutral ? RbColors.ink : Colors.white;
+    final background = neutral ? rb.border : tone.colorIn(rb);
+    final foreground = neutral ? rb.ink : rb.onFill;
 
     return Container(
       width: double.infinity,
@@ -83,17 +85,18 @@ class RbInlineError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rb = context.rb;
     final label = actionLabel;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(text, style: RbText.body.copyWith(color: RbColors.danger)),
+        Text(text, style: RbText.body.copyWith(color: rb.danger)),
         if (label != null)
           TextButton(
             onPressed: onAction,
             style: TextButton.styleFrom(
-              foregroundColor: RbColors.brand,
+              foregroundColor: rb.brand,
               textStyle: RbText.bodyStrong,
             ),
             child: Text(label),

@@ -6,6 +6,8 @@ import 'package:routebreeze/features/addresses/domain/address_field.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
 import 'package:routebreeze/features/addresses/presentation/address_field_widget.dart';
 
+import '../../../helpers/themed_app.dart';
+
 void main() {
   const s1 = Suggestion('p1', 'Avenida Paulista, 1000', 'São Paulo - SP');
   const s2 = Suggestion('p2', 'Praça da Sé', '');
@@ -20,8 +22,10 @@ void main() {
     removals = 0;
   });
 
-  Widget wrap(AddressField field, {bool removable = false}) => MaterialApp(
-    home: Scaffold(
+  /// The field in a bare `MaterialApp`, or in the app themes when [mode] is
+  /// given.
+  Widget wrap(AddressField field, {bool removable = false, ThemeMode? mode}) {
+    final home = Scaffold(
       body: AddressFieldWidget(
         field: field,
         placeholder: 'Ponto A',
@@ -29,8 +33,9 @@ void main() {
         onSuggestionSelected: selections.add,
         onRemove: removable ? () => removals++ : null,
       ),
-    ),
-  );
+    );
+    return mode == null ? MaterialApp(home: home) : themedApp(home, mode: mode);
+  }
 
   RbTextField textField(WidgetTester tester) =>
       tester.widget<RbTextField>(find.byType(RbTextField));
@@ -183,6 +188,58 @@ void main() {
         'Av. Paulista, 1000 - São Paulo',
       );
       expect(changes, isEmpty);
+    });
+
+    testWidgets('dark mode: #1A1D23 suggestions panel with a #2F343D outline, '
+        '#F2F4F7 address and #A4ACB9 secondary text', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          const AddressField(
+            id: 'f1',
+            sessionToken: 't',
+            text: 'Av.',
+            suggestions: [s1, s2],
+          ),
+          mode: ThemeMode.dark,
+        ),
+      );
+
+      final card = tester.widget<Material>(
+        find
+            .ancestor(
+              of: find.byType(ListTile),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(card.color, const Color(0xFF1A1D23));
+      expect(
+        (card.shape! as RoundedRectangleBorder).side.color,
+        const Color(0xFF2F343D),
+      );
+      expect(
+        tester.widget<Text>(find.text('Avenida Paulista, 1000')).style!.color,
+        const Color(0xFFF2F4F7),
+      );
+      expect(
+        tester.widget<Text>(find.text('São Paulo - SP')).style!.color,
+        const Color(0xFFA4ACB9),
+      );
+    });
+
+    testWidgets('dark mode: the remove icon is #A4ACB9', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          const AddressField(id: 'f4', sessionToken: 't'),
+          removable: true,
+          mode: ThemeMode.dark,
+        ),
+      );
+
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.close)).color,
+        const Color(0xFFA4ACB9),
+      );
     });
   });
 }

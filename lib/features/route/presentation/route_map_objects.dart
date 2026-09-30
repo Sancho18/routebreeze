@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/geo/geo_point.dart';
-import '../../../core/theme/rb_tokens.dart';
 import '../domain/route_plan.dart';
 
 /// What the route map draws: the start and numbered stop markers, the route
@@ -29,11 +28,12 @@ class RouteMapObjects {
 }
 
 /// Pure mapping from a [plan] to map objects; [numberedIcons] is keyed by stop
-/// order.
+/// order and [routeColor] paints the polyline.
 RouteMapObjects buildMapObjects(
   RoutePlan plan, {
   required Map<int, BitmapDescriptor> numberedIcons,
   required BitmapDescriptor startIcon,
+  required Color routeColor,
 }) {
   final origin = _latLng(plan.origin);
   final markers = <Marker>{
@@ -56,7 +56,7 @@ RouteMapObjects buildMapObjects(
   final polyline = Polyline(
     polylineId: const PolylineId(RouteMapObjects.polylineId),
     points: [for (final point in plan.polyline) _latLng(point)],
-    color: RbColors.brand,
+    color: routeColor,
     width: 5,
   );
   return RouteMapObjects(

@@ -7,6 +7,8 @@ import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
+import '../../../helpers/themed_app.dart';
+
 void main() {
   const origin = GeoPoint(-23.5614, -46.6559);
   const a = Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66));
@@ -34,6 +36,8 @@ void main() {
     'Marcar como visitado',
   );
 
+  /// The sheet in a bare `MaterialApp`, or in the app themes when [mode] is
+  /// given.
   Future<void> pumpSheet(
     WidgetTester tester, {
     required RoutePlan plan,
@@ -41,28 +45,28 @@ void main() {
     VoidCallback? onStart,
     VoidCallback? onMarkVisited,
     String startLabel = 'Iniciar',
-    Color startColor = RbColors.brand,
+    Color? startColor,
     String? totals,
     Widget? footer,
+    ThemeMode? mode,
   }) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: RouteSheet(
-              plan: plan,
-              startEnabled: startEnabled,
-              onStart: onStart ?? () {},
-              onMarkVisited: onMarkVisited,
-              startLabel: startLabel,
-              startColor: startColor,
-              totals: totals,
-              footer: footer,
-            ),
-          ),
+    final home = Scaffold(
+      body: Align(
+        alignment: Alignment.bottomCenter,
+        child: RouteSheet(
+          plan: plan,
+          startEnabled: startEnabled,
+          onStart: onStart ?? () {},
+          onMarkVisited: onMarkVisited,
+          startLabel: startLabel,
+          startColor: startColor,
+          totals: totals,
+          footer: footer,
         ),
       ),
+    );
+    await tester.pumpWidget(
+      mode == null ? MaterialApp(home: home) : themedApp(home, mode: mode),
     );
   }
 
@@ -449,6 +453,63 @@ void main() {
         tester.getTopLeft(find.byKey(footerKey)).dy,
         greaterThan(tester.getBottomLeft(startFinder).dy - 1),
       );
+    });
+  });
+
+  group('RouteSheet in dark mode', () {
+    testWidgets('#1A1D23 sheet with a #F2F4F7 heading and addresses, '
+        '#2F343D dividers and #A4ACB9 totals', (tester) async {
+      await pumpSheet(tester, plan: plan(), mode: ThemeMode.dark);
+
+      final sheet = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byType(RouteSheet),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(
+        (sheet.decoration! as BoxDecoration).color,
+        const Color(0xFF1A1D23),
+      );
+      expect(
+        tester.widget<Text>(find.text('Ordem otimizada')).style!.color,
+        const Color(0xFFF2F4F7),
+      );
+      expect(
+        textIn(tester, row('pb'), 'Rua B, 2').style!.color,
+        const Color(0xFFF2F4F7),
+      );
+      expect(
+        tester.widget<Divider>(find.byType(Divider).first).color,
+        const Color(0xFF2F343D),
+      );
+      expect(
+        tester.widget<Text>(find.text('12,3 km · 10 min')).style!.color,
+        const Color(0xFFA4ACB9),
+      );
+    });
+
+    testWidgets('the address of a visited stop is #A4ACB9', (tester) async {
+      await pumpSheet(
+        tester,
+        plan: plan(firstVisited: true),
+        mode: ThemeMode.dark,
+      );
+
+      expect(
+        textIn(tester, row('pb'), 'Rua B, 2').style!.color,
+        const Color(0xFFA4ACB9),
+      );
+    });
+
+    testWidgets('"Iniciar" without startColor is the #7EA6F8 brand', (
+      tester,
+    ) async {
+      await pumpSheet(tester, plan: plan(), mode: ThemeMode.dark);
+
+      expect(materialOf(tester, startFinder).color, const Color(0xFF7EA6F8));
     });
   });
 }

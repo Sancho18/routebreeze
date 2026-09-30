@@ -20,6 +20,8 @@ import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/presentation/map_markers.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
+import '../../../helpers/themed_app.dart';
+
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
 
@@ -81,8 +83,15 @@ void main() {
   });
 
   /// A fresh mock and screen key per pump: a kept `State` would keep the
-  /// previous cubit and state.
-  Future<void> pumpScreen(WidgetTester tester, NavigationState state) async {
+  /// previous cubit and state. The screen is in a bare `MaterialApp`, or in
+  /// the app themes when [mode] is given; [settle] waits for the marker
+  /// icons and the map.
+  Future<void> pumpScreen(
+    WidgetTester tester,
+    NavigationState state, {
+    ThemeMode? mode,
+    bool settle = true,
+  }) async {
     cubit = MockNavigationCubit();
     when(() => cubit.markNextVisited()).thenAnswer((_) async {});
     whenListen(
@@ -90,28 +99,39 @@ void main() {
       const Stream<NavigationState>.empty(),
       initialState: state,
     );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: NavigationScreen(
-          key: UniqueKey(),
-          plan: plan,
-          cubit: cubit,
-          markers: FakeMapMarkers(),
-          appLauncher: launcher,
-          mapBuilder: (_, model) {
-            mapsBuilt.add(model);
-            return const SizedBox.expand(key: mapKey);
-          },
-          onExit: () => exits++,
-          onNewRoute: () => newRoutes++,
-        ),
-      ),
+    final screen = NavigationScreen(
+      key: UniqueKey(),
+      plan: plan,
+      cubit: cubit,
+      markers: FakeMapMarkers(),
+      appLauncher: launcher,
+      mapBuilder: (_, model) {
+        mapsBuilt.add(model);
+        return const SizedBox.expand(key: mapKey);
+      },
+      onExit: () => exits++,
+      onNewRoute: () => newRoutes++,
     );
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
+    );
+    if (settle) await tester.pumpAndSettle();
   }
 
   RbPrimaryButton primary(WidgetTester tester, String label) => tester
       .widget<RbPrimaryButton>(find.widgetWithText(RbPrimaryButton, label));
+
+  /// The painted fill of the primary button labeled [label].
+  Color? fillOf(WidgetTester tester, String label) => tester
+      .widget<Material>(
+        find
+            .descendant(
+              of: find.widgetWithText(RbPrimaryButton, label),
+              matching: find.byType(Material),
+            )
+            .first,
+      )
+      .color;
 
   Set<String> markerIds(NavigationMapModel model) =>
       model.markers.map((m) => m.markerId.value).toSet();
@@ -171,7 +191,7 @@ void main() {
       );
 
       expect(primary(tester, 'Iniciar').enabled, isTrue);
-      expect(primary(tester, 'Iniciar').color, RbColors.brand);
+      expect(fillOf(tester, 'Iniciar'), RbColors.brand);
       expect(find.text('Marcar como visitado'), findsNothing);
       expect(find.text('Aguardando sinal de GPS'), findsNothing);
       await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
@@ -212,7 +232,16 @@ void main() {
         RbPrimaryButton,
         'Marcar como visitado',
       );
-      expect(primary(tester, 'Marcar como visitado').color, RbColors.brand);
+      expect(
+        tester
+            .widget<Material>(
+              find
+                  .descendant(of: markVisited, matching: find.byType(Material))
+                  .first,
+            )
+            .color,
+        RbColors.brand,
+      );
       expect(
         tester.getBottomLeft(markVisited).dy,
         lessThan(
@@ -634,6 +663,158 @@ void main() {
 
       verify(() => launcher.open(NavigationApp.googleMaps, b)).called(1);
       expect(find.byType(OpenInAppSheet), findsNothing);
+    });
+  });
+
+  group('NavigationScreen in dark mode', () {
+    testWidgets('"Encerrar" is #EB7074 with a #0F1115 label', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+        ),
+        mode: ThemeMode.dark,
+      );
+
+      expect(fillOf(tester, 'Encerrar'), const Color(0xFFEB7074));
+      expect(
+        tester.widget<Text>(find.text('Encerrar')).style!.color,
+        const Color(0xFF0F1115),
+      );
+    });
+
+    testWidgets('"Recentralizar" is #1A1D23 with its icon and label in '
+        '#7EA6F8', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          following: false,
+        ),
+        mode: ThemeMode.dark,
+      );
+
+      final button = find.byType(FloatingActionButton);
+      expect(
+        tester
+            .widget<Material>(
+              find
+                  .descendant(of: button, matching: find.byType(Material))
+                  .first,
+            )
+            .color,
+        const Color(0xFF1A1D23),
+      );
+      RichText rendered(Finder finder) => tester.widget<RichText>(
+        find.descendant(of: finder, matching: find.byType(RichText)),
+      );
+      expect(
+        rendered(find.text('Recentralizar')).text.style!.color,
+        const Color(0xFF7EA6F8),
+      );
+      expect(
+        rendered(find.byIcon(Icons.my_location)).text.style!.color,
+        const Color(0xFF7EA6F8),
+      );
+    });
+
+    testWidgets('the recalculation chip sits on a #1A1D23 backdrop', (
+      tester,
+    ) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan,
+          phase: NavigationPhase.navigating,
+          fix: fix,
+          badge: NavigationBadge.recalculated,
+        ),
+        mode: ThemeMode.dark,
+      );
+
+      final backdrop = tester.widget<DecoratedBox>(
+        find
+            .ancestor(
+              of: find.byType(RbStatusChip),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      expect(
+        (backdrop.decoration as BoxDecoration).color,
+        const Color(0xFF1A1D23),
+      );
+    });
+
+    testWidgets('the map area is #0F1115 until the marker icons exist, then '
+        'the route line is #7EA6F8', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
+        mode: ThemeMode.dark,
+        settle: false,
+      );
+
+      expect(find.byKey(mapKey), findsNothing);
+      final placeholder = tester.widget<ColoredBox>(
+        find.descendant(
+          of: find.byWidgetPredicate((widget) => widget is FutureBuilder),
+          matching: find.byType(ColoredBox),
+        ),
+      );
+      expect(placeholder.color, const Color(0xFF0F1115));
+
+      await tester.pumpAndSettle();
+      expect(find.byKey(mapKey), findsOneWidget);
+      expect(mapsBuilt.last.polylines.single.color, const Color(0xFF7EA6F8));
+    });
+
+    testWidgets('"Aguardando sinal de GPS" is #A4ACB9', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(plan: plan, phase: NavigationPhase.waitingGps),
+        mode: ThemeMode.dark,
+      );
+
+      expect(
+        tester.widget<Text>(find.text('Aguardando sinal de GPS')).style!.color,
+        const Color(0xFFA4ACB9),
+      );
+    });
+
+    testWidgets('the completed sheet is #1A1D23 with "Rota concluída" in '
+        '#12B76A', (tester) async {
+      await pumpScreen(
+        tester,
+        NavigationState(
+          plan: plan.markVisited('pa').markVisited('pb'),
+          phase: NavigationPhase.completed,
+          fix: fix,
+          following: false,
+        ),
+        mode: ThemeMode.dark,
+      );
+
+      final sheet = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.text('Rota concluída'),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(
+        (sheet.decoration! as BoxDecoration).color,
+        const Color(0xFF1A1D23),
+      );
+      expect(
+        tester.widget<Text>(find.text('Rota concluída')).style!.color,
+        const Color(0xFF12B76A),
+      );
     });
   });
 }

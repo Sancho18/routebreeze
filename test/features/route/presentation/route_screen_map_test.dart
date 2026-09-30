@@ -10,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
+import 'package:routebreeze/core/theme/map_style.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
@@ -19,6 +20,7 @@ import 'package:routebreeze/features/route/presentation/route_screen.dart';
 import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 
 import '../../../helpers/fake_google_map.dart';
+import '../../../helpers/themed_app.dart';
 
 class MockRouteCubit extends MockCubit<RouteState> implements RouteCubit {}
 
@@ -74,19 +76,20 @@ void main() {
 
   tearDown(() => online.close());
 
-  Future<void> pumpReady(WidgetTester tester) async {
+  /// The ready screen in a bare `MaterialApp`, or in the app themes when
+  /// [mode] is given.
+  Future<void> pumpReady(WidgetTester tester, {ThemeMode? mode}) async {
     platform = FakeGoogleMapPlatform.install(tester);
+    final screen = RouteScreen(
+      start: start,
+      stops: const [a, b],
+      cubit: cubit,
+      connectivity: connectivity,
+      markers: FakeMapMarkers(),
+      onStart: (_) {},
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        home: RouteScreen(
-          start: start,
-          stops: const [a, b],
-          cubit: cubit,
-          connectivity: connectivity,
-          markers: FakeMapMarkers(),
-          onStart: (_) {},
-        ),
-      ),
+      mode == null ? MaterialApp(home: screen) : themedApp(screen, mode: mode),
     );
     // Marker icons, platform view creation and `map#waitForMap`.
     await tester.pump();
@@ -174,6 +177,59 @@ void main() {
 
       expect(map.cameraAnimations, isEmpty);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('RouteScreen map theme', () {
+    /// ARGB of the route line in the creation params.
+    Object? createdRouteColor(FakeMapInstance map) =>
+        (map.polylinesToAdd.single as Map<Object?, Object?>)['color'];
+
+    testWidgets('dark mode creates the map with the dark style and the '
+        '#7EA6F8 route line', (tester) async {
+      await pumpReady(tester, mode: ThemeMode.dark);
+
+      final map = platform.maps.single;
+      expect(map.style, rbDarkMapStyle);
+      expect(createdRouteColor(map), 0xFF7EA6F8);
+      await tester.pump(RouteScreen.cameraFitDelay);
+    });
+
+    testWidgets("light mode creates the map with Google's default style and "
+        'the #2A6DF4 route line', (tester) async {
+      await pumpReady(tester, mode: ThemeMode.light);
+
+      final map = platform.maps.single;
+      expect(map.style, '');
+      expect(createdRouteColor(map), 0xFF2A6DF4);
+      await tester.pump(RouteScreen.cameraFitDelay);
+    });
+
+    testWidgets('a device theme switch restyles the same map and repaints '
+        'the route line without moving the camera', (tester) async {
+      final dispatcher = tester.binding.platformDispatcher;
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+      await pumpReady(tester, mode: ThemeMode.system);
+      await tester.pump(RouteScreen.cameraFitDelay);
+      final map = platform.maps.single;
+      expect(map.style, '');
+      expect(createdRouteColor(map), 0xFF2A6DF4);
+      expect(map.cameraAnimations, hasLength(1));
+
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      await tester.pumpAndSettle();
+      expect(map.styleUpdates, [rbDarkMapStyle]);
+      expect(map.polylineColorUpdates.last, 0xFF7EA6F8);
+
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      await tester.pumpAndSettle();
+      expect(map.styleUpdates, [rbDarkMapStyle, '']);
+      expect(map.polylineColorUpdates.last, 0xFF2A6DF4);
+
+      expect(platform.maps, hasLength(1));
+      expect(find.byType(GoogleMap), findsOneWidget);
+      expect(map.cameraAnimations, hasLength(1));
     });
   });
 }
