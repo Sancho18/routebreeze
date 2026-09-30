@@ -11,6 +11,7 @@ import '../../location/domain/location_service.dart';
 import '../../route/domain/route_plan.dart';
 import '../../route/domain/route_repository.dart';
 import '../../route/domain/stop_result.dart';
+import '../data/background_tracker.dart';
 import '../domain/deviation_detector.dart';
 import '../domain/odometer.dart';
 import '../domain/progress_estimator.dart';
@@ -165,6 +166,7 @@ class NavigationCubit extends Cubit<NavigationState> {
     required this._routes,
     required this._connectivity,
     required this._session,
+    required this._tracker,
     DeviationDetector? deviation,
     ArrivalDetector? arrival,
     RecalcPolicy? policy,
@@ -181,6 +183,7 @@ class NavigationCubit extends Cubit<NavigationState> {
   final RouteRepository _routes;
   final ConnectivityService _connectivity;
   final SessionState _session;
+  final BackgroundTracker _tracker;
   final DeviationDetector _deviation;
   final ArrivalDetector _arrival;
   final RecalcPolicy _policy;
@@ -235,7 +238,8 @@ class NavigationCubit extends Cubit<NavigationState> {
   }
 
   /// Navigates; the first "Iniciar" of the route stamps its start, which is
-  /// saved with it.
+  /// saved with it. The tracker starts and the positions keep coming in
+  /// background until the navigation ends.
   void start() {
     if (!state.canStart) return;
     _session.isNavigationActive = true;
@@ -249,12 +253,14 @@ class NavigationCubit extends Cubit<NavigationState> {
         ),
       ),
     );
+    unawaited(_tracker.start());
+    _subscribe();
     unawaited(_routes.save(plan));
   }
 
-  /// Stops the streams and leaves the route intact; while navigating it is
-  /// saved with its start and distance, and the future completes with that
-  /// save.
+  /// Stops the streams and the tracker and leaves the route intact; while
+  /// navigating it is saved with its start and distance, and the future
+  /// completes with that save.
   Future<void> stop() {
     final save = state.phase == NavigationPhase.navigating
         ? _routes.save(_traveled(state.plan))
@@ -291,17 +297,18 @@ class NavigationCubit extends Cubit<NavigationState> {
 
   void onMapDragged() => emit(state.copyWith(following: false));
 
-  /// Pauses the position stream while the app is in the background; state
-  /// is kept. While navigating the route is saved with its start and
-  /// distance.
+  /// The app went to background. While navigating the position stream goes
+  /// on and the route is saved with its start and distance; otherwise the
+  /// stream pauses until [resume], state kept.
   void pause() {
+    if (state.phase == NavigationPhase.navigating) {
+      unawaited(_routes.save(_traveled(state.plan)));
+      return;
+    }
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
     _positions?.cancel();
     _positions = null;
-    if (state.phase == NavigationPhase.navigating) {
-      unawaited(_routes.save(_traveled(state.plan)));
-    }
   }
 
   void resume() {
@@ -331,19 +338,26 @@ class NavigationCubit extends Cubit<NavigationState> {
     return super.close();
   }
 
+  /// Listens to the positions; while navigating they keep coming in
+  /// background.
   void _subscribe() {
     _resubscribeTimer?.cancel();
     _resubscribeTimer = null;
     _positions?.cancel();
     _positions = _location
-        .watch(distanceFilterMeters: distanceFilterMeters)
+        .watch(
+          distanceFilterMeters: distanceFilterMeters,
+          background: state.phase == NavigationPhase.navigating,
+        )
         .listen(_onFix, onError: _onStreamError, onDone: _onStreamEnded);
   }
 
-  /// Cancels every subscription and timer. The session hooks and the active
-  /// flag are cleared only while they are this cubit's: a stale cubit closing
-  /// after a newer one prepared must not remove the newer one's hooks.
+  /// Cancels every subscription and timer and, while navigating, stops the
+  /// tracker. The session hooks and the active flag are cleared only while
+  /// they are this cubit's: a stale cubit closing after a newer one prepared
+  /// must not remove the newer one's hooks.
   void _cancelAll() {
+    if (state.phase == NavigationPhase.navigating) unawaited(_tracker.stop());
     if (_session.onPause == pause) {
       _session
         ..onPause = null
@@ -468,10 +482,11 @@ class NavigationCubit extends Cubit<NavigationState> {
     }
   }
 
-  /// Ends the route as [plan] at [end]: the stream stops, storage is
-  /// cleared and the summary is built; the navigation stays active, so no
-  /// re-lock hides the summary, until [close] or [stop].
+  /// Ends the route as [plan] at [end]: the stream and the tracker stop,
+  /// storage is cleared and the summary is built; the navigation stays
+  /// active, so no re-lock hides the summary, until [close] or [stop].
   Future<void> _complete(RoutePlan plan, {required DateTime end}) async {
+    unawaited(_tracker.stop());
     _positions?.cancel();
     _positions = null;
     _badgeTimer?.cancel();

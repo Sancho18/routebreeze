@@ -1,4 +1,5 @@
-// Renders the brand source images into assets/brand/. Run it with:
+// Renders the brand source images into assets/brand/ and the notification
+// small icon into the Android drawables. Run it with:
 //   flutter test tool/brand/render_brand_assets_test.dart
 // then regenerate the platform files (see README, "Ícone e abertura").
 import 'dart:io';
@@ -14,13 +15,27 @@ const Color brand = Color(0xFF2A6DF4);
 /// The part of the 108 dp adaptive layer a launcher shows: 72 dp.
 const double visible = BrandMark.canvas * 72 / 108;
 
-Future<void> write(String name, int size, void Function(Canvas) paint) async {
+/// The 24 dp status bar icon in px, per Android density.
+const Map<String, int> statusBarIcon = {
+  'mdpi': 24,
+  'hdpi': 36,
+  'xhdpi': 48,
+  'xxhdpi': 72,
+  'xxxhdpi': 96,
+};
+
+Future<void> write(
+  String name,
+  int size,
+  void Function(Canvas) paint, {
+  String dir = 'assets/brand',
+}) async {
   final recorder = ui.PictureRecorder();
   paint(Canvas(recorder));
   final image = await recorder.endRecording().toImage(size, size);
   final png = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
-  File('assets/brand/$name')
+  File('$dir/$name')
     ..createSync(recursive: true)
     ..writeAsBytesSync(png!.buffer.asUint8List());
 }
@@ -80,5 +95,13 @@ void main() {
     await write('splash_android12.png', 960, (canvas) {
       paintAdaptiveCircle(canvas, image: 960, circle: 640, disc: false);
     });
+    // Drawn on the 1024 px canvas and scaled down: the loader curve's inset
+    // is fixed in px and would bend the mark at 24 px.
+    for (final MapEntry(key: density, value: px) in statusBarIcon.entries) {
+      await write('ic_stat_routebreeze.png', px, (canvas) {
+        canvas.scale(px / BrandMark.canvas);
+        paintBrandMark(canvas, full, color: Colors.white);
+      }, dir: 'android/app/src/main/res/drawable-$density');
+    }
   });
 }

@@ -12,6 +12,7 @@ import 'package:routebreeze/core/session/session_state.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
+import 'package:routebreeze/features/navigation/data/background_tracker.dart';
 import 'package:routebreeze/features/navigation/domain/progress_estimator.dart';
 import 'package:routebreeze/features/navigation/domain/route_summary.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
@@ -24,6 +25,8 @@ class MockLocationService extends Mock implements LocationService {}
 class MockRouteRepository extends Mock implements RouteRepository {}
 
 class MockConnectivityService extends Mock implements ConnectivityService {}
+
+class MockBackgroundTracker extends Mock implements BackgroundTracker {}
 
 void main() {
   // Route along the equator: origin → A → B. A fix at latitude `lat(m)` is
@@ -68,6 +71,7 @@ void main() {
   late MockLocationService location;
   late MockRouteRepository routes;
   late MockConnectivityService connectivity;
+  late MockBackgroundTracker tracker;
   late SessionState session;
   late StreamController<Fix> fixes;
   late StreamController<bool> online;
@@ -93,11 +97,18 @@ void main() {
     location = MockLocationService();
     routes = MockRouteRepository();
     connectivity = MockConnectivityService();
+    tracker = MockBackgroundTracker();
     session = SessionState();
     fixes = StreamController<Fix>.broadcast();
     online = StreamController<bool>.broadcast();
-    when(() => location.watch(distanceFilterMeters: 5))
-        .thenAnswer((_) => fixes.stream);
+    when(
+      () => location.watch(
+        distanceFilterMeters: 5,
+        background: any(named: 'background'),
+      ),
+    ).thenAnswer((_) => fixes.stream);
+    when(() => tracker.start()).thenAnswer((_) async {});
+    when(() => tracker.stop()).thenAnswer((_) async {});
     when(() => connectivity.check()).thenAnswer((_) async => true);
     when(() => connectivity.isOnline).thenAnswer((_) => online.stream);
     when(() => routes.save(any())).thenAnswer((_) async {});
@@ -125,6 +136,7 @@ void main() {
         routes: routes,
         connectivity: connectivity,
         session: session,
+        tracker: tracker,
         now: () => t0.add(async.elapsed),
       );
 
@@ -157,6 +169,7 @@ void main() {
       routes: routes,
       connectivity: connectivity,
       session: session,
+      tracker: tracker,
     );
     expect(cubit.state, NavigationState(plan: plan));
     expect(cubit.state.phase, NavigationPhase.idle);
@@ -1141,20 +1154,22 @@ void main() {
   });
 
   group('lifecycle', () {
-    test('pause cancels the position stream and keeps the state; resume '
-        'resubscribes', () {
+    test('pause while navigating keeps the position stream and the state; '
+        'resume does not subscribe again', () {
       fakeAsync((async) {
         final cubit = navigating(async);
         final before = cubit.state;
 
         cubit.pause();
-        expect(fixes.hasListener, isFalse);
+        expect(fixes.hasListener, isTrue);
         expect(cubit.state, before);
         expect(session.isNavigationActive, isTrue);
 
         cubit.resume();
         expect(fixes.hasListener, isTrue);
-        verify(() => location.watch(distanceFilterMeters: 5)).called(2);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
         final next = onRoute();
         emitFix(async, next);
         expect(cubit.state.fix, next);
@@ -1187,8 +1202,8 @@ void main() {
       });
     });
 
-    test('closing a stale cubit leaves the hooks and the active flag of a '
-        'cubit prepared after it untouched', () {
+    test('closing a stale cubit leaves the hooks, the active flag and the '
+        'tracker of a cubit prepared after it untouched', () {
       fakeAsync((async) {
         final first = build(async)..prepare();
         async.flushMicrotasks();
@@ -1201,11 +1216,21 @@ void main() {
         first.close();
         async.flushMicrotasks();
 
+        // The stale cubit never navigated, so the service the second one
+        // started keeps running.
+        verifyNever(() => tracker.stop());
         expect(session.isNavigationActive, isTrue);
         expect(session.onPause, isNotNull);
         expect(session.onResume, isNotNull);
         session.onPause!();
-        expect(fixes.hasListener, isFalse);
+        async.flushMicrotasks();
+        // The navigating second cubit keeps its stream and saves its route;
+        // the first one, never started, would save nothing.
+        expect(fixes.hasListener, isTrue);
+        expect(verify(() => routes.save(captureAny())).captured, [
+          second.state.plan,
+          second.state.plan,
+        ]);
         session.onResume!();
         expect(fixes.hasListener, isTrue);
         expect(second.state.phase, NavigationPhase.navigating);
@@ -1225,6 +1250,8 @@ void main() {
         cubit.resume();
 
         verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
         cubit.close();
       });
     });
@@ -1317,12 +1344,16 @@ void main() {
         expect(cubit.state.error, 'Perdemos o sinal de GPS');
         expect(fixes.hasListener, isFalse);
         verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
 
         async.elapse(const Duration(seconds: 4));
         expect(fixes.hasListener, isFalse);
         async.elapse(const Duration(seconds: 1));
         expect(fixes.hasListener, isTrue);
-        verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        // While navigating, the new subscription keeps background updates.
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
 
         final next = onRoute();
         emitFix(async, next);
@@ -1369,7 +1400,9 @@ void main() {
         cubit.resume();
 
         expect(fixes.hasListener, isTrue);
-        verify(() => location.watch(distanceFilterMeters: 5)).called(2);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(2);
         cubit.close();
       });
     });
@@ -1384,9 +1417,16 @@ void main() {
         cubit.resume();
 
         expect(fixes.hasListener, isTrue);
-        verify(() => location.watch(distanceFilterMeters: 5)).called(2);
+        verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(2);
         async.elapse(const Duration(seconds: 5));
-        verifyNever(() => location.watch(distanceFilterMeters: 5));
+        verifyNever(
+          () => location.watch(
+            distanceFilterMeters: 5,
+            background: any(named: 'background'),
+          ),
+        );
         cubit.close();
       });
     });
@@ -1402,10 +1442,223 @@ void main() {
 
         expect(fixes.hasListener, isFalse);
         verify(() => location.watch(distanceFilterMeters: 5)).called(1);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
         cubit.close();
       });
     });
   });
+
+  group('background tracking', () {
+    // The route with its leg ends, so that progress is measured.
+    final tracked = RoutePlan(
+      origin: origin,
+      stops: plan.stops,
+      polyline: plan.polyline,
+      distanceMeters: plan.distanceMeters,
+      durationSeconds: plan.durationSeconds,
+      legs: const [
+        RouteLeg(distanceMeters: 2224, durationSeconds: 200, endIndex: 1),
+        RouteLeg(distanceMeters: 2224, durationSeconds: 200, endIndex: 2),
+      ],
+      computedAt: t0,
+    );
+
+    test('waiting for GPS listens without background updates; "Iniciar" '
+        'starts the tracker once and listens again with them', () {
+      final background = StreamController<Fix>.broadcast();
+      addTearDown(background.close);
+      when(() => location.watch(distanceFilterMeters: 5, background: true))
+          .thenAnswer((_) => background.stream);
+      fakeAsync((async) {
+        final cubit = build(async)..prepare();
+        async.flushMicrotasks();
+        verify(() => location.watch(distanceFilterMeters: 5, background: false))
+            .called(1);
+        emitFix(async, onRoute());
+        verifyNever(() => tracker.start());
+
+        cubit.start();
+        async.flushMicrotasks();
+
+        verify(() => tracker.start()).called(1);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
+        expect(fixes.hasListener, isFalse);
+        expect(background.hasListener, isTrue);
+        final next = onRoute();
+        background.add(next);
+        async.flushMicrotasks();
+        expect(cubit.state.fix, next);
+
+        cubit
+          ..start()
+          ..resume();
+        async.flushMicrotasks();
+
+        verifyNever(() => tracker.start());
+        verifyNever(
+          () => location.watch(
+            distanceFilterMeters: 5,
+            background: any(named: 'background'),
+          ),
+        );
+        cubit.close();
+      });
+    });
+
+    test('pause while waiting for GPS cancels the stream; resume listens '
+        'again, still without background updates', () {
+      fakeAsync((async) {
+        final cubit = build(async)..prepare();
+        async.flushMicrotasks();
+
+        cubit.pause();
+
+        expect(fixes.hasListener, isFalse);
+
+        cubit.resume();
+
+        expect(fixes.hasListener, isTrue);
+        verify(() => location.watch(distanceFilterMeters: 5, background: false))
+            .called(2);
+        verifyNever(
+          () => location.watch(distanceFilterMeters: 5, background: true),
+        );
+        final next = onRoute();
+        emitFix(async, next);
+        expect(cubit.state.fix, next);
+        expect(cubit.state.phase, NavigationPhase.waitingGps);
+        verifyNever(() => tracker.start());
+        cubit.close();
+      });
+    });
+
+    test('after pause, fixes keep driving the navigation in background: a '
+        'precise fix is measured, three off-route fixes recalculate and a '
+        'fix at the new next stop arrives; the tracker keeps running', () {
+      stubPlan(recalculated);
+      fakeAsync((async) {
+        final cubit = navigating(async, tracked);
+        cubit.pause();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 10));
+
+        emitFix(async, fix(const GeoPoint(0, -0.005), accuracy: 50));
+
+        expect(cubit.state.progress!.next, const RouteStop(stop: a, order: 1));
+        expect(cubit.state.progress!.toNextMeters, 556);
+        expect(cubit.state.progress!.toNextSeconds, 50);
+        expect(cubit.state.progress!.at, t0.add(const Duration(seconds: 10)));
+
+        goOffRoute(async);
+
+        verify(
+          () => routes.plan(farPoint, [a, b], keepVisited: const <RouteStop>[]),
+        ).called(1);
+        expect(cubit.state.plan, recalculated.withStart(t0));
+        expect(cubit.state.badge, NavigationBadge.recalculated);
+
+        emitFix(async, atStop(b));
+
+        expect(cubit.state.arrived, isTrue);
+        expect(cubit.state.plan.nextStop!.stop, b);
+        expect(cubit.state.phase, NavigationPhase.navigating);
+        verifyNever(() => tracker.stop());
+        cubit.close();
+      });
+    });
+
+    test('a stream error in background shows "Perdemos o sinal de GPS" and '
+        'listens again, with background updates, 5 s later', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
+        cubit.pause();
+
+        fixes.addError(StateError('gps off'));
+        async.flushMicrotasks();
+
+        expect(cubit.state.error, 'Perdemos o sinal de GPS');
+        expect(fixes.hasListener, isFalse);
+        async.elapse(const Duration(seconds: 4));
+        expect(fixes.hasListener, isFalse);
+
+        async.elapse(const Duration(seconds: 1));
+
+        expect(fixes.hasListener, isTrue);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(1);
+        final next = onRoute();
+        emitFix(async, next);
+        expect(cubit.state.error, isNull);
+        expect(cubit.state.fix, next);
+        cubit.close();
+      });
+    });
+
+    test('a new subscription scheduled before going to background still '
+        'runs there', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        fixes.addError(StateError('gps off'));
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+
+        cubit.pause();
+        async.elapse(const Duration(seconds: 3));
+
+        expect(fixes.hasListener, isTrue);
+        verify(() => location.watch(distanceFilterMeters: 5, background: true))
+            .called(2);
+        cubit.close();
+      });
+    });
+
+    test('"Encerrar" stops the tracker', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        verifyNever(() => tracker.stop());
+
+        cubit.stop();
+        async.flushMicrotasks();
+
+        verify(() => tracker.stop()).called(1);
+        cubit.close();
+      });
+    });
+
+    test('the last result of a one-way route stops the tracker; an earlier '
+        'one does not', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+        verifyNever(() => tracker.stop());
+        async.elapse(NavigationCubit.recordGuard);
+
+        cubit.recordDelivered();
+        async.flushMicrotasks();
+
+        expect(cubit.state.phase, NavigationPhase.completed);
+        verify(() => tracker.stop()).called(1);
+        cubit.close();
+      });
+    });
+
+    test('closing the navigation while it runs stops the tracker', () {
+      fakeAsync((async) {
+        final cubit = navigating(async);
+
+        cubit.close();
+        async.flushMicrotasks();
+
+        verify(() => tracker.stop()).called(1);
+      });
+    });
+  });
+
   group('progress', () {
     // The same route with its leg ends: leg 1 ends on A (vertex 1), leg 2 on
     // B (vertex 2).
@@ -1932,6 +2185,50 @@ void main() {
           expect(waiting.state.summary, isNull);
           verifyNever(() => routes.clear());
           waiting.close();
+        });
+      });
+
+      test('on the way back, which the last result left tracking, pause '
+          'keeps the stream and saves the route; a fix at the start in '
+          'background completes it and stops the tracker', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          verifyNever(() => tracker.stop());
+          verify(() => routes.save(any())).called(2);
+          async.elapse(const Duration(minutes: 12));
+
+          cubit.pause();
+          async.flushMicrotasks();
+
+          expect(fixes.hasListener, isTrue);
+          expect(
+            verify(() => routes.save(captureAny())).captured.single,
+            cubit.state.plan,
+          );
+
+          emitFix(async, atStart());
+
+          expect(cubit.state.phase, NavigationPhase.completed);
+          expect(
+            cubit.state.summary,
+            summaryAt(t0.add(const Duration(minutes: 12, seconds: 10))),
+          );
+          verify(() => tracker.stop()).called(1);
+          cubit.close();
+        });
+      });
+
+      test('"Finalizar rota" stops the tracker', () {
+        fakeAsync((async) {
+          final cubit = returning(async);
+          async.elapse(const Duration(minutes: 20));
+
+          cubit.finishRoute();
+          async.flushMicrotasks();
+
+          expect(cubit.state.phase, NavigationPhase.completed);
+          verify(() => tracker.stop()).called(1);
+          cubit.close();
         });
       });
     });

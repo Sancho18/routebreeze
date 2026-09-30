@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/app.dart';
 import 'package:routebreeze/core/di/injector.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
+import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/session/session_state.dart';
 import 'package:routebreeze/core/theme/rb_palette.dart';
 import 'package:routebreeze/core/theme/system_bars.dart';
@@ -25,10 +26,15 @@ import 'package:routebreeze/features/navigation/presentation/navigation_screen.d
 import 'package:routebreeze/features/navigation/presentation/route_summary_sheet.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/stop_result.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'helpers/fake_local_notifications.dart';
 
 class MockLocalAuthService extends Mock implements LocalAuthService {}
 
 class MockLocationService extends Mock implements LocationService {}
+
+class MockConnectivityService extends Mock implements ConnectivityService {}
 
 class MockNavigationCubit extends MockCubit<NavigationState>
     implements NavigationCubit {}
@@ -46,9 +52,11 @@ class _RecordingObserver extends NavigatorObserver {
 void main() {
   late MockLocalAuthService auth;
   late MockLocationService location;
+  late FakeLocalNotifications notifications;
   late DateTime clock;
 
   setUp(() async {
+    notifications = FakeLocalNotifications.install();
     await configureDependencies(apiKey: 'test-key');
     auth = MockLocalAuthService();
     getIt.unregister<LocalAuthService>();
@@ -252,23 +260,65 @@ void main() {
       verify(() => location.checkAccess()).called(1);
     });
 
-    testWidgets('background pauses the navigation and foreground resumes it', (
-      tester,
-    ) async {
+    testWidgets('background hands pause and resume to the navigation, which '
+        'keeps its position stream and its foreground service', (tester) async {
+      // The navigation from the composition root, over a fake network and
+      // storage; the position stream is the test's.
+      SharedPreferences.setMockInitialValues({});
+      final connectivity = MockConnectivityService();
+      when(() => connectivity.check()).thenAnswer((_) async => true);
+      when(() => connectivity.isOnline)
+          .thenAnswer((_) => const Stream<bool>.empty());
+      getIt
+        ..unregister<ConnectivityService>()
+        ..registerSingleton<ConnectivityService>(connectivity);
+      final positions = StreamController<Fix>.broadcast();
+      addTearDown(positions.close);
+      when(
+        () => location.watch(
+          distanceFilterMeters: 5,
+          background: any(named: 'background'),
+        ),
+      ).thenAnswer((_) => positions.stream);
+      const origin = GeoPoint(-23.5614, -46.6559);
+      const stop = Stop('pa', 'Rua A, 1', GeoPoint(-23.565, -46.66));
+      final plan = RoutePlan(
+        origin: origin,
+        stops: const [RouteStop(stop: stop, order: 1)],
+        polyline: const [origin, GeoPoint(-23.565, -46.66)],
+        distanceMeters: 600,
+        durationSeconds: 90,
+        legs: const [RouteLeg(distanceMeters: 600, durationSeconds: 90)],
+        computedAt: DateTime.utc(2026, 9, 22, 10),
+      );
       await bootAndUnlock(tester);
+      final navigation = getIt<NavigationCubit>(param1: plan)..prepare();
+      positions.add(Fix(origin, 8, DateTime.utc(2026, 9, 22, 10)));
+      await tester.pump();
+      navigation.start();
+      await tester.pump();
+      // Records the gate's calls on the navigation's own hooks.
       final events = <String>[];
       final session = getIt<SessionState>();
-      session.isNavigationActive = true;
-      session.onPause = () {
-        events.add('pause');
-      };
-      session.onResume = () {
-        events.add('resume');
-      };
+      final pause = session.onPause!;
+      final resume = session.onResume!;
+      session
+        ..onPause = () {
+          events.add('pause');
+          pause();
+        }
+        ..onResume = () {
+          events.add('resume');
+          resume();
+        };
 
       await setLifecycle(tester, AppLifecycleState.inactive);
       await setLifecycle(tester, AppLifecycleState.paused);
       expect(events, ['pause']);
+      expect(positions.hasListener, isTrue);
+      positions.add(Fix(stop.point, 8, DateTime.utc(2026, 9, 22, 10, 5)));
+      await tester.pump();
+      expect(navigation.state.arrived, isTrue);
 
       clock = clock.add(const Duration(minutes: 5));
       await setLifecycle(tester, AppLifecycleState.resumed);
@@ -276,6 +326,22 @@ void main() {
 
       expect(events, ['pause', 'resume']);
       expect(find.byType(MapScreen), findsOneWidget);
+      expect(positions.hasListener, isTrue);
+      verify(() => location.watch(distanceFilterMeters: 5, background: true))
+          .called(1);
+      expect(notifications.calls.map((call) => call.method), [
+        'initialize',
+        'startForegroundService',
+      ]);
+
+      await navigation.close();
+      await tester.pump();
+
+      expect(notifications.calls.map((call) => call.method), [
+        'initialize',
+        'startForegroundService',
+        'stopForegroundService',
+      ]);
     });
 
     group('device theme', () {

@@ -71,7 +71,7 @@ void main() {
       expect(heading.style!.color, RbColors.ink);
       final caption = tester.widget<Text>(
         find.text(
-          'O acompanhamento continua quando você voltar ao RouteBreeze.',
+          'O RouteBreeze continua acompanhando a rota em segundo plano.',
         ),
       );
       expect(caption.style!.fontSize, 13);
@@ -185,7 +185,7 @@ void main() {
         tester
             .widget<Text>(
               find.text(
-                'O acompanhamento continua quando você voltar ao RouteBreeze.',
+                'O RouteBreeze continua acompanhando a rota em segundo plano.',
               ),
             )
             .style!

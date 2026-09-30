@@ -27,6 +27,7 @@ import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/domain/auth_result.dart';
 import 'package:routebreeze/features/lock/presentation/lock_screen.dart';
+import 'package:routebreeze/features/navigation/data/background_tracker.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
 import 'package:routebreeze/features/navigation/presentation/next_stop_card.dart';
@@ -43,6 +44,7 @@ import 'package:routebreeze/features/route/presentation/route_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_google_map.dart';
+import 'helpers/fake_local_notifications.dart';
 
 class MockLocalAuthService extends Mock implements LocalAuthService {}
 
@@ -141,6 +143,7 @@ void main() {
           routes: getIt<RouteRepository>(),
           connectivity: getIt<ConnectivityService>(),
           session: getIt<SessionState>(),
+          tracker: getIt<BackgroundTracker>(),
           now: () => clock,
         ),
       );
@@ -172,6 +175,7 @@ void main() {
   setUp(() async {
     // First use: no round-trip choice saved.
     SharedPreferences.setMockInitialValues({});
+    FakeLocalNotifications.install();
     await configureDependencies(apiKey: 'test-key');
     positions = StreamController<Fix>.broadcast();
     online = StreamController<bool>.broadcast();
@@ -189,6 +193,7 @@ void main() {
     when(
       () => location.watch(
         distanceFilterMeters: any(named: 'distanceFilterMeters'),
+        background: any(named: 'background'),
       ),
     ).thenAnswer((_) => positions.stream);
 

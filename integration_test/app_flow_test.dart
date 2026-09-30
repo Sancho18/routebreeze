@@ -90,7 +90,8 @@ class FakeLocationService implements LocationService {
       Future.value(Fix(start, 10, DateTime.now()));
 
   @override
-  Stream<Fix> watch({int distanceFilterMeters = 5}) => positions.stream;
+  Stream<Fix> watch({int distanceFilterMeters = 5, bool background = false}) =>
+      positions.stream;
 
   @override
   Future<void> openAppSettings() async {}
