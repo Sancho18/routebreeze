@@ -109,6 +109,16 @@ void main() {
       verify(() => auth.authenticate()).called(1);
     });
 
+    testWidgets('shows no debug banner, so debug builds look as released', (
+      tester,
+    ) async {
+      await tester.pumpWidget(RouteBreezeApp(now: () => clock));
+
+      final app = tester.widget<WidgetsApp>(find.byType(WidgetsApp));
+      expect(app.debugShowCheckedModeBanner, isFalse);
+      expect(find.byType(CheckedModeBanner), findsNothing);
+    });
+
     testWidgets('a platform initial route cannot skip the lock', (
       tester,
     ) async {
