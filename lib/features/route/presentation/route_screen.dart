@@ -20,18 +20,15 @@ import 'route_cubit.dart';
 import 'route_map_objects.dart';
 import 'route_sheet.dart';
 
-/// Builds the map for a ready route; [padding] is the map edge covered by the
-/// sheet. Tests inject a placeholder because the real `GoogleMap` cannot
-/// render in widget tests.
+/// Builds the map for a ready route; [padding] is the edge the sheet covers.
+/// Tests swap it because `GoogleMap` cannot render in widget tests.
 typedef RouteMapBuilder = Widget Function(
   BuildContext context,
   RouteMapObjects objects,
   EdgeInsets padding,
 );
 
-/// Route screen: computes the optimized route on open and, once ready, draws
-/// it on the map under the [RouteSheet]; "Iniciar" hands the plan to [onStart]
-/// and, when the navigation closes, the screen shows the route it saved.
+/// Computes the optimized route on open and draws it under the [RouteSheet].
 class RouteScreen extends StatefulWidget {
   const RouteScreen({
     super.key,
@@ -118,9 +115,8 @@ class _RouteScreenState extends State<RouteScreen> {
     setState(() => _isOnline = online);
   }
 
-  /// Once the navigation closes ("Encerrar" or the system back), the saved
-  /// route of the same stops replaces [plan], so the sheet shows its results
-  /// and "Iniciar" continues it.
+  /// After the navigation closes, the route it saved replaces [plan], so the
+  /// sheet shows its results and "Iniciar" continues it.
   Future<void> _start(RoutePlan plan) async {
     await widget.onStart(plan);
     if (mounted) await _cubit.refreshFromSaved();
@@ -184,8 +180,7 @@ Widget _googleMap(
   EdgeInsets padding,
 ) => _RouteMap(objects: objects, padding: padding);
 
-/// `GoogleMap` fitted to the route, inside the area the sheet leaves
-/// visible, once the platform view has laid out.
+/// `GoogleMap` fitted to the route in the area the sheet leaves visible.
 class _RouteMap extends StatefulWidget {
   const _RouteMap({required this.objects, required this.padding});
 
@@ -267,8 +262,6 @@ class _Failure extends StatelessWidget {
   }
 }
 
-/// Map (once the marker icons exist) under the route sheet, padded by the
-/// sheet's height.
 class _Ready extends StatefulWidget {
   const _Ready({
     required this.plan,

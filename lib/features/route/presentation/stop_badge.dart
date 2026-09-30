@@ -5,11 +5,8 @@ import '../../../core/theme/rb_tokens.dart';
 import '../domain/stop_result.dart';
 import 'stop_result_labels.dart';
 
-/// A stop's place in the optimized order: its number on a `brand` circle
-/// until it has a [result], then a check on `successStrong` (delivered) or
-/// an "×" on `dangerStrong` (not delivered), all in `onFill`. Announced as
-/// [resultBadgeLabel]. The circle scales with the system text, so the
-/// number fits.
+/// A stop's order number on a circle, replaced by a check or an "×" once it
+/// has a [result]. The circle scales with the system text, so the number fits.
 class StopBadge extends StatelessWidget {
   const StopBadge({super.key, required this.order, this.result});
 

@@ -10,13 +10,9 @@ import 'route_format.dart';
 import 'stop_badge.dart';
 import 'stop_result_labels.dart';
 
-/// Bottom sheet with the optimized stop order (a round trip ends with the way
-/// back to the start), totals and the primary action.
-/// While a stop is left, [onDelivered] and [onNotDelivered] add the
-/// "Entregue" and "Não entregue" buttons side by side above the primary
-/// action; [finishLabel] adds a primary button in their place, calling
-/// [onFinish]; [totals] replaces the plan's distance and duration line;
-/// [footer] is rendered below the actions.
+/// Bottom sheet with the stop order, the totals and the actions. The result
+/// buttons show while a stop is left and one of their callbacks is set; the
+/// finish button shows with [finishLabel].
 class RouteSheet extends StatelessWidget {
   const RouteSheet({
     super.key,
@@ -39,8 +35,7 @@ class RouteSheet extends StatelessWidget {
   final VoidCallback? onDelivered;
   final VoidCallback? onNotDelivered;
 
-  /// "Finalizar rota" on the way back of a round trip, when every stop has a
-  /// result and the result buttons are gone.
+  /// "Finalizar rota" on the way back of a round trip.
   final String? finishLabel;
   final VoidCallback? onFinish;
   final String startLabel;
@@ -57,8 +52,7 @@ class RouteSheet extends StatelessWidget {
 
   static const double rowGap = RbSpace.s2;
 
-  /// The 1 px `border` divider sits inside [rowGap], starting under the
-  /// address text (past the 24 px badge and its `s2` gap).
+  /// Starts the row divider under the address text, past the badge.
   static const double dividerIndent = StopBadge.size + RbSpace.s2;
 
   static Key stopKey(String placeId) => ValueKey('stop-$placeId');
@@ -162,8 +156,6 @@ class RouteSheet extends StatelessWidget {
   }
 }
 
-/// One stop row; a stop with a result gets its result badge and a muted
-/// address, and a stop not delivered its reason under the address.
 class _StopRow extends StatelessWidget {
   const _StopRow(this.stop);
 
@@ -203,8 +195,7 @@ class _StopRow extends StatelessWidget {
   }
 }
 
-/// The last row of a round trip: a home on a `brand` circle that, like
-/// [StopBadge], scales with the system text.
+/// The last row of a round trip, sized like [StopBadge].
 class _ReturnRow extends StatelessWidget {
   const _ReturnRow();
 

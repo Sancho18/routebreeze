@@ -7,10 +7,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/rb_palette.dart';
 import '../../../core/theme/rb_tokens.dart';
 
-/// Marker icons for the route map: numbered circles drawn with `dart:ui` and
-/// cached per number, a distinct start marker and the current-position dot.
-/// Both themes share them: the light `brand` disc with a white ring reads on
-/// the light and the dark map.
+/// Marker icons for the route map. The light `brand` disc with a white ring
+/// serves both themes, since it reads on the light and the dark map.
 class MapMarkers {
   MapMarkers();
 
@@ -22,7 +20,7 @@ class MapMarkers {
   final Map<int, BitmapDescriptor> _cache = {};
   BitmapDescriptor? _position;
 
-  /// Cached per number: the same instance is returned on every later call.
+  /// Cached per number: later calls return the same instance.
   Future<BitmapDescriptor> numbered(int n, {double pixelRatio = 3}) async {
     final cached = _cache[n];
     if (cached != null) return cached;
@@ -40,7 +38,7 @@ class MapMarkers {
         imagePixelRatio: pixelRatio,
       );
 
-  /// The "Partida" marker: a default pin, distinct from the numbered circles.
+  /// The "Partida" marker.
   BitmapDescriptor start() =>
       BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
 

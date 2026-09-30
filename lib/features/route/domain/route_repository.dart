@@ -19,10 +19,8 @@ class RouteRepository {
   final RoutePlanner _planner;
   final DateTime Function() _now;
 
-  /// [keepVisited] stay first with their numbers; the new order is numbered
-  /// after them (the initial plan is 1..N). With [returnTo] the route ends
-  /// there and the last leg of the answer is the way back. The plan is saved
-  /// before it is returned; a storage failure does not discard it.
+  /// Computes a plan and saves it, best effort. [keepVisited] stay first with
+  /// their numbers; with [returnTo], the answer's last leg is the way back.
   Future<RoutePlan> plan(
     GeoPoint origin,
     List<Stop> stops, {
@@ -51,8 +49,7 @@ class RouteRepository {
     try {
       await _storage.save(plan);
     } on Object {
-      // The route was already computed (and billed); persistence is best
-      // effort here, as in MapCubit's restore.
+      // The route is already computed (and billed).
     }
     return plan;
   }

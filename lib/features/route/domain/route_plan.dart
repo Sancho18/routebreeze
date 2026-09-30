@@ -8,8 +8,7 @@ import 'stop_result.dart';
 class RouteStop extends Equatable {
   const RouteStop({required this.stop, required this.order, this.result});
 
-  /// Reads the saved [result]; a stop saved as visited before results
-  /// existed reads as delivered without a time.
+  /// In older saves, a stop marked `visited` reads as delivered with no time.
   factory RouteStop.fromJson(Map<String, dynamic> json) => RouteStop(
     stop: Stop.fromJson(json['stop'] as Map<String, dynamic>),
     order: json['order'] as int,
@@ -28,7 +27,7 @@ class RouteStop extends Equatable {
 
   bool get visited => result != null;
 
-  /// `visited` is still written so older builds can read the route.
+  /// Also writes `visited` so older builds can read the route.
   Map<String, dynamic> toJson() => {
     'stop': stop.toJson(),
     'order': order,
@@ -61,8 +60,8 @@ class RouteLeg extends Equatable {
   final int distanceMeters;
   final int durationSeconds;
 
-  /// Index in [RoutePlan.polyline] of the vertex where this leg reaches its
-  /// stop. Null in plans persisted without it (app 0.1.0).
+  /// Index in [RoutePlan.polyline] where this leg reaches its stop; null in
+  /// plans saved by app 0.1.0.
   final int? endIndex;
 
   Map<String, dynamic> toJson() => {
@@ -135,27 +134,22 @@ class RoutePlan extends Equatable {
   final int distanceMeters;
   final int durationSeconds;
 
-  /// One per stop of the last computation, in visiting order: they belong to
-  /// the last `legs.length` [stops] (a recalculation keeps the visited stops
-  /// first, without legs).
+  /// One per stop of the last computation, matching the last `legs.length`
+  /// [stops]: the visited stops a recalculation keeps first have none.
   final List<RouteLeg> legs;
   final DateTime computedAt;
 
-  /// First "Iniciar" of the route; null before it and in routes saved
-  /// before it was kept.
+  /// First "Iniciar" of the route; null until then and in older saves.
   final DateTime? startedAt;
 
-  /// Meters traveled while navigating; 0 in routes saved before it was
-  /// kept.
+  /// Meters traveled while navigating.
   final int traveledMeters;
 
-  /// Where a round trip ends: the start of the route, which stays when a
-  /// recalculation moves [origin]. Null on one-way routes and in routes
-  /// saved before round trips.
+  /// Where a round trip ends: the route's start, which stays when a
+  /// recalculation moves [origin]. Null on one-way routes.
   final GeoPoint? returnTo;
 
-  /// The last leg of the last computation, from its last stop (or its
-  /// origin) to [returnTo]; null on one-way routes.
+  /// The last computation's leg back to [returnTo]; null on one-way routes.
   final RouteLeg? returnLeg;
 
   List<RouteStop> get unvisited => [
@@ -167,13 +161,12 @@ class RoutePlan extends Equatable {
 
   bool get isRoundTrip => returnTo != null;
 
-  /// Every stop of a round trip has a result: only the way back is left.
+  /// Only the way back of a round trip is left.
   bool get isReturning => isRoundTrip && isComplete;
 
   RouteStop? get nextStop => unvisited.firstOrNull;
 
-  /// Gives the stop [placeId] its [result]; a stop that already has one
-  /// keeps it.
+  /// Records [result] for the stop [placeId] unless it already has one.
   RoutePlan record(String placeId, StopResult result) => _copy(
     stops: [
       for (final stop in stops)
@@ -188,9 +181,8 @@ class RoutePlan extends Equatable {
 
   RoutePlan withTraveled(int meters) => _copy(traveledMeters: meters);
 
-  /// This plan with the results (matched by place id), the start and the
-  /// distance traveled of [previous]; its own route, the point to return to
-  /// and the way back included, stays.
+  /// Takes the results (by place id), the start and the distance traveled of
+  /// [previous], keeping this plan's route.
   RoutePlan withProgressFrom(RoutePlan previous) {
     var plan = _copy(
       startedAt: previous.startedAt,

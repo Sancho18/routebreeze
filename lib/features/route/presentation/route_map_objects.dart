@@ -6,8 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/geo/geo_point.dart';
 import '../domain/route_plan.dart';
 
-/// What the route map draws: the start and numbered stop markers, the route
-/// polyline and the bounds the camera fits.
+/// The markers, polyline and camera bounds of the route map.
 class RouteMapObjects {
   const RouteMapObjects({
     required this.origin,
@@ -27,9 +26,9 @@ class RouteMapObjects {
   static String stopMarkerId(String placeId) => 'stop-$placeId';
 }
 
-/// Pure mapping from a [plan] to map objects; [numberedIcons] is keyed by stop
-/// order and [routeColor] paints the polyline. The start pin of a round trip
-/// stays at its point of return when a recalculation moves the origin.
+/// Builds the map objects of [plan]; [numberedIcons] is keyed by stop order.
+/// On a round trip the start pin stays on [RoutePlan.returnTo], since a
+/// recalculation moves the origin.
 RouteMapObjects buildMapObjects(
   RoutePlan plan, {
   required Map<int, BitmapDescriptor> numberedIcons,

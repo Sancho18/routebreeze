@@ -5,8 +5,7 @@ enum DeliveryOutcome { delivered, failed }
 /// Why a stop was not delivered.
 enum FailureReason { recipientAbsent, addressNotFound, refused, other }
 
-/// What happened at a stop: delivered, or not delivered with a [reason], at
-/// the clock time [at].
+/// What happened at a stop: delivered, or not delivered with a [reason].
 class StopResult extends Equatable {
   const StopResult.delivered({this.at})
     : outcome = DeliveryOutcome.delivered,
@@ -32,7 +31,7 @@ class StopResult extends Equatable {
   /// Only when not delivered.
   final FailureReason? reason;
 
-  /// Null for stops visited in routes saved before results existed.
+  /// Clock time of the result; null on results read from older saves.
   final DateTime? at;
 
   bool get delivered => outcome == DeliveryOutcome.delivered;

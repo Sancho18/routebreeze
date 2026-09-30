@@ -33,10 +33,9 @@ class RouteRequest extends Equatable {
   bool get stringify => true;
 }
 
-/// Farthest-destination rule: the stop farthest from the origin is the
-/// destination; every other stop is an intermediate. With a point to return
-/// to, that point is the destination and every stop an intermediate. Used for
-/// the initial plan and for recalculations over the unvisited stops.
+/// Farthest-destination rule: the destination is the stop farthest from
+/// the origin, or the point to return to on a round trip; every other stop
+/// is an intermediate.
 class RoutePlanner {
   const RoutePlanner();
 
@@ -71,9 +70,8 @@ class RoutePlanner {
     );
   }
 
-  /// Visiting order: intermediates as permuted by [optimizedIndex], then the
-  /// destination stop, if any. A missing index keeps the request order; a
-  /// non-permutation throws, since a stop would be dropped or duplicated.
+  /// The intermediates as permuted by [optimizedIndex], then the destination
+  /// stop; a missing index keeps the request order, a non-permutation throws.
   List<Stop> order(RouteRequest request, List<int>? optimizedIndex) {
     if (optimizedIndex == null || optimizedIndex.isEmpty) {
       return [...request.intermediates, ?request.destinationStop];

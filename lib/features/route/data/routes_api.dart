@@ -106,10 +106,7 @@ class RoutesApiImpl implements RoutesApi {
     },
   };
 
-  /// The first route must carry exactly [expectedLegs] legs (intermediates
-  /// + 1) with decodable polylines that add up to at least one point,
-  /// numeric totals and, when present, an optimized index that is a
-  /// permutation of the intermediates; anything else is a failed request.
+  /// Reads the first route; any unexpected shape throws [invalidResponse].
   static RouteResponse _parse(Map<String, dynamic>? data, int expectedLegs) {
     final routes = data?['routes'];
     if (routes is! List || routes.isEmpty || routes.first is! Map) {
@@ -144,8 +141,7 @@ class RoutesApiImpl implements RoutesApi {
     );
   }
 
-  /// A leg's decoded polyline. A leg without one adds no points; a
-  /// zero-length leg comes with a single point.
+  /// A leg's decoded polyline; the API sends a zero-length leg as one point.
   static List<GeoPoint> _legPoints(Object? polyline) {
     final encoded = polyline is Map ? polyline['encodedPolyline'] : null;
     if (encoded == null) return const [];
@@ -157,8 +153,7 @@ class RoutesApiImpl implements RoutesApi {
     }
   }
 
-  /// Appends [points] to [line]. A leg starts on the vertex where the
-  /// previous one ended, which is kept once.
+  /// Appends [points] to [line]; a vertex shared by two legs is kept once.
   static void _join(List<GeoPoint> line, List<GeoPoint> points) {
     final shared =
         line.isNotEmpty && points.isNotEmpty && points.first == line.last;
@@ -178,15 +173,14 @@ class RoutesApiImpl implements RoutesApi {
     return parsed;
   }
 
-  /// Proto JSON omits zero values: absent → 0; anything but a number fails.
+  /// Proto JSON omits zero values, so absent reads as 0.
   static int _meters(Object? value) => switch (value) {
     null => 0,
     num v => v.toInt(),
     _ => throw invalidResponse,
   };
 
-  /// `"605s"` (optionally fractional) → 605; absent → 0; anything else
-  /// fails.
+  /// `"605s"` (optionally fractional) → 605; absent → 0.
   static int _seconds(Object? value) {
     if (value == null) return 0;
     if (value is! String || !value.endsWith('s')) throw invalidResponse;

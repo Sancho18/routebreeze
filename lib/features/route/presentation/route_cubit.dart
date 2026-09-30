@@ -24,7 +24,7 @@ class RouteState extends Equatable {
   List<Object?> get props => [status, plan, failure];
 }
 
-/// Computes the optimized route; the repository persists the plan on success.
+/// Computes the optimized route.
 class RouteCubit extends Cubit<RouteState> {
   RouteCubit(this._repository) : super(const RouteState());
 
@@ -57,10 +57,8 @@ class RouteCubit extends Cubit<RouteState> {
     }
   }
 
-  /// Takes the saved route when it holds the current plan's stops, in any
-  /// order (a recalculation may reorder them), with the results, start and
-  /// distance the navigation saved. Otherwise, and before a plan exists,
-  /// the state stays as it is.
+  /// Takes the route the navigation saved when it has the plan's stops, in
+  /// any order, since a recalculation may reorder them. Otherwise a no-op.
   Future<void> refreshFromSaved() async {
     final plan = state.plan;
     if (plan == null) return;
@@ -76,8 +74,7 @@ class RouteCubit extends Cubit<RouteState> {
     for (final stop in plan.stops) stop.stop.placeId,
   };
 
-  /// Re-runs the last [compute] once, a round trip included. No-op before
-  /// the first request.
+  /// Re-runs the last [compute]; a no-op before the first one.
   Future<void> retry() {
     final last = _last;
     if (last == null) return Future.value();
