@@ -211,6 +211,24 @@ Feature-first, com três camadas por feature:
 
 Estado com `flutter_bloc` (Cubit). Injeção de dependência com `get_it`, montada em `lib/core/di/injector.dart`. As telas aceitam o Cubit e os serviços por parâmetro (usado nos testes); em produção vêm do `get_it`.
 
+As setas apontam para o que cada camada usa:
+
+```mermaid
+flowchart TB
+    presentation["presentation<br/>telas, widgets e Cubits"]
+    data["data<br/>APIs REST, plugins nativos e storage"]
+    domain["domain<br/>modelos, interfaces e regras puras"]
+    maps["Google Maps SDK<br/>(o mapa das telas)"]
+    external["Routes API e Places API (New),<br/>GPS, biometria, notificações e preferências"]
+    presentation --> data
+    presentation --> domain
+    data --> domain
+    presentation --> maps
+    data --> external
+```
+
+O `core` (DS Rota, widgets, rede, geo, sessão) serve todas as features.
+
 ```
 lib/
   main.dart                      binding, checagem da chave, DI, runApp
@@ -255,7 +273,21 @@ assets/brand/    imagens de origem do ícone e da abertura
 docs/            decisions.md
 ```
 
-Fluxo de telas: `/lock` → `/map` → `/addresses` → `/route` → `/navigation`. O `AppLifecycleGate` (em `app.dart`) observa o ciclo de vida: rebloqueia ao voltar do segundo plano e avisa a navegação quando o app sai da tela e quando volta. Antes de "Iniciar", a navegação pausa e retoma o stream de posição; depois, continua acompanhando em segundo plano (veja "Bateria e GPS").
+Fluxo de telas, com o nome de cada rota:
+
+```mermaid
+flowchart TB
+    lock["Bloqueio<br/>/lock"] -->|"biometria ou PIN"| map["Mapa<br/>/map"]
+    map -->|"Para onde vamos?"| addresses["Endereços<br/>/addresses"]
+    addresses -->|"Confirmar rota"| route["Rota otimizada<br/>/route"]
+    route -->|"Iniciar"| navigation["Navegação<br/>/navigation"]
+    map -->|"Continuar rota?"| navigation
+    navigation -->|"rota concluída"| summary["Resumo"]
+    summary -->|"Nova rota"| map
+    relock(["Volta do segundo plano após 30 s ou mais,<br/>fora da navegação"]) -.-> lock
+```
+
+"Encerrar" volta à tela anterior: a Rota, ou o Mapa numa rota continuada. O `AppLifecycleGate` (em `app.dart`) observa o ciclo de vida: rebloqueia ao voltar do segundo plano e avisa a navegação quando o app sai da tela e quando volta. Antes de "Iniciar", a navegação pausa e retoma o stream de posição; depois, continua acompanhando em segundo plano (veja "Bateria e GPS").
 
 Onde ficam as regras puras (todas com teste de unidade):
 
