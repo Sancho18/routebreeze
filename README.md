@@ -4,6 +4,20 @@ App Flutter de roteirização de entregas: bloqueio biométrico, endereços com 
 
 ![CI](https://github.com/Sancho18/routebreeze/actions/workflows/ci.yml/badge.svg)
 
+<p align="center">
+  <img src="docs/media/addresses-light.png" width="190" alt="Tela Endereços no tema claro: três endereços preenchidos e Voltar ao ponto de partida ligado">
+  <img src="docs/media/route-light.png" width="190" alt="Tela Rota no tema claro: mapa com as paradas numeradas, a ordem otimizada e o retorno ao ponto de partida">
+  <img src="docs/media/navigation-light.png" width="190" alt="Tela Navegação no tema claro: card da próxima parada com distância, tempo e chegada, e a primeira parada entregue">
+  <img src="docs/media/summary-light.png" width="190" alt="Resumo no tema claro: rota concluída com 2 entregues e 1 não entregue">
+</p>
+<p align="center">
+  <img src="docs/media/addresses-dark.png" width="190" alt="Tela Endereços no tema escuro">
+  <img src="docs/media/route-dark.png" width="190" alt="Tela Rota no tema escuro, com o mapa escuro">
+  <img src="docs/media/navigation-dark.png" width="190" alt="Tela Navegação no tema escuro">
+  <img src="docs/media/summary-dark.png" width="190" alt="Resumo no tema escuro">
+</p>
+<p align="center"><sub>Uma ida e volta por três lugares públicos de São Paulo, nos temas claro e escuro, no simulador do iOS.</sub></p>
+
 ## Sobre
 
 O RouteBreeze ajuda um entregador a visitar vários endereços na melhor ordem. O fluxo tem seis passos:
@@ -33,6 +47,10 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Notificações** (`feature/notifications`). No Android, a notificação fixa da navegação mostra a próxima parada e quanto falta até ela ("Próxima parada 2 · Rua Augusta, 500" e "1,2 km · 4 min · chegada às 14:32"). Com o app em segundo plano, nas duas plataformas, avisos contam a chegada à parada, o recálculo e o fim da rota, e somem quando o app volta. A permissão de notificação é pedida no primeiro "Iniciar", e a navegação começa com ou sem ela. Detalhes em "Notificações", nas decisões técnicas.
 
 ## Demonstração
+
+<p align="center">
+  <img src="docs/media/navigation.gif" width="320" alt="Navegação simulada até a primeira parada: o ponto azul anda pela rota, e a distância do card e os totais que faltam diminuem">
+</p>
 
 Vídeo do fluxo completo, gravado no aparelho com o build de release (Samsung Galaxy A71, Android 13): [assistir no Google Drive](https://drive.google.com/file/d/18EI1BpJeX7N34w6d5pvXB7j8HmA2pIkz/view?usp=sharing).
 
