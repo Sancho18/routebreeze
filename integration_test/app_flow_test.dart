@@ -2,9 +2,9 @@
 // addresses picked from suggestions → optimized route with three numbered
 // stops → navigation: arrival at the first stop, "Entregue", "Não entregue"
 // with a reason and the summary. Device and network boundaries
-// (biometrics, GPS, connectivity, Places, Routes) are fakes registered over
-// the production wiring; the `GoogleMap` widgets are real, so the run needs
-// the API key:
+// (biometrics, GPS, the notification permission, connectivity, Places,
+// Routes) are fakes registered over the production wiring; the `GoogleMap`
+// widgets are real, so the run needs the API key:
 //
 //   flutter test integration_test -d <deviceId> --dart-define-from-file=env.json
 import 'dart:async';
@@ -24,12 +24,14 @@ import 'package:routebreeze/core/widgets/rb_route_loader.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
+import 'package:routebreeze/features/addresses/presentation/address_field_widget.dart';
 import 'package:routebreeze/features/addresses/presentation/addresses_screen.dart';
 import 'package:routebreeze/features/location/domain/fix.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
 import 'package:routebreeze/features/location/presentation/map_screen.dart';
 import 'package:routebreeze/features/lock/data/local_auth_service.dart';
 import 'package:routebreeze/features/lock/domain/auth_result.dart';
+import 'package:routebreeze/features/navigation/data/notification_permission.dart';
 import 'package:routebreeze/features/navigation/presentation/failure_reason_sheet.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_screen.dart';
@@ -98,6 +100,13 @@ class FakeLocationService implements LocationService {
 
   @override
   Future<void> openLocationSettings() async {}
+}
+
+/// The system prompt cannot be answered from a test: the permission counts
+/// as asked.
+class FakeNotificationPermission implements NotificationPermission {
+  @override
+  Future<void> requestOnce() async {}
 }
 
 class FakeConnectivityService implements ConnectivityService {
@@ -205,11 +214,14 @@ Finder enabledPrimaryButton(String label) => find.byWidgetPredicate(
 );
 
 /// Types [query] into the [index]-th field, waits past the debounce and
-/// picks the single suggestion.
+/// picks the single suggestion under that field.
 Future<void> pickAddress(WidgetTester tester, int index, String query) async {
   await tester.enterText(find.byType(TextField).at(index), query);
   await tester.pump(const Duration(milliseconds: 400));
-  final suggestion = find.byType(ListTile);
+  final suggestion = find.descendant(
+    of: find.byType(AddressFieldWidget).at(index),
+    matching: find.byType(ListTile),
+  );
   await pumpUntil(tester, suggestion);
   expect(suggestion, findsOneWidget);
   await tester.tap(suggestion);
@@ -266,6 +278,7 @@ void main() {
     location = FakeLocationService();
     _replace<LocalAuthService>(FakeLocalAuthService());
     _replace<LocationService>(location);
+    _replace<NotificationPermission>(FakeNotificationPermission());
     _replace<ConnectivityService>(FakeConnectivityService());
     _replace<PlacesApi>(FakePlacesApi());
     _replace<RoutesApi>(routesApi);

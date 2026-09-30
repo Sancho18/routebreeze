@@ -29,7 +29,8 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Resultado da entrega e resumo da rota** (`feature/delivery-outcome`). O entregador registra cada parada como "Entregue" ou "Não entregue", com o motivo ("Destinatário ausente", "Endereço não encontrado", "Recusado" ou "Outro"). Chegar à parada só mostra "Você chegou" no card: nada é registrado sem um toque. No fim, um resumo mostra as entregas, as paradas não entregues com o motivo, a distância percorrida, o tempo total e os horários de início e fim. Resultados, distância e início ficam salvos com a rota. Detalhes em "Resultado da entrega e resumo", nas decisões técnicas.
 - **Avisar o cliente** (`feature/notify-customer`). Um botão "Avisar cliente" no card da próxima parada abre a folha de compartilhamento do sistema com uma mensagem pronta e o horário de chegada que o card mostra ("Olá! Sua entrega chega por volta das 14:32."). O entregador escolhe o app (WhatsApp, SMS) e o contato ali; o app não pede permissão nem guarda telefone. Detalhes em "Avisar o cliente", nas decisões técnicas.
 - **Ida e volta** (`feature/round-trip`). Com "Voltar ao ponto de partida" ligado em Endereços, a rota termina na partida: a ordem de todas as paradas já conta com a volta, e a lista, os totais e a navegação mostram o retorno. Depois da última parada, o card "Retorno" guia de volta, e a rota termina ao chegar à partida ou em "Finalizar rota". O app lembra a escolha. Detalhes em "Ida e volta", nas decisões técnicas.
-- **Acompanhamento em segundo plano** (`feature/background-tracking`). Durante a navegação, o app continua acompanhando a rota com a tela bloqueada ou com outro app na frente, como o Waze aberto por "Abrir em outro app": chegada, desvio, recálculo e progresso seguem funcionando. No Android, a notificação fixa "RouteBreeze · Acompanhando sua rota" fica enquanto a navegação dura; no iOS, aparece o indicador de localização do sistema. A permissão continua a de localização durante o uso, nunca "sempre". Detalhes em "Bateria e GPS", nas decisões técnicas.
+- **Acompanhamento em segundo plano** (`feature/background-tracking`). Durante a navegação, o app continua acompanhando a rota com a tela bloqueada ou com outro app na frente, como o Waze aberto por "Abrir em outro app": chegada, desvio, recálculo e progresso seguem funcionando. No Android, uma notificação fixa fica no painel enquanto a navegação dura (no Android 13 ou mais novo, só com a permissão de notificação); no iOS, aparece o indicador de localização do sistema. A permissão continua a de localização durante o uso, nunca "sempre". Detalhes em "Bateria e GPS", nas decisões técnicas.
+- **Notificações** (`feature/notifications`). No Android, a notificação fixa da navegação mostra a próxima parada e quanto falta até ela ("Próxima parada 2 · Rua Augusta, 500" e "1,2 km · 4 min · chegada às 14:32"). Com o app em segundo plano, nas duas plataformas, avisos contam a chegada à parada, o recálculo e o fim da rota, e somem quando o app volta. A permissão de notificação é pedida no primeiro "Iniciar", e a navegação começa com ou sem ela. Detalhes em "Notificações", nas decisões técnicas.
 
 ## Demonstração
 
@@ -120,7 +121,7 @@ xcrun simctl location booted set -23.5645,-46.6527
 
 As duas primeiras linhas cadastram um rosto, a terceira reconhece o rosto quando o app pede o Face ID e a última fixa a posição na Av. Paulista. `xcrun simctl location booted start --speed=25 -` lê pontos `lat,lng` da entrada padrão e percorre o caminho, o que serve para ver a navegação andando. Não testei num iPhone físico.
 
-Acompanhamento em segundo plano no Android: os testes conferem as chamadas ao foreground service e as configurações do stream de posição, e o resto se confere num aparelho. O APK da v0.1.0 (em "Demonstração") é anterior a essa funcionalidade. Compile o APK de release a partir deste código (branch `feature/background-tracking` em diante) e instale:
+Acompanhamento em segundo plano e notificações no Android: os testes conferem as chamadas ao foreground service e aos avisos e as configurações do stream de posição, e o resto se confere num aparelho. O APK da v0.1.0 (em "Demonstração") é anterior a essas funcionalidades. Compile o APK de release a partir deste código (branch `feature/notifications` em diante) e instale:
 
 ```bash
 flutter build apk --release --dart-define-from-file=env.json
@@ -129,14 +130,17 @@ adb install build/app/outputs/flutter-apk/app-release.apk
 
 Esse APK é assinado com a chave de debug da máquina que compila (veja acima), e o Android não atualiza um app instalado com outra assinatura. Se o aparelho tiver um RouteBreeze assinado por outra máquina, como o APK da v0.1.0 para quem não o compilou, desinstale-o antes com `adb uninstall com.viniciusrocha.routebreeze`. A rota salva vai junto.
 
-1. Calcule uma rota, toque em "Iniciar" e bloqueie a tela. A notificação "RouteBreeze · Acompanhando sua rota" fica no painel.
-2. Com a tela bloqueada, ande até a próxima parada.
-3. Desbloqueie: o card mostra "Você chegou".
-4. Abra outro app, espere 30 s ou mais e toque na notificação: o RouteBreeze volta na tela de navegação, sem a tela de bloqueio.
-5. Toque em "Encerrar": a notificação some.
-6. Com as notificações do RouteBreeze desativadas (veja abaixo), repita os passos 1 a 3. Sem a notificação no painel, a caminhada com a tela bloqueada ainda termina em "Você chegou".
+No Android 13 ou mais novo, o primeiro "Iniciar" depois da instalação pede a permissão de notificação. Permita para ver a notificação da navegação e os avisos. A navegação começa depois da resposta, qualquer que seja, e o app não pergunta de novo.
 
-No Android 13 ou mais novo, o app ainda não pede a permissão de notificação. Para ver a notificação, ative as notificações do RouteBreeze nas configurações do app antes de começar; sem elas, o acompanhamento funciona igual, só que sem a notificação no painel.
+1. Calcule uma rota, toque em "Iniciar", permita as notificações e bloqueie a tela. A notificação da navegação fica no painel com a próxima parada ("Próxima parada 1 · …") e a distância, o tempo e a chegada do card.
+2. Com a tela bloqueada, ande até a próxima parada. Chega o aviso "Você chegou à parada 1", com o endereço e "Registre a entrega.", e a notificação da navegação passa a "Você chegou".
+3. Desbloqueie: o card mostra "Você chegou", e o aviso some.
+4. Abra outro app, espere 30 s ou mais e toque na notificação: o RouteBreeze volta na tela de navegação, sem a tela de bloqueio.
+5. Toque em "Entregue": a notificação da navegação passa na hora para a parada seguinte. Ande com a tela bloqueada: a distância e a chegada mudam no máximo a cada 15 s.
+6. Com a tela bloqueada, saia da rota por mais de 50 m: chega o aviso "Rota recalculada", com a próxima parada.
+7. Toque em "Encerrar": a notificação some.
+8. Numa ida e volta, depois da última parada, bloqueie a tela e volte à partida: chega o aviso "Rota concluída", com as contagens ("3 entregues · 1 não entregue"). Ao desbloquear, o resumo está na tela.
+9. Desinstale e instale de novo, e negue a permissão no primeiro "Iniciar": a navegação começa do mesmo jeito, sem notificação no painel. Repita os passos 1 a 3: a caminhada com a tela bloqueada ainda termina em "Você chegou", sem aviso. O próximo "Iniciar" não pergunta de novo.
 
 ## Testes e qualidade
 
@@ -146,7 +150,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 1012 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android, o `res/raw/keep.xml` que mantém o ícone da notificação no build de release e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `POST_NOTIFICATIONS` e `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 1067 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura); em `permissions_test.dart`, as permissões do Android, com as do foreground service de localização e a de notificação, e as descrições de uso do iOS, fixadas no conjunto de hoje; e, em `background_location_test.dart`, o foreground service de localização no manifesto do Android, o `res/raw/keep.xml` que mantém o ícone da notificação no build de release e o `UIBackgroundModes` do iOS. Esses testes leem o manifesto do app; no APK, o manifesto do plugin de notificações acrescenta `VIBRATE`. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; o pedido da permissão de notificação no primeiro "Iniciar", antes da navegação, e a notificação da navegação com a parada e os horários do card; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -159,19 +163,19 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 459 | 459 | 100,0 % |
+| lib/core | 464 | 464 | 100,0 % |
 | lib (raiz: `app.dart`, `main.dart`) | 82 | 80 | 97,6 % |
 | lib/features/addresses | 349 | 347 | 99,4 % |
 | lib/features/location | 207 | 207 | 100,0 % |
 | lib/features/lock | 77 | 77 | 100,0 % |
-| lib/features/navigation | 784 | 779 | 99,4 % |
+| lib/features/navigation | 897 | 894 | 99,7 % |
 | lib/features/route | 590 | 588 | 99,7 % |
-| **Total (todos os arquivos)** | 2548 | 2537 | 99,6 % |
-| **Total (sem native-only)** | 2543 | 2534 | 99,6 % |
+| **Total (todos os arquivos)** | 2666 | 2657 | 99,7 % |
+| **Total (sem native-only)** | 2661 | 2654 | 99,7 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
-Teste de integração (precisa de um aparelho ou do simulador do iOS; usa fakes para biometria, GPS e Google APIs). Vai do desbloqueio à rota otimizada e, na navegação, passa pela chegada ("Você chegou"), por "Entregue", por "Não entregue" com um motivo e pelo resumo:
+Teste de integração (precisa de um aparelho ou do simulador do iOS; usa fakes para biometria, GPS, a permissão de notificação e Google APIs). Vai do desbloqueio à rota otimizada e, na navegação, passa pela chegada ("Você chegou"), por "Entregue", por "Não entregue" com um motivo e pelo resumo:
 
 ```bash
 flutter test integration_test -d <deviceId> --dart-define-from-file=env.json
@@ -218,11 +222,14 @@ lib/
                   domain: RoutePlan, StopResult, RoutePlanner, RouteRepository
                   presentation: RouteCubit, RouteScreen, RouteSheet, StopBadge, MapMarkers
     navigation/   data: NavigationAppLauncher (url_launcher), CustomerNotifier (share_plus),
-                        BackgroundTracker (flutter_local_notifications)
+                        BackgroundTracker, NotificationPermission, RouteAlerts
+                        (flutter_local_notifications)
                   domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator,
                           NavigationApp, Odometer, RouteSummary
-                  presentation: NavigationCubit, NavigationScreen, NextStopCard, OpenInAppSheet,
-                                FailureReasonSheet, RouteSummarySheet, ReturnCard, customerMessage
+                  presentation: NavigationCubit, NavigationNotifier, NavigationScreen,
+                                NextStopCard, OpenInAppSheet, FailureReasonSheet,
+                                RouteSummarySheet, ReturnCard, customerMessage,
+                                textos das notificações
 test/            espelha lib/ (unidade, bloc_test, widget)
 integration_test/ fluxo principal com fakes, roda no aparelho
 tool/            set_api_key.sh, coverage_report.py, brand/ (ícone e abertura)
@@ -326,10 +333,22 @@ As regras do resumo e da distância ficam em `RouteSummary` e `Odometer` (Dart p
 O stream de posição só existe na tela de navegação, com precisão máxima e `distanceFilter` de 5 m (parado, não há eventos). Ele acaba em "Encerrar", ao concluir a rota ou quando a tela fecha. No mapa inicial uso um único fix, não um stream.
 
 - **Em segundo plano.** De "Iniciar" até o fim da rota, o acompanhamento continua com a tela bloqueada ou com outro app na frente: chegada, desvio, recálculo, progresso e distância percorrida seguem como com o app aberto. Antes de "Iniciar", esperando o GPS, o stream pausa quando o app sai da tela e volta com ele.
-- **Android.** Ao tocar em "Iniciar", o app liga um foreground service do tipo `location` (o do `flutter_local_notifications`), com a notificação fixa "RouteBreeze · Acompanhando sua rota" no canal "Navegação", de importância baixa, sem som. O ícone pequeno é a marca monocromática, em branco sobre transparente. É o caminho que o Android oferece para continuar recebendo a localização "durante o uso" com a tela apagada. O serviço para em "Encerrar", ao concluir a rota ou quando a tela de navegação fecha, e a notificação sai com ele. Com `stopWithTask`, fechar o app pelos recentes encerra o serviço; e, como ele não é sticky, o sistema não o recria depois de matar o app. Nos dois casos, a próxima abertura oferece "Continuar rota?". Se o serviço não conseguir ligar, a navegação segue, mas sem acompanhamento com a tela apagada.
+- **Android.** Ao tocar em "Iniciar", o app liga um foreground service do tipo `location` (o do `flutter_local_notifications`), com a notificação fixa da navegação no canal "Navegação", de importância baixa, sem som, que mostra a próxima parada (veja "Notificações"). O ícone pequeno é a marca monocromática, em branco sobre transparente. É o caminho que o Android oferece para continuar recebendo a localização "durante o uso" com a tela apagada. O serviço para em "Encerrar", ao concluir a rota ou quando a tela de navegação fecha, e a notificação sai com ele. Com `stopWithTask`, fechar o app pelos recentes encerra o serviço; e, como ele não é sticky, o sistema não o recria depois de matar o app. Nos dois casos, a próxima abertura oferece "Continuar rota?". Se o serviço não conseguir ligar, a navegação segue, mas sem acompanhamento com a tela apagada.
 - **iOS.** O stream da navegação pede atualizações em segundo plano, com o indicador de localização do sistema e sem pausas automáticas, e o `Info.plist` declara o modo de segundo plano `location`.
-- **Permissão.** Só a localização durante o uso, nunca "sempre", nas duas plataformas: as atualizações começam com o app aberto, e isso basta. No Android 13 ou mais novo, o app ainda não pede a permissão de notificação; sem ela, o acompanhamento funciona igual, mas a notificação não aparece no painel.
+- **Permissão.** Só a localização durante o uso, nunca "sempre", nas duas plataformas: as atualizações começam com o app aberto, e isso basta. No Android 13 ou mais novo, a permissão de notificação é pedida no primeiro "Iniciar" (veja "Notificações"); sem ela, o acompanhamento funciona igual, mas a notificação não aparece no painel.
 - **Bateria.** É a troca: o GPS fica ligado com a tela apagada enquanto a navegação dura. Fora dela, nada roda em segundo plano.
+
+### Notificações
+
+A navegação avisa o entregador fora do app. A regra fica no `NavigationNotifier`, ao lado do `NavigationCubit`: ele ouve os estados da navegação e o ciclo de vida do app. Os textos saem de funções puras (`notification_copy.dart`), com os mesmos valores do card.
+
+- **Permissão.** O app pede uma vez, no primeiro "Iniciar": `POST_NOTIFICATIONS` no Android 13 ou mais novo, alertas e sons no iOS. A navegação começa depois da resposta, qualquer que seja. Negar não bloqueia nada, e o app não pergunta de novo (chave `notifications_asked` nas `shared_preferences`); dá para ligar depois nas configurações do sistema.
+- **Canais do Android.** "Navegação", de importância baixa, com a notificação fixa: sem som, sem vibração e sem aparecer sobre a tela. "Avisos da rota", de importância alta e som padrão, com os avisos. Nas configurações do sistema, o entregador silencia um sem o outro.
+- **Notificação fixa (Android).** Título "Próxima parada 2 · Rua Augusta, 500" e texto "1,2 km · 4 min · chegada às 14:32", os valores do card. Antes da primeira medida, o texto é "Acompanhando sua rota"; na parada, "Você chegou". Na volta de uma ida e volta, o título é "Retorno ao ponto de partida", e o texto traz a distância, o tempo e a chegada da volta.
+- **Frequência.** A notificação fixa muda na hora quando a próxima parada, a chegada ou a volta mudam. As outras mudanças de progresso atualizam no máximo a cada 15 s, e a mais recente sai quando os 15 s passam: o horário de chegada anda devagar, e uma atualização por fix encheria o sistema de notificações. Depois do fim da navegação, nada mais é enviado, nem a atualização que esperava.
+- **Avisos (Android e iOS).** Só com o app em segundo plano (tela bloqueada ou outro app na frente); com o app na frente, o card e os chips já mostram o mesmo. Chegada: "Você chegou à parada 2", com "Rua Augusta, 500. Registre a entrega.". Recálculo: "Rota recalculada", com "Próxima parada 2 · Rua Augusta, 500", ou "Retorno ao ponto de partida" na volta. Fim: "Rota concluída", com as contagens do resumo ("3 entregues · 1 não entregue"); em segundo plano, é a ida e volta que chega à partida, e o resumo continua na tela na volta ao app. Cada aviso sai uma vez, quando o evento acontece, e dois eventos no mesmo fix mostram os dois. Um aviso novo substitui o anterior do mesmo tipo, e os avisos somem quando o app volta para a frente.
+- **Toque.** Abre o app na tela de navegação, sem a tela de bloqueio, porque há uma navegação ativa.
+- **iOS.** Não há notificação fixa: o indicador de localização do sistema faz esse papel, e uma Live Activity pediria uma extensão nativa. O `AppDelegate` não muda: sem o delegate do `UNUserNotificationCenter`, o iOS mostra os avisos com o app em segundo plano, e o toque abre o app.
 
 ### Bloqueio
 

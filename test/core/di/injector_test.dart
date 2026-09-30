@@ -17,6 +17,8 @@ import 'package:routebreeze/features/lock/presentation/lock_cubit.dart';
 import 'package:routebreeze/features/navigation/data/background_tracker.dart';
 import 'package:routebreeze/features/navigation/data/customer_notifier.dart';
 import 'package:routebreeze/features/navigation/data/navigation_app_launcher.dart';
+import 'package:routebreeze/features/navigation/data/notification_permission.dart';
+import 'package:routebreeze/features/navigation/data/route_alerts.dart';
 import 'package:routebreeze/features/navigation/presentation/navigation_cubit.dart';
 import 'package:routebreeze/features/route/data/route_storage.dart';
 import 'package:routebreeze/features/route/data/routes_api.dart';
@@ -55,6 +57,11 @@ void main() {
       expect(getIt<RouteStorage>(), isA<RouteStorageImpl>());
       expect(getIt<NavigationAppLauncher>(), isA<UrlNavigationAppLauncher>());
       expect(getIt<CustomerNotifier>(), isA<SharePlusCustomerNotifier>());
+      expect(
+        getIt<NotificationPermission>(),
+        isA<PluginNotificationPermission>(),
+      );
+      expect(getIt<RouteAlerts>(), isA<PluginRouteAlerts>());
       expect(getIt<RouteRepository>(), isA<RouteRepository>());
       expect(
         identical(getIt<RouteRepository>(), getIt<RouteRepository>()),

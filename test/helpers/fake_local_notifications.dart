@@ -21,8 +21,14 @@ class FakeLocalNotifications {
   /// Registers the plugin's implementation for the current target platform
   /// (`flutter test` runs no plugin registrant), so install it after any
   /// platform override. The channel is answered until the test ends; with
-  /// [error], every call fails with it.
-  static FakeLocalNotifications install({PlatformException? error}) {
+  /// [error], every call fails with it. [answers] gives the result of a
+  /// method by name (a permission request answering false is a denial); a
+  /// function there answers each call, so a call can wait for a future or
+  /// fail with what the function throws.
+  static FakeLocalNotifications install({
+    PlatformException? error,
+    Map<String, Object?> answers = const {},
+  }) {
     final fake = FakeLocalNotifications._();
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       IOSFlutterLocalNotificationsPlugin.registerWith();
@@ -34,6 +40,11 @@ class FakeLocalNotifications {
     messenger.setMockMethodCallHandler(_channel, (call) async {
       fake.calls.add(call);
       if (error != null) throw error;
+      if (answers.containsKey(call.method)) {
+        final answer = answers[call.method];
+        if (answer is Object? Function()) return answer();
+        return answer;
+      }
       // `initialize` answers whether it succeeded.
       return call.method == 'initialize' ? true : null;
     });
