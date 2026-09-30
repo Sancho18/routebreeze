@@ -77,6 +77,19 @@ void main() {
       computedAt: at,
     );
 
+    /// [plan] as a round trip with B delivered too: on its way back.
+    final onItsWayBack = RoutePlan(
+      origin: plan.origin,
+      stops: plan.stops,
+      polyline: [...plan.polyline, plan.origin],
+      distanceMeters: 12000,
+      durationSeconds: 960,
+      legs: const [],
+      computedAt: at,
+      returnTo: plan.origin,
+      returnLeg: const RouteLeg(distanceMeters: 6000, durationSeconds: 480),
+    ).record('pb', const StopResult.delivered());
+
     MapCubit buildReady() {
       stubAccess(LocationAccess.granted);
       stubFix(fix(12));
@@ -106,7 +119,8 @@ void main() {
     );
 
     blocTest<MapCubit, MapState>(
-      'a persisted route with every stop visited → resumable null',
+      'a persisted one-way route with a result on every stop → resumable '
+      'null',
       build: () {
         when(() => routes.loadActive()).thenAnswer(
           (_) async => plan.record('pb', const StopResult.delivered()),
@@ -115,6 +129,23 @@ void main() {
       },
       act: (cubit) => cubit.init(),
       expect: () => [MapState(status: MapStatus.ready, start: fix(12))],
+    );
+
+    blocTest<MapCubit, MapState>(
+      'a persisted round trip with a result on every stop, on its way back '
+      '→ ready with resumable',
+      build: () {
+        when(() => routes.loadActive()).thenAnswer((_) async => onItsWayBack);
+        return buildReady();
+      },
+      act: (cubit) => cubit.init(),
+      expect: () => [
+        MapState(
+          status: MapStatus.ready,
+          start: fix(12),
+          resumable: onItsWayBack,
+        ),
+      ],
     );
 
     blocTest<MapCubit, MapState>(

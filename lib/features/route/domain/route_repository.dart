@@ -20,16 +20,19 @@ class RouteRepository {
   final DateTime Function() _now;
 
   /// [keepVisited] stay first with their numbers; the new order is numbered
-  /// after them (the initial plan is 1..N). The plan is saved before it is
-  /// returned; a storage failure does not discard it.
+  /// after them (the initial plan is 1..N). With [returnTo] the route ends
+  /// there and the last leg of the answer is the way back. The plan is saved
+  /// before it is returned; a storage failure does not discard it.
   Future<RoutePlan> plan(
     GeoPoint origin,
     List<Stop> stops, {
     List<RouteStop> keepVisited = const [],
+    GeoPoint? returnTo,
   }) async {
-    final request = _planner.buildRequest(origin, stops);
+    final request = _planner.buildRequest(origin, stops, returnTo: returnTo);
     final response = await _api.computeRoutes(request);
     final ordered = _planner.order(request, response.optimizedIndex);
+    final legs = response.legs;
     final plan = RoutePlan(
       origin: origin,
       stops: [
@@ -40,8 +43,10 @@ class RouteRepository {
       polyline: response.polyline,
       distanceMeters: response.distanceMeters,
       durationSeconds: response.durationSeconds,
-      legs: response.legs,
+      legs: returnTo == null ? legs : legs.sublist(0, legs.length - 1),
       computedAt: _now(),
+      returnTo: returnTo,
+      returnLeg: returnTo == null ? null : legs.last,
     );
     try {
       await _storage.save(plan);

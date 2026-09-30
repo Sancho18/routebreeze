@@ -43,6 +43,22 @@ void main() {
     test('40.1 m from the stop is not arrived', () {
       expect(detector.isArrived(fixAt(40.1), stop), isFalse);
     });
+
+    group('isNear a point (the start of a round trip)', () {
+      const point = GeoPoint(0, 0);
+
+      test('40.0 m away with accuracy 50 m is near', () {
+        expect(detector.isNear(fixAt(40, accuracy: 50), point), isTrue);
+      });
+
+      test('40.1 m away is not near', () {
+        expect(detector.isNear(fixAt(40.1, accuracy: 50), point), isFalse);
+      });
+
+      test('40.0 m away with accuracy 50.1 m is not near', () {
+        expect(detector.isNear(fixAt(40, accuracy: 50.1), point), isFalse);
+      });
+    });
   });
 
   group('RecalcPolicy', () {

@@ -24,6 +24,7 @@ import 'failure_reason_sheet.dart';
 import 'navigation_cubit.dart';
 import 'next_stop_card.dart';
 import 'open_in_app_sheet.dart';
+import 'return_card.dart';
 import 'route_summary_sheet.dart';
 
 /// What the navigation map draws and where its camera goes.
@@ -57,8 +58,10 @@ typedef NavigationMapBuilder = Widget Function(
 
 /// Live navigation: map following the position, the [NextStopCard] and status
 /// overlays, and the [RouteSheet] in navigation mode with what is left and
-/// the result buttons; the [RouteSummarySheet] replaces the sheet once every
-/// stop has a result.
+/// the result buttons. On the way back of a round trip the [ReturnCard]
+/// replaces the card and "Finalizar rota" the result buttons, above
+/// "Encerrar". The [RouteSummarySheet] replaces the sheet once the route
+/// completes.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({
     super.key,
@@ -96,6 +99,7 @@ class NavigationScreen extends StatefulWidget {
   static const String title = 'Navegação';
   static const String startLabel = 'Iniciar';
   static const String stopLabel = 'Encerrar';
+  static const String finishLabel = 'Finalizar rota';
   static const String waitingGpsCaption = 'Aguardando sinal de GPS';
   static const String recenterLabel = 'Recentralizar';
   static const String offlineBanner = 'Sem conexão';
@@ -184,6 +188,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
         durationSeconds: plan.durationSeconds,
         legs: plan.legs,
         computedAt: plan.computedAt,
+        returnTo: plan.returnTo,
       ),
       numberedIcons: icons.numbered,
       startIcon: icons.start,
@@ -289,6 +294,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
         final rb = context.rb;
         final navigating = state.phase == NavigationPhase.navigating;
         final completed = state.phase == NavigationPhase.completed;
+        final returning = navigating && state.plan.isReturning;
         final progress = navigating ? state.progress : null;
         // The system back takes the screen's own exits: "Nova rota" on the
         // summary, "Encerrar" otherwise, so the route is saved first.
@@ -395,6 +401,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
                                           onNotDelivered: navigating
                                               ? _notDelivered
                                               : null,
+                                          // On the way back every stop has
+                                          // a result, so no result buttons
+                                          // show: "Finalizar rota" takes
+                                          // their place, above "Encerrar".
+                                          finishLabel: returning
+                                              ? NavigationScreen.finishLabel
+                                              : null,
+                                          onFinish: _cubit.finishRoute,
                                           totals: progress == null
                                               ? null
                                               : NavigationScreen.remaining(
@@ -468,8 +482,9 @@ class _NavigationMapState extends State<_NavigationMap> {
   }
 }
 
-/// Offline banner and the next stop (while navigating) at the top of the map,
-/// with the recalculation badge and the GPS error under them.
+/// Offline banner and, while navigating, the next stop or the way back of a
+/// round trip at the top of the map, with the recalculation badge and the
+/// GPS error under them.
 class _TopOverlay extends StatelessWidget {
   const _TopOverlay({
     required this.state,
@@ -488,8 +503,25 @@ class _TopOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final next = state.phase == NavigationPhase.navigating
-        ? state.plan.nextStop
+    final plan = state.plan;
+    final navigating = state.phase == NavigationPhase.navigating;
+    final next = navigating ? plan.nextStop : null;
+    final returnTo = navigating && plan.isReturning ? plan.returnTo : null;
+    final card = next != null
+        ? NextStopCard(
+            stop: next,
+            progress: state.progress,
+            arrived: state.arrived,
+            onOpenInApp: () => onOpenInApp(next.stop),
+            onNotifyCustomer: onNotifyCustomer,
+          )
+        : returnTo != null
+        // The start has no place id: apps get its coordinates.
+        ? ReturnCard(
+            progress: state.progress,
+            onOpenInApp: () =>
+                onOpenInApp(Stop('', ReturnCard.title, returnTo)),
+          )
         : null;
     final badge = state.badge;
     final error = state.error;
@@ -529,7 +561,7 @@ class _TopOverlay extends StatelessWidget {
                   text: NavigationScreen.offlineBanner,
                   tone: RbTone.danger,
                 ),
-              if (next != null)
+              if (card != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     RbSpace.s3,
@@ -537,13 +569,7 @@ class _TopOverlay extends StatelessWidget {
                     RbSpace.s3,
                     0,
                   ),
-                  child: NextStopCard(
-                    stop: next,
-                    progress: state.progress,
-                    arrived: state.arrived,
-                    onOpenInApp: () => onOpenInApp(next.stop),
-                    onNotifyCustomer: onNotifyCustomer,
-                  ),
+                  child: card,
                 ),
             ],
           ),
@@ -552,7 +578,7 @@ class _TopOverlay extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(
               RbSpace.s3,
-              next == null ? RbSpace.s3 : RbSpace.s2,
+              card == null ? RbSpace.s3 : RbSpace.s2,
               RbSpace.s3,
               RbSpace.s3,
             ),

@@ -185,3 +185,16 @@ Registro das decisões do RouteBreeze no formato Contexto / Decisão / Consequê
 - A folha abre ancorada no botão, como o iPad exige. Se ela não abrir, a tela mostra "Não foi possível abrir o compartilhamento.", já que o botão não tem uma folha própria onde mostrar o erro.
 
 **Consequências.** Nenhuma permissão nova, nenhum telefone guardado e nenhum backend nem API paga: um teste fixa as permissões do Android e as descrições de uso do iOS no conjunto de hoje. Cada envio pede um toque e a escolha do contato no outro app; não há envio automático nem aviso para todos os clientes da rota de uma vez, e o texto não é editável no app.
+
+## D-021: Ida e volta com a partida como destino
+
+**Contexto.** Depois da entrega. Muitos entregadores saem de um depósito e voltam para ele no fim do dia. A regra de D-004 termina a rota na parada mais distante: a volta não entra na ordem das paradas nem no tempo, e o app não tem o que mostrar depois da última parada.
+
+**Decisão.**
+- Um interruptor "Voltar ao ponto de partida" em Endereços escolhe a ida e volta. Ele começa desligado e guarda a última escolha confirmada (`shared_preferences`, chave `round_trip`).
+- Ligado, a partida da rota vira o destino da requisição e todas as paradas viram intermediários com `optimizeWaypointOrder`. É a mesma chamada única de D-004, agora sem destino a escolher, então a ordem de todas as paradas já conta com a volta. Desligado, a regra de D-004 continua.
+- A volta é dado do plano, não uma parada falsa: `RoutePlan.returnTo` (a partida) e `returnLeg` (o último trecho da resposta, da última parada até a partida). Assim a numeração, os resultados e o resumo seguem só com as paradas de verdade. Os dois campos entram no JSON salvo só quando existem, e uma rota salva antes é lida como só de ida.
+- Depois do último resultado, a rota fica na volta: o card "Retorno" mostra a distância, o tempo e a chegada da volta, e "Finalizar rota" toma o lugar de "Entregue" e "Não entregue". Um fix com precisão ≤ 50 m a até 40 m da partida, a mesma regra da chegada numa parada, ou "Finalizar rota" conclui a rota, e o resumo conta o tempo até esse momento.
+- O recálculo leva `returnTo`: com paradas faltando, elas viram intermediários até a partida; na volta, a requisição vai da posição atual até a partida, sem intermediários. `returnTo` fica separado de `origin`, que o recálculo troca pela posição atual, então o destino e o pino de partida no mapa não andam com o entregador.
+
+**Consequências.** Continua uma requisição por cálculo, com um trecho a mais na resposta. A ordem de uma ida e volta é a que a Routes API otimiza para todas as paradas, sem a aproximação do ponto mais distante. A volta aparece na lista ("Retorno ao ponto de partida"), nos totais e no "Faltam …" da navegação. Na volta, "Encerrar" fica abaixo de "Finalizar rota" e continua a última ação do painel. Ele sai como no resto da rota: salva a rota e volta para a tela Rota (D-019), e o voltar do sistema faz o mesmo. O destino é sempre a partida: terminar em outro ponto ou em mais de um depósito pediria um seletor de destino e ficou de fora.

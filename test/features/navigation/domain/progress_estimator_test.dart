@@ -35,6 +35,8 @@ void main() {
       RouteLeg(distanceMeters: 1500, durationSeconds: 360, endIndex: 3),
       RouteLeg(distanceMeters: 900, durationSeconds: 240, endIndex: 4),
     ],
+    GeoPoint? returnTo,
+    RouteLeg? returnLeg,
   }) => RoutePlan(
     origin: origin,
     stops: stops,
@@ -43,6 +45,28 @@ void main() {
     durationSeconds: 900,
     legs: legs,
     computedAt: at,
+    returnTo: returnTo,
+    returnLeg: returnLeg,
+  );
+
+  // The same stops as a round trip: from C the line comes straight back to
+  // the origin over the way out (leg 3).
+  RoutePlan roundTripOf(List<RouteStop> stops) => planOf(
+    stops,
+    polyline: const [
+      origin,
+      GeoPoint(0, 0.005),
+      GeoPoint(0, 0.01),
+      GeoPoint(0, 0.02),
+      GeoPoint(0, 0.03),
+      origin,
+    ],
+    returnTo: origin,
+    returnLeg: const RouteLeg(
+      distanceMeters: 3200,
+      durationSeconds: 540,
+      endIndex: 5,
+    ),
   );
 
   const stopA = RouteStop(stop: a, order: 1);
@@ -188,6 +212,98 @@ void main() {
       expect(progress.toNextSeconds, 0);
       expect(progress.remainingMeters, 1500);
       expect(progress.remainingSeconds, 360);
+    });
+
+    group('round trip', () {
+      test('while stops are left the totals include the way back: 6800 m '
+          'and 1440 s from the origin, 4100 m and 780 s with only C left', () {
+        final fromOrigin = estimator.estimate(
+          roundTripOf(const [stopA, stopB, stopC]),
+          origin,
+          at,
+        )!;
+        final onlyC = estimator.estimate(
+          roundTripOf(const [stopA, stopB, stopC])
+              .record('pa', delivered)
+              .record('pb', delivered),
+          b.point,
+          at,
+        )!;
+
+        expect(
+          fromOrigin,
+          RouteProgress(
+            next: stopA,
+            toNextMeters: 1200,
+            toNextSeconds: 300,
+            remainingMeters: 1200 + 1500 + 900 + 3200,
+            remainingSeconds: 300 + 360 + 240 + 540,
+            at: at,
+          ),
+        );
+        expect(fromOrigin.finalArrival, DateTime.utc(2026, 9, 28, 14, 24));
+        expect(onlyC.next, const RouteStop(stop: c, order: 3));
+        expect(onlyC.toNextMeters, 900);
+        expect(onlyC.toNextSeconds, 240);
+        expect(onlyC.remainingMeters, 900 + 3200);
+        expect(onlyC.remainingSeconds, 240 + 540);
+      });
+
+      test('returning, halfway back from C: no next stop, half of the way '
+          'back left (1600 m, 270 s)', () {
+        final returning = roundTripOf(const [stopA, stopB, stopC])
+            .record('pa', delivered)
+            .record('pb', delivered)
+            .record('pc', delivered);
+
+        final progress = estimator.estimate(
+          returning,
+          const GeoPoint(0, 0.015),
+          at,
+        )!;
+
+        expect(
+          progress,
+          RouteProgress(
+            next: null,
+            toNextMeters: 1600,
+            toNextSeconds: 270,
+            remainingMeters: 1600,
+            remainingSeconds: 270,
+            at: at,
+          ),
+        );
+        expect(progress.nextArrival, DateTime.utc(2026, 9, 28, 14, 4, 30));
+        expect(progress.finalArrival, DateTime.utc(2026, 9, 28, 14, 4, 30));
+      });
+
+      test('returning after a recalculation (no stop legs): the way back is '
+          'measured from the start of the line', () {
+        // Recalculated at B after every result: straight back to the origin.
+        final recalculated = planOf(
+          const [
+            RouteStop(stop: a, order: 1, result: delivered),
+            RouteStop(stop: b, order: 2, result: delivered),
+            RouteStop(stop: c, order: 3, result: delivered),
+          ],
+          polyline: const [GeoPoint(0, 0.02), GeoPoint(0, 0.01), origin],
+          legs: const [],
+          returnTo: origin,
+          returnLeg: const RouteLeg(
+            distanceMeters: 2300,
+            durationSeconds: 400,
+            endIndex: 2,
+          ),
+        );
+
+        final progress = estimator.estimate(recalculated, a.point, at)!;
+
+        expect(progress.next, isNull);
+        expect(progress.toNextMeters, 1150);
+        expect(progress.toNextSeconds, 200);
+        expect(progress.remainingMeters, 1150);
+        expect(progress.remainingSeconds, 200);
+      });
     });
 
     group('no estimate (null)', () {

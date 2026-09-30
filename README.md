@@ -28,6 +28,7 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
 - **Acessibilidade** (`feature/accessibility`). Todo texto passa de 4,5:1 nos dois temas, todo controle tem área de toque de pelo menos 48 dp e um rótulo, as telas cabem com o texto do sistema em 200 % e o leitor de tela lê o card da próxima parada numa frase só. Um grupo de testes em cada tela confere isso. Detalhes em "Acessibilidade", nas decisões técnicas.
 - **Resultado da entrega e resumo da rota** (`feature/delivery-outcome`). O entregador registra cada parada como "Entregue" ou "Não entregue", com o motivo ("Destinatário ausente", "Endereço não encontrado", "Recusado" ou "Outro"). Chegar à parada só mostra "Você chegou" no card: nada é registrado sem um toque. No fim, um resumo mostra as entregas, as paradas não entregues com o motivo, a distância percorrida, o tempo total e os horários de início e fim. Resultados, distância e início ficam salvos com a rota. Detalhes em "Resultado da entrega e resumo", nas decisões técnicas.
 - **Avisar o cliente** (`feature/notify-customer`). Um botão "Avisar cliente" no card da próxima parada abre a folha de compartilhamento do sistema com uma mensagem pronta e o horário de chegada que o card mostra ("Olá! Sua entrega chega por volta das 14:32."). O entregador escolhe o app (WhatsApp, SMS) e o contato ali; o app não pede permissão nem guarda telefone. Detalhes em "Avisar o cliente", nas decisões técnicas.
+- **Ida e volta** (`feature/round-trip`). Com "Voltar ao ponto de partida" ligado em Endereços, a rota termina na partida: a ordem de todas as paradas já conta com a volta, e a lista, os totais e a navegação mostram o retorno. Depois da última parada, o card "Retorno" guia de volta, e a rota termina ao chegar à partida ou em "Finalizar rota". O app lembra a escolha. Detalhes em "Ida e volta", nas decisões técnicas.
 
 ## Demonstração
 
@@ -126,7 +127,7 @@ flutter test
 dart format --set-exit-if-changed lib test
 ```
 
-São 875 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos gerados de Android e iOS (ícones, nome e abertura). O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
+São 983 testes de unidade, Cubit (`bloc_test`) e widget em `test/`, espelhando a árvore de `lib/`; `test/tool/` confere as imagens da marca e `test/platform/` os arquivos de Android e iOS: os gerados (ícones, nome e abertura) e, em `permissions_test.dart`, as permissões do Android e as descrições de uso do iOS, fixadas no conjunto de hoje. O teste de cada tela tem um grupo de acessibilidade: contraste, alvos de toque e texto em 200 % (veja "Acessibilidade"). Regras de domínio testam os valores exatos (50 m, 3 fixes, 30 m, 20 s, 40 m, 300 ms, 3 caracteres, 15 s). `test/app_flow_test.dart` percorre as rotas nomeadas de ponta a ponta com Cubits reais e serviços falsos (desbloqueio, ponto de partida, três endereços, rota otimizada, navegação e "Encerrar"; a ida e volta, com o pedido que termina na partida, o interruptor lembrado depois de um reinício e o card "Retorno" até o resumo de "Finalizar rota"; com a navegação no relógio do teste, os resultados com um reinício do app no meio, a chegada e o resumo até "Nova rota"); os `GoogleMap` padrão das telas são montados com um dublê dos canais de plataforma (`test/helpers/fake_google_map.dart`), o que permite verificar zoom, marcadores e movimentos de câmera.
 
 ### Cobertura
 
@@ -139,15 +140,15 @@ O script agrega linhas por pasta, lista os arquivos abaixo de 90 % e imprime doi
 
 | Pasta | Linhas | Cobertas | % |
 | --- | ---: | ---: | ---: |
-| lib/core | 447 | 447 | 100,0 % |
-| lib (raiz: `app.dart`, `main.dart`) | 83 | 81 | 97,6 % |
-| lib/features/addresses | 313 | 311 | 99,4 % |
+| lib/core | 450 | 450 | 100,0 % |
+| lib (raiz: `app.dart`, `main.dart`) | 82 | 80 | 97,6 % |
+| lib/features/addresses | 349 | 347 | 99,4 % |
 | lib/features/location | 202 | 202 | 100,0 % |
 | lib/features/lock | 77 | 77 | 100,0 % |
-| lib/features/navigation | 691 | 686 | 99,3 % |
-| lib/features/route | 550 | 548 | 99,6 % |
-| **Total (todos os arquivos)** | 2363 | 2352 | 99,5 % |
-| **Total (sem native-only)** | 2358 | 2349 | 99,6 % |
+| lib/features/navigation | 768 | 763 | 99,3 % |
+| lib/features/route | 590 | 588 | 99,7 % |
+| **Total (todos os arquivos)** | 2518 | 2507 | 99,6 % |
+| **Total (sem native-only)** | 2513 | 2504 | 99,6 % |
 
 `test/coverage_helper_test.dart` importa todos os arquivos de `lib/` para que o `lcov.info` liste inclusive os que nenhum teste carregaria. As linhas restantes são `stringify`/`props` de objetos de valor nunca comparados por igualdade nos testes e as duas linhas nativas de `main.dart`.
 
@@ -191,7 +192,7 @@ lib/
     location/     data: GeolocatorLocationService
                   domain: LocationService, Fix
                   presentation: MapCubit, MapScreen
-    addresses/    data: PlacesApi (autocomplete + details)
+    addresses/    data: PlacesApi (autocomplete + details), RoundTripPreference (shared_preferences)
                   domain: Stop, Suggestion, AddressField, AddressFormValidator
                   presentation: AddressFormCubit, AddressesScreen, AddressFieldWidget
     route/        data: RoutesApi, RouteStorage (shared_preferences)
@@ -201,7 +202,7 @@ lib/
                   domain: DeviationDetector, ArrivalDetector, RecalcPolicy, ProgressEstimator,
                           NavigationApp, Odometer, RouteSummary
                   presentation: NavigationCubit, NavigationScreen, NextStopCard, OpenInAppSheet,
-                                FailureReasonSheet, RouteSummarySheet, customerMessage
+                                FailureReasonSheet, RouteSummarySheet, ReturnCard, customerMessage
 test/            espelha lib/ (unidade, bloc_test, widget)
 integration_test/ fluxo principal com fakes, roda no aparelho
 tool/            set_api_key.sh, coverage_report.py, brand/ (ícone e abertura)
@@ -214,10 +215,10 @@ Fluxo de telas: `/lock` → `/map` → `/addresses` → `/route` → `/navigatio
 Onde ficam as regras puras (todas com teste de unidade):
 
 - `AddressFormValidator`: campo obrigatório, sugestão selecionada, endereço repetido.
-- `RoutePlanner`: escolhe o destino (ponto mais distante) e monta a ordem final a partir de `optimizedIntermediateWaypointIndex`.
+- `RoutePlanner`: escolhe o destino (o ponto mais distante numa rota só de ida, a partida numa ida e volta) e monta a ordem final a partir de `optimizedIntermediateWaypointIndex`.
 - `DeviationDetector`: saída da rota (50 m, 3 fixes, precisão ≤ 30 m).
 - `ProgressEstimator`: distância, tempo e chegada até a próxima parada e até o fim.
-- `ArrivalDetector`: chegada (40 m).
+- `ArrivalDetector`: chegada a uma parada ou à partida de uma ida e volta (40 m).
 - `Odometer`: distância percorrida (segmentos entre fixes com precisão ≤ 30 m).
 - `RouteSummary`: contagens, paradas não entregues e duração do resumo.
 - `RecalcPolicy`: intervalo mínimo, uma requisição por vez, adiamento offline.
@@ -234,9 +235,9 @@ A Directions API é legada. A Routes API (`computeRoutes`) aceita `optimizeWaypo
 
 ### Destino = ponto mais distante da origem
 
-A Routes API exige um destino fixo e só reordena os pontos intermediários. Escolho como destino a parada sem resultado mais distante da origem (em linha reta). As demais viram intermediários com otimização ligada. O ponto mais distante costuma ser o fim natural de uma rota de entregas, e a regra mantém uma requisição por cálculo. A mesma regra vale no recálculo, sobre as paradas que faltam.
+A Routes API exige um destino fixo e só reordena os pontos intermediários. Numa rota só de ida, escolho como destino a parada sem resultado mais distante da origem (em linha reta). As demais viram intermediários com otimização ligada. O ponto mais distante costuma ser o fim natural de uma rota de entregas, e a regra mantém uma requisição por cálculo. A mesma regra vale no recálculo, sobre as paradas que faltam. Numa ida e volta o destino é a partida, e todas as paradas são otimizadas (veja "Ida e volta").
 
-Limite: a ordem pode não ser a ótima global quando o melhor ponto final não é o mais distante. A alternativa exata seria fazer N requisições (uma com cada parada como destino) e ficar com a de menor duração. Custa N vezes mais chamadas para um ganho pequeno em rotas de bairro, então ficou de fora.
+Limite: numa rota só de ida, a ordem pode não ser a ótima global quando o melhor ponto final não é o mais distante. A alternativa exata seria fazer N requisições (uma com cada parada como destino) e ficar com a de menor duração. Custa N vezes mais chamadas para um ganho pequeno em rotas de bairro, então ficou de fora.
 
 ### Places API (New) com session tokens e field mask enxuta
 
@@ -252,7 +253,7 @@ Autocomplete: mínimo de 3 caracteres, debounce de 300 ms, no máximo 5 sugestõ
 ### Progresso até a próxima parada
 
 - **Onde o entregador está.** A posição é projetada no segmento mais próximo do trecho (leg) que chega à próxima parada. Cada trecho sabe em que vértice da linha termina (`RouteLeg.endIndex`), então a projeção nunca cai num trecho que já passou ou que ainda não começou.
-- **Quanto falta.** A distância e a duração que o Google deu para esse trecho são multiplicadas pela fração da linha que ainda falta nele. Os trechos seguintes entram inteiros, até a última parada sem resultado. Horário de chegada = relógio do aparelho + tempo que falta.
+- **Quanto falta.** A distância e a duração que o Google deu para esse trecho são multiplicadas pela fração da linha que ainda falta nele. Os trechos seguintes entram inteiros, até a última parada sem resultado e, numa ida e volta, até a partida. Horário de chegada = relógio do aparelho + tempo que falta.
 - **Quando mede.** A cada fix com precisão ≤ 50 m (o mesmo corte do "Iniciar"), a cada resultado registrado e depois de um recálculo. Um fix pior move o marcador, mas mantém a última medida.
 - **Custo.** Nenhuma chamada a mais: pedir a polyline de cada trecho no lugar da polyline da rota não muda a SKU.
 
@@ -271,12 +272,21 @@ A regra fica em `ProgressEstimator` (Dart puro, testado com rotas sintéticas so
 - **Canal.** A folha de compartilhamento do sistema (`share_plus`): o entregador escolhe WhatsApp, SMS ou outro app e o contato ali. Sem SMS automático nem API paga, o app não precisa de backend, de permissão nem de guardar o telefone do cliente. Um teste fixa as permissões do Android e as descrições de uso do iOS no conjunto de hoje.
 - **Folha.** Ela abre ancorada no botão, como o iPad exige; no iPhone e no Android sobe da parte de baixo. Se não abrir, a tela mostra "Não foi possível abrir o compartilhamento.".
 
+### Ida e volta
+
+- **Escolha.** O interruptor "Voltar ao ponto de partida" fica em Endereços, entre "Adicionar ponto" e "Confirmar rota". Na primeira vez vem desligado; depois, abre com a última escolha confirmada, também depois de reiniciar o app (chave `round_trip` nas `shared_preferences`).
+- **Requisição.** Ligado, a partida vira o destino e todas as paradas viram intermediários, com `optimizeWaypointOrder`. Continua uma requisição por cálculo, e a ordem de todas as paradas já conta com a volta. A resposta traz um trecho a mais, da última parada até a partida, que a rota guarda como o trecho de volta. Desligado, vale a regra do ponto mais distante (veja a decisão acima).
+- **Volta.** A lista termina em "Retorno ao ponto de partida", com uma casa no lugar do número, e os totais da rota e o "Faltam … · término às …" da navegação incluem a volta. Depois do resultado da última parada, o card "Retorno" mostra "Ponto de partida" com a distância, o tempo e o horário de chegada da volta; o leitor de tela o lê numa frase só ("Retorno ao ponto de partida. 3,2 km, 9 min, chegada às 15:40"). O botão "Abrir em outro app" do card passa a partida ao Google Maps ou ao Waze pelas coordenadas, e "Avisar cliente" sai, porque na volta não há cliente.
+- **Fim.** Um fix com precisão ≤ 50 m a até 40 m da partida conclui a rota e mostra o resumo, como a chegada numa parada. Na volta, "Finalizar rota" (botão primário) toma o lugar de "Entregue" e "Não entregue" e conclui a rota sem precisar chegar. "Encerrar" fica embaixo dele e continua a última ação do painel: salva a rota e volta para a tela Rota, como no caminho até uma parada, e o voltar do sistema faz o mesmo. O resumo conta o tempo até a chegada ou o toque.
+- **Recálculo.** Um desvio pede a rota da posição atual pelas paradas que faltam, ainda terminando na partida; na volta, sem parada nenhuma. A partida fica guardada à parte da origem, que o recálculo troca pela posição atual, então o destino e o pino de partida não andam com o entregador. Sem conexão, o recálculo fica pendente como no resto da rota.
+- **Rota salva.** A partida e o trecho de volta ficam salvos com a rota. Uma rota salva antes desta versão continua só de ida.
+
 ### Resultado da entrega e resumo
 
-- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva. "Encerrar" volta para a tela Rota sem perder o progresso: a lista mostra os resultados, e "Iniciar" continua da próxima parada, com o mesmo início e a distância percorrida. O voltar do sistema faz o mesmo que "Encerrar" durante a rota e o mesmo que "Nova rota" no resumo; no iOS, o gesto de borda fica desligado nessa tela, e o botão de voltar da barra continua. Um resultado não muda depois de registrado.
-- **Toque duplo.** Um toque em "Entregue" ou num motivo a menos de 1 s do resultado anterior é ignorado. Cada toque registra a próxima parada, então um toque duplo registraria duas.
+- **Resultados.** "Entregue" (botão primário) e "Não entregue" (botão com contorno) ficam lado a lado acima de "Encerrar" e funcionam a qualquer momento da navegação, antes mesmo de chegar. "Não entregue" abre "Por que não foi entregue?" com "Destinatário ausente", "Endereço não encontrado", "Recusado" e "Outro"; fechar sem escolher não registra nada. O resultado vai para a próxima parada, com o horário, e a seguinte passa a ser a próxima. Na lista, a parada entregue ganha um check e a não entregue um "×", com o motivo embaixo do endereço. Cada resultado salva a rota; o último a conclui e apaga a rota salva, a não ser numa ida e volta, que segue até a partida. "Encerrar" volta para a tela Rota sem perder o progresso: a lista mostra os resultados, e "Iniciar" continua da próxima parada, com o mesmo início e a distância percorrida. O voltar do sistema faz o mesmo que "Encerrar" durante a rota e o mesmo que "Nova rota" no resumo; no iOS, o gesto de borda fica desligado nessa tela, e o botão de voltar da barra continua. Um resultado não muda depois de registrado.
+- **Toque duplo.** Um toque em "Entregue", num motivo ou em "Finalizar rota" a menos de 1 s do resultado anterior é ignorado. Cada toque registra a próxima parada, então um toque duplo registraria duas. Numa ida e volta, depois do último resultado, "Finalizar rota" ocupa o lugar de "Entregue", e o segundo toque concluiria a rota.
 - **Chegada.** Um fix com precisão ≤ 50 m a até 40 m da próxima parada troca a distância do card por "Você chegou". A parada continua a próxima até o resultado, mesmo que o entregador se afaste. Enquanto isso, o app não recalcula por desvio, porque para entregar ele pode sair da rua. Se uma resposta de recálculo trouxer outra parada como próxima, o "Você chegou" some. Um recálculo adiado sem conexão é descartado na chegada, junto com o aviso "Recálculo pendente (sem conexão)", e a volta da conexão não pede nada. Depois do resultado, a detecção de desvio recomeça.
-- **Resumo.** O último resultado troca o painel pelo resumo, nesta ordem: "Rota concluída", as contagens ("3 entregues · 1 não entregue"), a distância e o tempo ("12,4 km percorridos · 1 h 05 min"), os horários ("Início às 08:40 · fim às 09:45"), cada parada não entregue ("Parada 2 · Rua Augusta, 500", com o motivo embaixo) e "Nova rota", que abre o mapa sem rota salva. O início é o primeiro "Iniciar" da rota, mesmo numa rota continuada, e o fim é o último resultado. Com o texto em 200 %, um resumo que não cabe abre em "Nova rota" e rola até o título.
+- **Resumo.** O fim da rota troca o painel pelo resumo, nesta ordem: "Rota concluída", as contagens ("3 entregues · 1 não entregue"), a distância e o tempo ("12,4 km percorridos · 1 h 05 min"), os horários ("Início às 08:40 · fim às 09:45"), cada parada não entregue ("Parada 2 · Rua Augusta, 500", com o motivo embaixo) e "Nova rota", que abre o mapa sem rota salva. O início é o primeiro "Iniciar" da rota, mesmo numa rota continuada, e o fim é o último resultado (numa ida e volta, a chegada à partida ou "Finalizar rota"). Com o texto em 200 %, um resumo que não cabe abre em "Nova rota" e rola até o título.
 - **Distância percorrida.** É a soma dos segmentos em linha reta entre fixes consecutivos com precisão ≤ 30 m, o mesmo corte da detecção de desvio. Um fix pior fica de fora, e o próximo fix bom liga ao último bom. Só conta durante a navegação: nada soma antes de "Iniciar". A distância fica na memória e vai para a rota salva a cada resultado, em "Encerrar" e quando o app vai para o segundo plano, nunca a cada fix. Uma rota continuada depois de um reinício retoma a distância salva.
 - **Bloqueio com o resumo na tela.** A navegação conta como ativa até a tela de navegação fechar, também depois de concluída. Assim, voltar do segundo plano após 30 s ou mais com o resumo na tela não mostra o bloqueio: rebloquear limparia as telas, e o resumo se perderia, porque a rota salva já foi apagada.
 - **Rotas salvas antes.** Uma parada salva como visitada, sem resultado, conta como entregue. Uma rota salva sem horário de início ganha o início no próximo "Iniciar", então o resumo sempre traz o tempo e os horários.
@@ -396,7 +406,7 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 - **Nome.** "RouteBreeze" no Android e no iOS.
 - **Abertura.** O círculo do ícone no centro, sobre a cor da tela de bloqueio (`surface-200`): #FFFFFF no modo claro e #1A1D23 no escuro. No Android 12+, a abertura do sistema mostra a marca sobre o círculo azul.
 
-`test/tool/` confere as imagens (tamanhos, cores e a zona segura) e `test/platform/` os arquivos gerados (XML do ícone adaptativo, PNGs sem alfa no iOS, nome e cores da abertura).
+`test/tool/` confere as imagens (tamanhos, cores e a zona segura), e os testes de ícone, nome e abertura em `test/platform/` conferem os arquivos gerados (XML do ícone adaptativo, PNGs sem alfa no iOS, nome e cores da abertura).
 
 ## Tratamento de erros e casos extremos
 
@@ -438,7 +448,7 @@ O último comando desfaz uma linha que o `flutter_launcher_icons` 0.14.4 troca n
 
 - **Navegação em segundo plano.** Sem permissão "sempre" nem foreground service. O acompanhamento pausa quando o app sai da tela e retoma na volta. O trecho percorrido nesse intervalo entra na distância do resumo como uma linha reta entre a última posição precisa antes e a primeira depois.
 - **iOS só no simulador.** O fluxo completo roda no simulador do iOS (veja "Build"), mas não testei num iPhone físico. A entrega é Android.
-- **Ordem ótima.** Com destino fixo no ponto mais distante, a ordem pode não ser a melhor possível em todos os casos (veja a decisão acima).
+- **Ordem ótima.** Numa rota só de ida, com destino fixo no ponto mais distante, a ordem pode não ser a melhor possível em todos os casos (veja a decisão acima). Numa ida e volta o destino é a partida, e a ordem de todas as paradas é otimizada.
 - **Sem trânsito.** A rota não usa `TRAFFIC_AWARE_OPTIMAL`, que é incompatível com a otimização de waypoints e custa mais.
 - **Mapa offline.** Os tiles dependem do cache do Maps SDK; o app não controla isso.
 - **Detecção de conectividade.** `connectivity_plus` informa se há rede, não se a internet responde. Com rede sem internet, a requisição falha e é tratada como sem conexão.

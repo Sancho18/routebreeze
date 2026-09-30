@@ -30,13 +30,22 @@ class RouteCubit extends Cubit<RouteState> {
 
   final RouteRepository _repository;
 
-  (GeoPoint, List<Stop>)? _last;
+  (GeoPoint, List<Stop>, bool)? _last;
 
-  Future<void> compute(GeoPoint origin, List<Stop> stops) async {
-    _last = (origin, stops);
+  /// A [roundTrip] ends back at [origin].
+  Future<void> compute(
+    GeoPoint origin,
+    List<Stop> stops, {
+    bool roundTrip = false,
+  }) async {
+    _last = (origin, stops, roundTrip);
     emit(const RouteState(status: RouteStatus.loading));
     try {
-      final plan = await _repository.plan(origin, stops);
+      final plan = await _repository.plan(
+        origin,
+        stops,
+        returnTo: roundTrip ? origin : null,
+      );
       if (isClosed) return;
       emit(RouteState(status: RouteStatus.ready, plan: plan));
     } on Failure catch (failure) {
@@ -67,10 +76,11 @@ class RouteCubit extends Cubit<RouteState> {
     for (final stop in plan.stops) stop.stop.placeId,
   };
 
-  /// Re-runs the last [compute] once. No-op before the first request.
+  /// Re-runs the last [compute] once, a round trip included. No-op before
+  /// the first request.
   Future<void> retry() {
     final last = _last;
     if (last == null) return Future.value();
-    return compute(last.$1, last.$2);
+    return compute(last.$1, last.$2, roundTrip: last.$3);
   }
 }

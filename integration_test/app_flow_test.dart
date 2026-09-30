@@ -310,7 +310,8 @@ void main() {
     await pumpUntil(tester, find.text(RouteSheet.heading));
     final request = routesApi.lastRequest!;
     expect(request.origin, start);
-    expect(request.destination, augusta);
+    expect(request.destination, augusta.point);
+    expect(request.destinationStop, augusta);
     expect(request.intermediates, [paulista, oscarFreire]);
 
     // Sheet: three rows numbered in the optimized order, destination last.

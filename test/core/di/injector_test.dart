@@ -5,6 +5,7 @@ import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/core/network/connectivity_service.dart';
 import 'package:routebreeze/core/session/session_state.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
+import 'package:routebreeze/features/addresses/data/round_trip_preference.dart';
 import 'package:routebreeze/features/addresses/presentation/address_form_cubit.dart';
 import 'package:routebreeze/features/location/data/geolocator_location_service.dart';
 import 'package:routebreeze/features/location/domain/location_service.dart';
@@ -19,8 +20,11 @@ import 'package:routebreeze/features/route/data/routes_api.dart';
 import 'package:routebreeze/features/route/domain/route_plan.dart';
 import 'package:routebreeze/features/route/domain/route_repository.dart';
 import 'package:routebreeze/features/route/presentation/route_cubit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // The address form loads the round-trip choice when it is created.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   tearDown(resetDependencies);
 
   test(
@@ -36,6 +40,7 @@ void main() {
       expect(getIt<LocalAuthService>(), isA<LocalAuthServiceImpl>());
       expect(getIt<LocationService>(), isA<GeolocatorLocationService>());
       expect(getIt<PlacesApi>(), isA<PlacesApiImpl>());
+      expect(getIt<RoundTripPreference>(), isA<RoundTripPreferenceImpl>());
       expect(getIt<RoutesApi>(), isA<RoutesApiImpl>());
       expect(getIt<RouteStorage>(), isA<RouteStorageImpl>());
       expect(getIt<NavigationAppLauncher>(), isA<UrlNavigationAppLauncher>());
@@ -86,6 +91,7 @@ void main() {
     expect(getIt.isRegistered<LocalAuthService>(), isFalse);
     expect(getIt.isRegistered<LocationService>(), isFalse);
     expect(getIt.isRegistered<PlacesApi>(), isFalse);
+    expect(getIt.isRegistered<RoundTripPreference>(), isFalse);
     expect(getIt.isRegistered<RoutesApi>(), isFalse);
     expect(getIt.isRegistered<RouteStorage>(), isFalse);
     expect(getIt.isRegistered<RouteRepository>(), isFalse);

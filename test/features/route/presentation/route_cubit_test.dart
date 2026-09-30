@@ -57,11 +57,42 @@ void main() {
     traveledMeters: 850,
   );
 
+  /// The same stops as a round trip: the way back to [origin] included.
+  final roundTrip = RoutePlan(
+    origin: origin,
+    stops: const [
+      RouteStop(stop: a, order: 1),
+      RouteStop(stop: b, order: 2),
+    ],
+    polyline: const [origin, GeoPoint(-23.60, -46.70), origin],
+    distanceMeters: 11000,
+    durationSeconds: 900,
+    legs: const [
+      RouteLeg(distanceMeters: 600, durationSeconds: 60, endIndex: 0),
+      RouteLeg(distanceMeters: 5400, durationSeconds: 420, endIndex: 1),
+    ],
+    computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+    returnTo: origin,
+    returnLeg: const RouteLeg(
+      distanceMeters: 5000,
+      durationSeconds: 420,
+      endIndex: 2,
+    ),
+  );
+
   late MockRouteRepository repository;
+
+  setUpAll(() => registerFallbackValue(origin));
 
   setUp(() {
     repository = MockRouteRepository();
   });
+
+  /// The `returnTo` of every repository request, in order.
+  List<Object?> requestedReturns() => verify(
+    () =>
+        repository.plan(origin, stops, returnTo: captureAny(named: 'returnTo')),
+  ).captured;
 
   test('starts idle without a plan or failure', () {
     expect(RouteCubit(repository).state, const RouteState());
@@ -115,6 +146,49 @@ void main() {
         ),
       ],
     );
+
+    blocTest<RouteCubit, RouteState>(
+      'a round trip asks for a route back to the origin: loading → ready '
+      'with the round trip',
+      build: () {
+        when(() => repository.plan(origin, stops, returnTo: origin))
+            .thenAnswer((_) async => roundTrip);
+        return RouteCubit(repository);
+      },
+      act: (cubit) => cubit.compute(origin, stops, roundTrip: true),
+      expect: () => [
+        const RouteState(status: RouteStatus.loading),
+        RouteState(status: RouteStatus.ready, plan: roundTrip),
+      ],
+      verify: (_) => expect(requestedReturns(), [origin]),
+    );
+
+    for (final (name, flag) in [
+      ('by default', null),
+      ('with roundTrip false', false),
+    ]) {
+      blocTest<RouteCubit, RouteState>(
+        'one-way $name: the request has no point of return',
+        build: () {
+          when(
+            () => repository.plan(
+              origin,
+              stops,
+              returnTo: any(named: 'returnTo'),
+            ),
+          ).thenAnswer((_) async => plan);
+          return RouteCubit(repository);
+        },
+        act: (cubit) => flag == null
+            ? cubit.compute(origin, stops)
+            : cubit.compute(origin, stops, roundTrip: flag),
+        expect: () => [
+          const RouteState(status: RouteStatus.loading),
+          RouteState(status: RouteStatus.ready, plan: plan),
+        ],
+        verify: (_) => expect(requestedReturns(), [null]),
+      );
+    }
   });
 
   group('retry', () {
@@ -139,6 +213,32 @@ void main() {
         RouteState(status: RouteStatus.ready, plan: plan),
       ],
       verify: (_) => verify(() => repository.plan(origin, stops)).called(2),
+    );
+
+    blocTest<RouteCubit, RouteState>(
+      'repeats a round trip: the second request also returns to the origin',
+      build: () {
+        var calls = 0;
+        when(
+          () =>
+              repository.plan(origin, stops, returnTo: any(named: 'returnTo')),
+        ).thenAnswer((_) async {
+          if (calls++ == 0) throw failure;
+          return roundTrip;
+        });
+        return RouteCubit(repository);
+      },
+      act: (cubit) async {
+        await cubit.compute(origin, stops, roundTrip: true);
+        await cubit.retry();
+      },
+      expect: () => [
+        const RouteState(status: RouteStatus.loading),
+        const RouteState(status: RouteStatus.failure, failure: failure),
+        const RouteState(status: RouteStatus.loading),
+        RouteState(status: RouteStatus.ready, plan: roundTrip),
+      ],
+      verify: (_) => expect(requestedReturns(), [origin, origin]),
     );
 
     blocTest<RouteCubit, RouteState>(
@@ -197,6 +297,38 @@ void main() {
         },
       );
     }
+
+    blocTest<RouteCubit, RouteState>(
+      'takes the saved round trip of the same stops with its point of return '
+      'and way back',
+      build: () {
+        when(() => repository.loadActive()).thenAnswer(
+          (_) async => roundTrip.record(
+            'pa',
+            StopResult.delivered(at: DateTime.utc(2026, 9, 22, 10, 50)),
+          ),
+        );
+        return RouteCubit(repository);
+      },
+      seed: () => RouteState(status: RouteStatus.ready, plan: roundTrip),
+      act: (cubit) => cubit.refreshFromSaved(),
+      verify: (cubit) {
+        final adopted = cubit.state.plan!;
+        expect(adopted.returnTo, origin);
+        expect(
+          adopted.returnLeg,
+          const RouteLeg(
+            distanceMeters: 5000,
+            durationSeconds: 420,
+            endIndex: 2,
+          ),
+        );
+        expect(
+          adopted.stops.first.result,
+          StopResult.delivered(at: DateTime.utc(2026, 9, 22, 10, 50)),
+        );
+      },
+    );
 
     blocTest<RouteCubit, RouteState>(
       'keeps the current plan when nothing is saved',

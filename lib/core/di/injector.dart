@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../features/addresses/data/places_api.dart';
+import '../../features/addresses/data/round_trip_preference.dart';
 import '../../features/addresses/presentation/address_form_cubit.dart';
 import '../../features/location/data/geolocator_location_service.dart';
 import '../../features/location/domain/location_service.dart';
@@ -42,6 +43,7 @@ Future<void> configureDependencies({String? apiKey}) async {
     )
     ..registerLazySingleton<LocationService>(GeolocatorLocationService.new)
     ..registerLazySingleton<PlacesApi>(() => PlacesApiImpl(getIt<Dio>()))
+    ..registerLazySingleton<RoundTripPreference>(RoundTripPreferenceImpl.new)
     ..registerLazySingleton<RoutesApi>(() => RoutesApiImpl(getIt<Dio>()))
     ..registerLazySingleton<RouteStorage>(RouteStorageImpl.new)
     ..registerLazySingleton<RouteRepository>(
@@ -54,7 +56,11 @@ Future<void> configureDependencies({String? apiKey}) async {
           MapCubit(getIt<LocationService>(), routes: getIt<RouteRepository>()),
     )
     ..registerFactoryParam<AddressFormCubit, GeoPoint, void>(
-      (bias, _) => AddressFormCubit(getIt<PlacesApi>(), bias: bias),
+      (bias, _) => AddressFormCubit(
+        getIt<PlacesApi>(),
+        bias: bias,
+        preference: getIt<RoundTripPreference>(),
+      ),
     )
     ..registerFactory<RouteCubit>(() => RouteCubit(getIt<RouteRepository>()))
     ..registerFactoryParam<NavigationCubit, RoutePlan, void>(

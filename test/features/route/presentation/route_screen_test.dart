@@ -73,7 +73,8 @@ void main() {
     mapsBuilt = [];
     paddings = [];
     started = [];
-    when(() => cubit.compute(any(), any())).thenAnswer((_) async {});
+    when(() => cubit.compute(any(), any(), roundTrip: any(named: 'roundTrip')))
+        .thenAnswer((_) async {});
     when(() => cubit.retry()).thenAnswer((_) async {});
     when(() => cubit.refreshFromSaved()).thenAnswer((_) async {});
     when(() => connectivity.check()).thenAnswer((_) async => true);
@@ -95,11 +96,13 @@ void main() {
     RouteState state, {
     ThemeMode? mode,
     bool settle = true,
+    bool roundTrip = false,
   }) async {
     whenListen(cubit, const Stream<RouteState>.empty(), initialState: state);
     final screen = RouteScreen(
       start: start,
       stops: stops,
+      roundTrip: roundTrip,
       cubit: cubit,
       connectivity: connectivity,
       markers: FakeMapMarkers(),
@@ -132,6 +135,21 @@ void main() {
       expect(find.byKey(mapKey), findsNothing);
       expect(mapsBuilt, isEmpty);
     });
+
+    for (final roundTrip in [false, true]) {
+      testWidgets('computes on open with roundTrip $roundTrip, as the '
+          'addresses screen chose', (tester) async {
+        await pumpScreen(
+          tester,
+          const RouteState(status: RouteStatus.loading),
+          roundTrip: roundTrip,
+        );
+
+        verify(() => cubit.compute(origin, stops, roundTrip: roundTrip))
+            .called(1);
+        verifyNever(() => cubit.compute(origin, stops, roundTrip: !roundTrip));
+      });
+    }
 
     testWidgets('failure shows the copy in danger with "Tentar novamente" '
         'that retries, and a way back to Addresses', (tester) async {
@@ -398,6 +416,17 @@ void main() {
 
   group('RouteScreen accessibility', () {
     final ready = RouteState(status: RouteStatus.ready, plan: plan);
+    final roundTrip = RoutePlan(
+      origin: origin,
+      stops: plan.stops,
+      polyline: const [origin, GeoPoint(-23.60, -46.70), origin],
+      distanceMeters: 17345,
+      durationSeconds: 1025,
+      legs: const [],
+      computedAt: DateTime.utc(2026, 9, 22, 10, 30),
+      returnTo: origin,
+      returnLeg: const RouteLeg(distanceMeters: 5000, durationSeconds: 420),
+    );
     // Each state with a text that proves it is on screen, and whether the
     // connectivity check answers online.
     final states = <String, (RouteState, String, bool)>{
@@ -415,6 +444,11 @@ void main() {
         true,
       ),
       'ready with the sheet': (ready, RouteSheet.heading, true),
+      'ready with a round trip': (
+        RouteState(status: RouteStatus.ready, plan: roundTrip),
+        'Retorno ao ponto de partida',
+        true,
+      ),
       'offline': (ready, RouteScreen.offlineBanner, false),
     };
 

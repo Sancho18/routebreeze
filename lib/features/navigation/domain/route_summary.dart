@@ -12,7 +12,9 @@ class RouteSummary extends Equatable {
     required this.end,
   });
 
-  /// [end] is the time of the last result; the start is the plan's.
+  /// [end] is when the route completed: its last result, or for a round
+  /// trip the return to its start or "Finalizar rota"; the start is the
+  /// plan's.
   factory RouteSummary.of(
     RoutePlan plan, {
     required int traveledMeters,
@@ -41,7 +43,7 @@ class RouteSummary extends Equatable {
   final DateTime? start;
   final DateTime end;
 
-  /// From the start to the last result; null without a start.
+  /// From the start to the [end]; null without a start.
   Duration? get duration => switch (start) {
     final start? => end.difference(start),
     null => null,

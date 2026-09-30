@@ -6,12 +6,15 @@ import 'package:mocktail/mocktail.dart';
 import 'package:routebreeze/core/error/failure.dart';
 import 'package:routebreeze/core/geo/geo_point.dart';
 import 'package:routebreeze/features/addresses/data/places_api.dart';
+import 'package:routebreeze/features/addresses/data/round_trip_preference.dart';
 import 'package:routebreeze/features/addresses/domain/address_field.dart';
 import 'package:routebreeze/features/addresses/domain/stop.dart';
 import 'package:routebreeze/features/addresses/domain/suggestion.dart';
 import 'package:routebreeze/features/addresses/presentation/address_form_cubit.dart';
 
 class MockPlacesApi extends Mock implements PlacesApi {}
+
+class MockRoundTripPreference extends Mock implements RoundTripPreference {}
 
 void main() {
   const bias = GeoPoint(-23.5614, -46.6559);
@@ -26,11 +29,21 @@ void main() {
       Stop(placeId, 'Endereço $placeId', const GeoPoint(-23.5, -46.6));
 
   late MockPlacesApi places;
+  late MockRoundTripPreference preference;
 
-  setUp(() => places = MockPlacesApi());
+  setUp(() {
+    places = MockPlacesApi();
+    preference = MockRoundTripPreference();
+    when(() => preference.load()).thenAnswer((_) async => false);
+    when(() => preference.save(any())).thenAnswer((_) async {});
+  });
 
-  AddressFormCubit build({bool online = true}) =>
-      AddressFormCubit(places, bias: bias, online: online);
+  AddressFormCubit build({bool online = true}) => AddressFormCubit(
+    places,
+    bias: bias,
+    preference: preference,
+    online: online,
+  );
 
   AddressField field(AddressFormCubit cubit, String id) =>
       cubit.state.fields.firstWhere((f) => f.id == id);
@@ -579,5 +592,114 @@ void main() {
         expect(cubit.state.fields.every((f) => f.isValid), isTrue);
       });
     });
+  });
+
+  group('round trip', () {
+    /// A cubit whose saved choice has loaded, with the three fields valid.
+    AddressFormCubit readyToConfirm(FakeAsync async) {
+      final cubit = build();
+      async.flushMicrotasks();
+      fillValid(async, cubit, 'f1', stopFor('a'));
+      fillValid(async, cubit, 'f2', stopFor('b'));
+      fillValid(async, cubit, 'f3', stopFor('c'));
+      return cubit;
+    }
+
+    test('the switch starts off, then shows the saved choice', () {
+      fakeAsync((async) {
+        when(() => preference.load()).thenAnswer((_) async => true);
+        final cubit = build();
+
+        expect(cubit.state.roundTrip, isFalse);
+        async.flushMicrotasks();
+
+        expect(cubit.state.roundTrip, isTrue);
+        verify(() => preference.load()).called(1);
+      });
+    });
+
+    test('setRoundTrip turns the switch on and off without saving it', () {
+      fakeAsync((async) {
+        final cubit = build();
+        async.flushMicrotasks();
+
+        cubit.setRoundTrip(true);
+        expect(cubit.state.roundTrip, isTrue);
+        cubit.setRoundTrip(false);
+        expect(cubit.state.roundTrip, isFalse);
+
+        verifyNever(() => preference.save(any()));
+      });
+    });
+
+    test('confirm with the switch on saves true and keeps it in the state, '
+        'also after reset', () {
+      fakeAsync((async) {
+        final cubit = readyToConfirm(async);
+        cubit.setRoundTrip(true);
+
+        cubit.confirm();
+        async.flushMicrotasks();
+
+        verify(() => preference.save(true)).called(1);
+        expect(cubit.state.submitted, [
+          stopFor('a'),
+          stopFor('b'),
+          stopFor('c'),
+        ]);
+        expect(cubit.state.roundTrip, isTrue);
+
+        cubit.reset();
+        expect(cubit.state.submitted, isNull);
+        expect(cubit.state.roundTrip, isTrue);
+      });
+    });
+
+    test('confirm with the switch turned off after a saved "on" saves '
+        'false', () {
+      fakeAsync((async) {
+        when(() => preference.load()).thenAnswer((_) async => true);
+        final cubit = readyToConfirm(async);
+        expect(cubit.state.roundTrip, isTrue);
+        cubit.setRoundTrip(false);
+
+        cubit.confirm();
+        async.flushMicrotasks();
+
+        verify(() => preference.save(false)).called(1);
+        verifyNever(() => preference.save(true));
+        expect(cubit.state.roundTrip, isFalse);
+      });
+    });
+
+    test('an invalid form confirms no route and saves nothing', () {
+      fakeAsync((async) {
+        final cubit = build();
+        async.flushMicrotasks();
+        fillValid(async, cubit, 'f1', stopFor('a'));
+        cubit.setRoundTrip(true);
+
+        cubit.confirm();
+        async.flushMicrotasks();
+
+        expect(cubit.state.submitted, isNull);
+        verifyNever(() => preference.save(any()));
+      });
+    });
+
+    test(
+      'a saved choice that loads after the cubit closed is ignored',
+      () async {
+        final loading = Completer<bool>();
+        when(() => preference.load()).thenAnswer((_) => loading.future);
+        final cubit = build();
+
+        await cubit.close();
+        loading.complete(true);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cubit.state.roundTrip, isFalse);
+      },
+    );
   });
 }
