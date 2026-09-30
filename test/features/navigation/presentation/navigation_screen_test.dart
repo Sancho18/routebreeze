@@ -1435,6 +1435,46 @@ void main() {
       verify(() => cubit.start()).called(1);
     });
 
+    testWidgets('a second "Iniciar" while the permission is asked does '
+        'nothing: one request, and the navigation starts once, after the '
+        'answer', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final answer = Completer<bool>();
+      var asking = false;
+      final notifications = FakeLocalNotifications.install(
+        answers: {
+          // Android refuses a second request while its dialog is up.
+          'requestNotificationsPermission': () {
+            if (asking) {
+              throw PlatformException(code: 'permissionRequestInProgress');
+            }
+            asking = true;
+            return answer.future;
+          },
+        },
+      );
+      permission = PluginNotificationPermission(
+        FlutterLocalNotificationsPlugin(),
+      );
+      await pumpScreen(tester, waiting);
+
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(RbPrimaryButton, 'Iniciar'));
+      await tester.pump();
+
+      expect(
+        [for (final call in notifications.calls) call.method],
+        ['requestNotificationsPermission'],
+      );
+      verifyNever(() => cubit.start());
+
+      answer.complete(true);
+      await tester.pump();
+
+      verify(() => cubit.start()).called(1);
+    });
+
     testWidgets('a screen closed while the permission is asked does not '
         'start the navigation', (tester) async {
       final answer = Completer<void>();
