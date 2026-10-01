@@ -52,9 +52,9 @@ A versão entregue no processo seletivo é a tag [`v0.1.0`](https://github.com/S
   <img src="docs/media/navigation.gif" width="320" alt="Navegação simulada até a primeira parada: o ponto azul anda pela rota, e a distância do card e os totais que faltam diminuem">
 </p>
 
-Vídeo do fluxo completo, gravado no aparelho com o build de release (Samsung Galaxy A71, Android 13): [assistir no Google Drive](https://drive.google.com/file/d/18EI1BpJeX7N34w6d5pvXB7j8HmA2pIkz/view?usp=sharing).
+Vídeo do fluxo completo da v0.1.0, gravado no aparelho com o build de release (Samsung Galaxy A71, Android 13): [assistir no Google Drive](https://drive.google.com/file/d/18EI1BpJeX7N34w6d5pvXB7j8HmA2pIkz/view?usp=sharing).
 
-APK de release (Android): [Release v0.1.0](https://github.com/Sancho18/routebreeze/releases/tag/v0.1.0), arquivo `app-release.apk`. Esse APK já sai com uma chave de teste embutida (restrita às APIs que o app usa), então dá para instalar com `adb install app-release.apk` e testar sem configurar nada. Para rodar a partir do código, veja "Configuração da chave do Google".
+APK de release (Android): [Release v0.2.0](https://github.com/Sancho18/routebreeze/releases/tag/v0.2.0), arquivo `app-release.apk`, com tudo o que veio depois da entrega; o da versão entregue continua na [Release v0.1.0](https://github.com/Sancho18/routebreeze/releases/tag/v0.1.0). Esses APKs já saem com uma chave de teste embutida (restrita às APIs que o app usa), então dá para instalar com `adb install app-release.apk` e testar sem configurar nada. Para rodar a partir do código, veja "Configuração da chave do Google".
 
 ## Requisitos
 
@@ -139,14 +139,14 @@ xcrun simctl location booted set -23.5645,-46.6527
 
 As duas primeiras linhas cadastram um rosto, a terceira reconhece o rosto quando o app pede o Face ID e a última fixa a posição na Av. Paulista. `xcrun simctl location booted start --speed=25 -` lê pontos `lat,lng` da entrada padrão e percorre o caminho, o que serve para ver a navegação andando. Não testei num iPhone físico.
 
-Acompanhamento em segundo plano e notificações no Android: os testes conferem as chamadas ao foreground service e aos avisos e as configurações do stream de posição, e o resto se confere num aparelho. O APK da v0.1.0 (em "Demonstração") é anterior a essas funcionalidades. Compile o APK de release a partir deste código (branch `feature/notifications` em diante) e instale:
+Acompanhamento em segundo plano e notificações no Android: os testes conferem as chamadas ao foreground service e aos avisos e as configurações do stream de posição, e o resto se confere num aparelho. O APK da v0.2.0 (em "Demonstração") já traz essas funcionalidades; o da v0.1.0 é anterior a elas. Para compilar o APK de release a partir deste código e instalar:
 
 ```bash
 flutter build apk --release --dart-define-from-file=env.json
 adb install build/app/outputs/flutter-apk/app-release.apk
 ```
 
-Esse APK é assinado com a chave de debug da máquina que compila (veja acima), e o Android não atualiza um app instalado com outra assinatura. Se o aparelho tiver um RouteBreeze assinado por outra máquina, como o APK da v0.1.0 para quem não o compilou, desinstale-o antes com `adb uninstall com.viniciusrocha.routebreeze`. A rota salva vai junto.
+Esse APK é assinado com a chave de debug da máquina que compila (veja acima), e o Android não atualiza um app instalado com outra assinatura. Se o aparelho tiver um RouteBreeze assinado por outra máquina, como o APK de uma release para quem não o compilou, desinstale-o antes com `adb uninstall com.viniciusrocha.routebreeze`. A rota salva vai junto.
 
 No Android 13 ou mais novo, o primeiro "Iniciar" depois da instalação pede a permissão de notificação. Permita para ver a notificação da navegação e os avisos. A navegação começa depois da resposta, qualquer que seja, e o app não pergunta de novo.
 
